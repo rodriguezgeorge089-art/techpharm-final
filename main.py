@@ -34,33 +34,35 @@ def get_valid_session(request: Request):
         except:
             return None
 
-# ---------- Common HTML parts ----------
-BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
-
-NAV_LOGGED_IN = """
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="/dashboard">OTC Market</a>
-    <div class="navbar-nav">
-      <a class="nav-link" href="/products">Browse</a>
-      <a class="nav-link" href="/cart">Cart</a>
-      <a class="nav-link" href="/orders">Orders</a>
-      <a class="nav-link" href="/seller">My Shop</a>
-      <a class="nav-link" href="/logout">Logout</a>
-    </div>
-  </div>
-</nav>
-"""
+# ---------- Dynamic Navbar ----------
+def navbar(role: str = ""):
+    seller_link = ""
+    if role == "seller":
+        seller_link = '<a class="nav-link" href="/seller">My Shop</a>'
+    return f"""
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="/dashboard">OTC Market</a>
+        <div class="navbar-nav">
+          <a class="nav-link" href="/products">Browse</a>
+          <a class="nav-link" href="/cart">Cart</a>
+          <a class="nav-link" href="/orders">Orders</a>
+          {seller_link}
+          <a class="nav-link" href="/logout">Logout</a>
+        </div>
+      </div>
+    </nav>"""
 
 NAV_GUEST = """
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
   <div class="container">
     <a class="navbar-brand" href="/">OTC Market</a>
   </div>
-</nav>
-"""
+</nav>"""
 
-# ---------- Page Templates (Bootstrap 5) ----------
+BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
+
+# ---------- Templates (Kenyan Shillings) ----------
 LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</head><body>
 {NAV_GUEST}
 <div class="container" style="max-width:400px;">
@@ -89,10 +91,11 @@ SIGNUP_PAGE = f"""<!DOCTYPE html><html><head><title>Sign Up</title>{BOOTSTRAP}</
   </form>
 </div></body></html>"""
 
-DASHBOARD_PAGE = f"""<!DOCTYPE html><html><head><title>Dashboard</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+def dashboard_page(full_name: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Dashboard</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
 <div class="container">
-  <h2>Welcome, {{full_name}} <span class="badge bg-info">{{role}}</span></h2>
+  <h2>Welcome, {full_name} <span class="badge bg-info">{role}</span></h2>
   <div class="row mt-4">
     <div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-3">Browse Products</a></div>
     <div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-3">View Cart</a></div>
@@ -100,8 +103,9 @@ DASHBOARD_PAGE = f"""<!DOCTYPE html><html><head><title>Dashboard</title>{BOOTSTR
   </div>
 </div></body></html>"""
 
-PRODUCTS_PAGE = f"""<!DOCTYPE html><html><head><title>Products</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+def products_page(products_cards: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Products</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
 <div class="container">
   <h2>OTC Products</h2>
   <form class="mb-3" method="get" action="/products">
@@ -111,7 +115,7 @@ PRODUCTS_PAGE = f"""<!DOCTYPE html><html><head><title>Products</title>{BOOTSTRAP
     </div>
   </form>
   <div class="row">
-    {{product_cards}}
+    {products_cards}
   </div>
 </div></body></html>"""
 
@@ -122,7 +126,7 @@ PRODUCT_CARD = """
       <h5 class="card-title">{name}</h5>
       <p class="card-text">{description}</p>
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
-      <h4 class="text-success">${price}</h4>
+      <h4 class="text-success">KSh {price}</h4>
       <form action="/cart/add/{id}" method="get" class="d-flex align-items-center">
         <input type="number" name="quantity" value="1" min="1" max="{stock}" class="form-control me-2" style="width:70px;">
         <button type="submit" class="btn btn-primary">Add to Cart</button>
@@ -131,20 +135,21 @@ PRODUCT_CARD = """
   </div>
 </div>"""
 
-CART_PAGE = f"""<!DOCTYPE html><html><head><title>Cart</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+def cart_page(cart_items: str, total: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Cart</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
 <div class="container">
   <h2>Your Cart</h2>
-  {{cart_items}}
+  {cart_items}
   <hr>
   <div class="text-end">
-    <h4>Total: ${{total}}</h4>
+    <h4>Total: KSh {total}</h4>
     <form method="post" action="/cart/checkout" class="row g-2 align-items-center">
       <div class="col-auto">
         <label class="form-label me-2">Payment:</label>
         <select class="form-select" name="payment_method">
           <option value="cash_on_delivery">Cash on Delivery</option>
-          <option value="mobile_money">Mobile Money</option>
+          <option value="mobile_money">Mobile Money (M-Pesa)</option>
         </select>
       </div>
       <div class="col-auto">
@@ -159,7 +164,7 @@ CART_ITEM = """
   <div class="card-body d-flex justify-content-between align-items-center">
     <div>
       <h5 class="card-title">{name}</h5>
-      <p class="card-text">${price} each</p>
+      <p class="card-text">KSh {price} each</p>
     </div>
     <div class="d-flex align-items-center">
       <a href="/cart/decrease/{product_id}" class="btn btn-sm btn-outline-secondary">–</a>
@@ -167,17 +172,18 @@ CART_ITEM = """
       <a href="/cart/increase/{product_id}" class="btn btn-sm btn-outline-secondary">+</a>
     </div>
     <div>
-      <strong>${subtotal}</strong>
+      <strong>KSh {subtotal}</strong>
       <a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2">Remove</a>
     </div>
   </div>
 </div>"""
 
-ORDERS_PAGE = f"""<!DOCTYPE html><html><head><title>Orders</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+def orders_page(order_list: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Orders</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
 <div class="container">
   <h2>My Orders</h2>
-  {{order_list}}
+  {order_list}
 </div></body></html>"""
 
 ORDER_ITEM_HTML = """
@@ -185,20 +191,21 @@ ORDER_ITEM_HTML = """
   <div class="card-body">
     <h5 class="card-title">Order #{order_id}</h5>
     <p><strong>Date:</strong> {date} | <strong>Status:</strong> <span class="badge bg-warning">{status}</span></p>
-    <p><strong>Payment:</strong> {payment_method} | <strong>Total:</strong> ${total}</p>
+    <p><strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
     <ul>
       {products_list}
     </ul>
   </div>
 </div>"""
 
-SELLER_PAGE = f"""<!DOCTYPE html><html><head><title>My Shop</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+def seller_dashboard_page(product_cards: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>My Shop</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
 <div class="container">
   <h2>My Products</h2>
   <a href="/seller/add" class="btn btn-success mb-3">Add New Product</a>
   <div class="row">
-    {{product_cards}}
+    {product_cards}
   </div>
 </div></body></html>"""
 
@@ -209,7 +216,7 @@ SELLER_PRODUCT_CARD = """
       <h5 class="card-title">{name}</h5>
       <p>{description}</p>
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
-      <h4 class="text-success">${price}</h4>
+      <h4 class="text-success">KSh {price}</h4>
       <a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
       <a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a>
     </div>
@@ -217,29 +224,29 @@ SELLER_PRODUCT_CARD = """
 </div>"""
 
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+{navigation = ''  # placeholder, will be filled per request}
 <div class="container" style="max-width:500px;">
   <h2>Add New Product</h2>
   <form method="post">
     <input class="form-control mb-2" name="name" placeholder="Product Name" required>
     <textarea class="form-control mb-2" name="description" placeholder="Description" rows="3"></textarea>
     <input class="form-control mb-2" name="category" placeholder="Category" required>
-    <input class="form-control mb-2" type="number" step="0.01" name="price" placeholder="Price" required>
-    <input class="form-control mb-2" type="number" name="stock" placeholder="Stock" required>
+    <input class="form-control mb-2" type="number" step="0.01" name="price" placeholder="Price (KSh)" required>
+    <input class="form-control mb-2" type="number" name="stock" placeholder="Stock Quantity" required>
     <button class="btn btn-primary w-100">Add Product</button>
   </form>
 </div></body></html>"""
 
-EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}</head><body>
-{NAV_LOGGED_IN}
+EDIT_PRODUCT_PAGE = """<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}</head><body>
+{navigation}
 <div class="container" style="max-width:500px;">
   <h2>Edit Product</h2>
   <form method="post">
-    <input class="form-control mb-2" name="name" value="{{name}}" required>
-    <textarea class="form-control mb-2" name="description" rows="3">{{description}}</textarea>
-    <input class="form-control mb-2" name="category" value="{{category}}" required>
-    <input class="form-control mb-2" type="number" step="0.01" name="price" value="{{price}}" required>
-    <input class="form-control mb-2" type="number" name="stock" value="{{stock}}" required>
+    <input class="form-control mb-2" name="name" value="{name}" required>
+    <textarea class="form-control mb-2" name="description" rows="3">{description}</textarea>
+    <input class="form-control mb-2" name="category" value="{category}" required>
+    <input class="form-control mb-2" type="number" step="0.01" name="price" value="{price}" required>
+    <input class="form-control mb-2" type="number" name="stock" value="{stock}" required>
     <button class="btn btn-primary w-100">Update Product</button>
   </form>
 </div></body></html>"""
@@ -293,30 +300,32 @@ def dashboard(request: Request):
     if not sup: return RedirectResponse("/login")
     user = sup.auth.get_user().user
     profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
-    return HTMLResponse(DASHBOARD_PAGE.format(
-        full_name=profile.data.get("full_name", "User"),
-        role=profile.data.get("role", "buyer")
-    ))
+    role = profile.data.get("role", "buyer")
+    full_name = profile.data.get("full_name", "User")
+    return HTMLResponse(dashboard_page(full_name, role))
 
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products ----------
+# ---------- Products (all users) ----------
 @app.get("/products", response_class=HTMLResponse)
 def products(request: Request, search: str = ""):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
+    user = sup.auth.get_user().user
+    profile = sup.table("profiles").select("role").eq("user_id", user.id).single().execute()
+    role = profile.data.get("role", "buyer") if profile.data else "buyer"
     query = sup.table("products").select("*").eq("active", True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
     result = query.execute()
     products = result.data or []
     cards = "".join([PRODUCT_CARD.format(**p) for p in products])
-    return HTMLResponse(PRODUCTS_PAGE.replace("{product_cards}", cards))
+    return HTMLResponse(products_page(cards, role))
 
-# ---------- Seller ----------
+# ---------- Seller (seller only) ----------
 @app.get("/seller", response_class=HTMLResponse)
 def seller_dashboard(request: Request):
     sup = get_valid_session(request)
@@ -327,12 +336,19 @@ def seller_dashboard(request: Request):
         return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     prods = sup.table("products").select("*").eq("seller_id", profile.data['id']).execute()
     cards = "".join([SELLER_PRODUCT_CARD.format(**p) for p in (prods.data or [])])
-    return HTMLResponse(SELLER_PAGE.replace("{product_cards}", cards))
+    return HTMLResponse(seller_dashboard_page(cards, role="seller"))
 
 @app.get("/seller/add", response_class=HTMLResponse)
 def seller_add_form(request: Request):
-    if not get_valid_session(request): return RedirectResponse("/login")
-    return HTMLResponse(ADD_PRODUCT_PAGE)
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    user = sup.auth.get_user().user
+    profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
+    # Ensure seller role
+    if profile.data['role'] != 'seller':
+        return HTMLResponse("<div class='alert alert-danger'>Only sellers can add products</div>")
+    # Render add product page with seller nav
+    return HTMLResponse(ADD_PRODUCT_PAGE.replace("{navigation}", navbar("seller")))
 
 @app.post("/seller/add")
 def seller_add(request: Request, name: str = Form(...), description: str = Form(""),
@@ -352,7 +368,11 @@ def seller_edit_form(request: Request, product_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     product = sup.table("products").select("*").eq("id", product_id).single().execute()
-    return HTMLResponse(EDIT_PRODUCT_PAGE.format(**product.data))
+    return HTMLResponse(EDIT_PRODUCT_PAGE.format(
+        name=product.data["name"], description=product.data["description"] or "",
+        category=product.data["category"], price=product.data["price"],
+        stock=product.data["stock"], navigation=navbar("seller")
+    ))
 
 @app.post("/seller/edit/{product_id}")
 def seller_edit(request: Request, product_id: str, name: str = Form(...), description: str = Form(""),
@@ -377,9 +397,12 @@ def seller_delete(request: Request, product_id: str):
 def view_cart(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
+    user = sup.auth.get_user().user
+    profile = sup.table("profiles").select("role").eq("user_id", user.id).single().execute()
+    role = profile.data.get("role", "buyer") if profile.data else "buyer"
     cart = get_cart(request)
     if not cart:
-        return HTMLResponse(CART_PAGE.replace("{cart_items}", "<p>Your cart is empty.</p>").replace("{total}", "0.00"))
+        return HTMLResponse(cart_page("<p>Your cart is empty.</p>", "0.00", role))
     product_ids = [item["product_id"] for item in cart]
     products = sup.table("products").select("*").in_("id", product_ids).execute()
     pmap = {p["id"]: p for p in products.data} if products.data else {}
@@ -394,7 +417,7 @@ def view_cart(request: Request):
                 name=p["name"], price=p["price"], product_id=p["id"],
                 quantity=item["quantity"], subtotal=round(subtotal, 2)
             )
-    return HTMLResponse(CART_PAGE.replace("{cart_items}", items_html).replace("{total}", str(round(total, 2))))
+    return HTMLResponse(cart_page(items_html, str(round(total, 2)), role))
 
 @app.get("/cart/add/{product_id}")
 def add_to_cart(request: Request, product_id: str, quantity: int = 1):
@@ -402,7 +425,6 @@ def add_to_cart(request: Request, product_id: str, quantity: int = 1):
     if quantity < 1:
         quantity = 1
     cart = get_cart(request)
-    # Check if product already in cart, then add quantity
     for item in cart:
         if item["product_id"] == product_id:
             item["quantity"] += quantity
@@ -453,7 +475,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         user = sup.auth.get_user().user
         profile = sup.table("profiles").select("id").eq("user_id", user.id).single().execute()
         if not profile.data:
-            return HTMLResponse("<h2>Error: Profile not found.</h2>")
+            return HTMLResponse("<h2>Error: Profile not found.</h2><a href='/dashboard'>Dashboard</a>")
         buyer_id = profile.data["id"]
         cart = get_cart(request)
         if not cart:
@@ -491,7 +513,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         }).execute()
 
         if not order.data:
-            return HTMLResponse("<h2>Failed to create order. Please try again.</h2>")
+            return HTMLResponse("<h2>Failed to create order. Please try again.</h2><a href='/cart'>Back</a>")
 
         order_id = order.data[0]["id"]
 
@@ -500,40 +522,59 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             oi["order_id"] = order_id
             sup.table("order_items").insert(oi).execute()
 
-        # Clear cart
+        # Clear cart ONLY after all operations succeed
         save_cart(request, [])
         return RedirectResponse("/orders", status_code=303)
 
     except Exception as e:
-        return HTMLResponse(f"<div class='alert alert-danger'>Checkout error: {str(e)}</div><a href='/cart'>Back</a>")
+        # Show the exact error so we can debug if needed
+        return HTMLResponse(f"""
+        <div class="container mt-5">
+          <div class="alert alert-danger">
+            <h4>Checkout Error</h4>
+            <p>{str(e)}</p>
+          </div>
+          <a href="/cart" class="btn btn-secondary">Back to Cart</a>
+        </div>""")
 
 # ---------- Orders ----------
 @app.get("/orders", response_class=HTMLResponse)
 def orders(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("id").eq("user_id", user.id).single().execute()
-    if not profile.data:
-        return RedirectResponse("/dashboard")
-    buyer_id = profile.data["id"]
-    orders = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", ascending=False).execute()
-    if not orders.data:
-        return HTMLResponse(ORDERS_PAGE.replace("{order_list}", "<p>No orders yet.</p>"))
+    try:
+        user = sup.auth.get_user().user
+        profile = sup.table("profiles").select("id, role").eq("user_id", user.id).single().execute()
+        if not profile.data:
+            return RedirectResponse("/dashboard")
+        buyer_id = profile.data["id"]
+        role = profile.data.get("role", "buyer")
+        orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", ascending=False).execute()
+        if not orders_result.data:
+            return HTMLResponse(orders_page("<p>No orders yet.</p>", role))
 
-    orders_html = ""
-    for order in orders.data:
-        items = sup.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
-        products_list = "".join(
-            f"<li>{item['products']['name']} x {item['quantity']} @ ${item['unit_price']}</li>"
-            for item in items.data
-        )
-        orders_html += ORDER_ITEM_HTML.format(
-            order_id=order["id"][:8],
-            status=order["status"],
-            total=order["total_amount"],
-            payment_method=order.get("payment_method", "N/A"),
-            date=order["created_at"][:10],
-            products_list=products_list
-        )
-    return HTMLResponse(ORDERS_PAGE.replace("{order_list}", orders_html))
+        orders_html = ""
+        for order in orders_result.data:
+            items = sup.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+            products_list = ""
+            if items.data:
+                for item in items.data:
+                    products_list += f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
+            orders_html += ORDER_ITEM_HTML.format(
+                order_id=order["id"][:8],
+                status=order["status"],
+                total=order["total_amount"],
+                payment_method=order.get("payment_method", "N/A"),
+                date=order["created_at"][:10],
+                products_list=products_list
+            )
+        return HTMLResponse(orders_page(orders_html, role))
+    except Exception as e:
+        return HTMLResponse(f"""
+        <div class="container mt-5">
+          <div class="alert alert-danger">
+            <h4>Orders Error</h4>
+            <p>{str(e)}</p>
+          </div>
+          <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+        </div>""")
