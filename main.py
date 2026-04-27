@@ -1,4 +1,4 @@
-import os, traceback
+import os
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -10,11 +10,16 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="a-very-secret-key-change-me")
 
+# --- Supabase clients ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ---------- Token helper (prevents logout) ----------
+# Service‑role client for stock updates (bypasses RLS)
+SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else None
+
+# ---------- Token helper ----------
 def get_valid_session(request: Request):
     token = request.session.get("access_token")
     refresh = request.session.get("refresh_token")
@@ -34,7 +39,7 @@ def get_valid_session(request: Request):
         except:
             return None
 
-# ---------- Shared HTML pieces ----------
+# ---------- HTML Component ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 
 def navbar(role: str = ""):
@@ -42,7 +47,7 @@ def navbar(role: str = ""):
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
       <div class="container">
-        <a class="navbar-brand" href="/dashboard">OTC Market</a>
+        <a class="navbar-brand" href="/products">OTC Market</a>
         <div class="navbar-nav">
           <a class="nav-link" href="/products">Browse</a>
           <a class="nav-link" href="/cart">Cart</a>
@@ -126,7 +131,7 @@ PRODUCT_CARD = """
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
       <h4 class="text-success">KSh {price}</h4>
       <form action="/cart/add/{id}" method="get" class="d-flex align-items-center">
-        <input type="number" name="quantity" value="1" min="1" max="{stock}" class="form-control me-2" style="width:70px;">
+        <input type="number" name="quantity" value="1" min="1" max="{stock}" class="form-control me-2" style="width:80px;">
         <button type="submit" class="btn btn-primary">Add to Cart</button>
       </form>
     </div>
@@ -142,12 +147,12 @@ def cart_page(cart_items_html: str, total: str, role: str):
   <hr>
   <div class="text-end">
     <h4>Total: KSh {total}</h4>
-    <form method="post" action="/cart/checkout" class="row g-2 align-items-center">
+    <form method="post" action="/cart/checkout" class="row g-2 align-items-center mt-3">
       <div class="col-auto">
         <label class="form-label me-2">Payment:</label>
         <select class="form-select" name="payment_method">
           <option value="cash_on_delivery">Cash on Delivery</option>
-          <option value="mobile_money">Mobile Money (M-Pesa)</option>
+          <option value="mobile_money">M‑Pesa</option>
         </select>
       </div>
       <div class="col-auto">
@@ -165,22 +170,25 @@ CART_ITEM = """
       <p class="card-text">KSh {price} each</p>
     </div>
     <div class="d-flex align-items-center">
-      <a href="/cart/decrease/{product_id}" class="btn btn-sm btn-outline-secondary">–</a>
-      <span class="mx-2">{quantity}</span>
-      <a href="/cart/increase/{product_id}" class="btn btn-sm btn-outline-secondary">+</a>
-    </div>
-    <div>
+      <form action="/cart/update/{product_id}" method="get" class="d-flex align-items-center me-2">
+        <input type="number" name="quantity" value="{quantity}" min="1" max="999" class="form-control" style="width:80px;">
+        <button type="submit" class="btn btn-sm btn-outline-primary ms-1">Update</button>
+      </form>
       <strong>KSh {subtotal}</strong>
       <a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2">Remove</a>
     </div>
   </div>
 </div>"""
 
-def orders_page(order_list_html: str, role: str):
+def orders_page(order_list_html: str, role: str, success: bool = False):
+    success_msg = ""
+    if success:
+        success_msg = '<div class="alert alert-success">✅ Payment successful! Your order has been placed.</div>'
     return f"""<!DOCTYPE html><html><head><title>Orders</title>{BOOTSTRAP}</head><body>
 {navbar(role)}
 <div class="container">
   <h2>My Orders</h2>
+  {success_msg}
   {order_list_html}
 </div></body></html>"""
 
@@ -221,8 +229,7 @@ SELLER_PRODUCT_CARD = """
   </div>
 </div>"""
 
-navigation = ""  # placeholder
-
+navigation = ""
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
 {navigation}
 <div class="container" style="max-width:500px;">
@@ -273,7 +280,8 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         resp = supabase.auth.sign_in_with_password({"email": email, "password": password})
         request.session["access_token"] = resp.session.access_token
         request.session["refresh_token"] = resp.session.refresh_token
-        return RedirectResponse("/dashboard", status_code=303)
+        # redirect to /products immediately after login
+        return RedirectResponse("/products", status_code=303)
     except:
         return HTMLResponse(LOGIN_PAGE.replace("</body>", "<div class='alert alert-danger m-3'>Login failed</div></body>"))
 
@@ -309,7 +317,7 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products ----------
+# ---------- Products (now the first page after login) ----------
 @app.get("/products", response_class=HTMLResponse)
 def products(request: Request, search: str = ""):
     sup = get_valid_session(request)
@@ -430,33 +438,21 @@ def add_to_cart(request: Request, product_id: str, quantity: int = 1):
     save_cart(request, cart)
     return RedirectResponse("/cart", status_code=303)
 
-@app.get("/cart/increase/{product_id}")
-def increase(request: Request, product_id: str):
+@app.get("/cart/update/{product_id}")
+def update_cart_item(request: Request, product_id: str, quantity: int = 1):
     if not get_valid_session(request): return RedirectResponse("/login")
+    if quantity < 1:
+        quantity = 1
     cart = get_cart(request)
     for item in cart:
         if item["product_id"] == product_id:
-            item["quantity"] += 1
-            break
-    save_cart(request, cart)
-    return RedirectResponse("/cart", status_code=303)
-
-@app.get("/cart/decrease/{product_id}")
-def decrease(request: Request, product_id: str):
-    if not get_valid_session(request): return RedirectResponse("/login")
-    cart = get_cart(request)
-    for item in cart:
-        if item["product_id"] == product_id:
-            if item["quantity"] > 1:
-                item["quantity"] -= 1
-            else:
-                cart.remove(item)
+            item["quantity"] = quantity
             break
     save_cart(request, cart)
     return RedirectResponse("/cart", status_code=303)
 
 @app.get("/cart/remove/{product_id}")
-def remove(request: Request, product_id: str):
+def remove_from_cart(request: Request, product_id: str):
     if not get_valid_session(request): return RedirectResponse("/login")
     cart = [item for item in get_cart(request) if item["product_id"] != product_id]
     save_cart(request, cart)
@@ -493,8 +489,12 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
                 "quantity": item["quantity"],
                 "unit_price": price
             })
+            # Reduce stock using service_role client (bypasses RLS)
             new_stock = product.data["stock"] - item["quantity"]
-            sup.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
+            if service_supabase:
+                service_supabase.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
+            else:
+                sup.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
 
         if not order_items_data:
             return RedirectResponse("/cart")
@@ -515,7 +515,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             sup.table("order_items").insert(oi).execute()
 
         save_cart(request, [])
-        return RedirectResponse("/orders", status_code=303)
+        return RedirectResponse("/orders?success=true", status_code=303)
 
     except Exception as e:
         return HTMLResponse(f"""
@@ -532,6 +532,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
 def orders(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
+    success = request.query_params.get("success") == "true"
     try:
         user = sup.auth.get_user().user
         profile = sup.table("profiles").select("id, role").eq("user_id", user.id).single().execute()
@@ -539,11 +540,10 @@ def orders(request: Request):
             return RedirectResponse("/dashboard")
         buyer_id = profile.data["id"]
         role = profile.data.get("role", "buyer")
-        # --- CORRECTED: use desc=True instead of ascending=False ---
         orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", desc=True).execute()
 
         if not orders_result.data:
-            return HTMLResponse(orders_page("<p>No orders yet.</p>", role))
+            return HTMLResponse(orders_page("<p>No orders yet.</p>", role, success))
 
         orders_html = ""
         for order in orders_result.data:
@@ -560,7 +560,7 @@ def orders(request: Request):
                 date=order["created_at"][:10],
                 products_list=products_list
             )
-        return HTMLResponse(orders_page(orders_html, role))
+        return HTMLResponse(orders_page(orders_html, role, success))
     except Exception as e:
         return HTMLResponse(f"""
         <div class="container mt-5">
