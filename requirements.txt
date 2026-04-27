@@ -1,3 +1,2 @@
-flet[web]
-supabase
-python-dotenv
+fastapi
+uvicorn
