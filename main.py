@@ -221,8 +221,7 @@ SELLER_PRODUCT_CARD = """
   </div>
 </div>"""
 
-# ---------- FIX: Define navigation before f-string ----------
-navigation = ""  # placeholder, replaced by routes
+navigation = ""  # placeholder
 
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
 {navigation}
@@ -368,7 +367,6 @@ def seller_edit_form(request: Request, product_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     product = sup.table("products").select("*").eq("id", product_id).single().execute()
-    # Replace placeholder navigation with actual seller navbar
     page = EDIT_PRODUCT_PAGE.replace("{navigation}", navbar("seller"))
     return HTMLResponse(page.format(**product.data))
 
@@ -516,7 +514,6 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             oi["order_id"] = order_id
             sup.table("order_items").insert(oi).execute()
 
-        # Cart cleared only after full success
         save_cart(request, [])
         return RedirectResponse("/orders", status_code=303)
 
@@ -542,7 +539,8 @@ def orders(request: Request):
             return RedirectResponse("/dashboard")
         buyer_id = profile.data["id"]
         role = profile.data.get("role", "buyer")
-        orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", ascending=False).execute()
+        # --- CORRECTED: use desc=True instead of ascending=False ---
+        orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", desc=True).execute()
 
         if not orders_result.data:
             return HTMLResponse(orders_page("<p>No orders yet.</p>", role))
