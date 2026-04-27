@@ -49,6 +49,7 @@ DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html><head><title>Dashboard</title></head><body>
 <h2>Welcome, {full_name} ({role})</h2>
+<a href="/products">Browse Products</a> |
 <a href="/logout">Logout</a>
 </body></html>
 """
@@ -109,3 +110,47 @@ def logout(request: Request):
 @app.get("/")
 def root():
     return RedirectResponse("/login")
+# ---------- PRODUCTS PAGE ----------
+PRODUCTS_HTML = """
+<!DOCTYPE html>
+<html><head><title>Products</title></head><body>
+<h2>OTC Products</h2>
+<form method="get" action="/products">
+  <input name="search" placeholder="Search by name or category">
+  <button type="submit">Search</button>
+</form>
+<hr>
+<div>
+{product_list}
+</div>
+<p><a href="/dashboard">Back to Dashboard</a></p>
+</body></html>
+"""
+
+PRODUCT_ITEM = """
+<div style="border:1px solid #ccc; margin:10px; padding:10px;">
+  <strong>{name}</strong> - ${price}<br>
+  <small>{description}</small><br>
+  Category: {category} | Stock: {stock}
+</div>
+"""
+
+@app.get("/products", response_class=HTMLResponse)
+def products_page(request: Request, search: str = ""):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    try:
+        supabase.auth.set_session(token, request.session.get("refresh_token"))
+    except:
+        return RedirectResponse("/login")
+    
+    query = supabase.table("products").select("*").eq("active", True)
+    if search:
+        query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
+    result = query.execute()
+    
+    products = result.data if result.data else []
+    product_html = "".join([PRODUCT_ITEM.format(**p) for p in products])
+    
+    return HTMLResponse(PRODUCTS_HTML.replace("{product_list}", product_html))
