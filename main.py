@@ -10,10 +10,10 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="a-very-secret-key-change-me")
 
-# ---------- App Branding ----------
+# ---------- Branding ----------
 APP_NAME = "DawaLink"
 APP_TAGLINE = "Your Trusted Online Pharmacy"
-PRIMARY_COLOR = "#0d6efd"  # Bootstrap primary blue
+PRIMARY_COLOR = "#0d6efd"
 
 # ---------- Supabase clients ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -23,7 +23,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else None
 
-# ---------- Token helper ----------
+# ---------- Token & Profile helpers ----------
 def get_valid_session(request: Request):
     token = request.session.get("access_token")
     refresh = request.session.get("refresh_token")
@@ -51,19 +51,17 @@ def get_user_profile(sup: Client):
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 CUSTOM_CSS = f"""
 <style>
-  body {{ background-color: #f8f9fa; font-family: 'Segoe UI', system-ui, sans-serif; }}
-  .navbar-brand {{ font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }}
+  body {{ background-color: #f4f6f9; font-family: 'Segoe UI', system-ui, sans-serif; }}
   .navbar {{ box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
   .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
   .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
+  .admin-sidebar {{ background-color: #1e293b; color: white; min-height: 100vh; }}
+  .admin-sidebar a {{ color: #cbd5e1; padding: 10px; display: block; border-radius: 6px; text-decoration: none; }}
+  .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
+  .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
+  .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
+  .receipt-container {{ max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
   .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
-  .btn-outline-primary {{ color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
-  .btn-outline-primary:hover {{ background-color: {PRIMARY_COLOR}; color: white; }}
-  .hero {{ background: linear-gradient(135deg, {PRIMARY_COLOR} 0%, #004085 100%); color: white; padding: 3rem 0; border-radius: 0 0 20px 20px; }}
-  .hero h1 {{ font-size: 3rem; font-weight: 700; }}
-  .hero p {{ font-size: 1.25rem; opacity: 0.9; }}
-  .admin-badge {{ background-color: #ffc107; color: #000; }}
-  .status-badge {{ font-size: 0.9rem; }}
 </style>
 """
 
@@ -96,11 +94,11 @@ def login_page(error: str = ""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {NAV_GUEST}
-<div class="hero text-center">
+<div class="container text-center mt-5">
   <h1>{APP_NAME}</h1>
-  <p>{APP_TAGLINE}</p>
+  <p class="lead">{APP_TAGLINE}</p>
 </div>
-<div class="container mt-5" style="max-width:400px;">
+<div class="container mt-3" style="max-width:400px;">
   <div class="card p-4">
     <h3 class="mb-3">Welcome back</h3>
     {alert}
@@ -117,11 +115,7 @@ def signup_page(error: str = ""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Sign Up · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {NAV_GUEST}
-<div class="hero text-center">
-  <h1>{APP_NAME}</h1>
-  <p>{APP_TAGLINE}</p>
-</div>
-<div class="container mt-5" style="max-width:400px;">
+<div class="container mt-4" style="max-width:400px;">
   <div class="card p-4">
     <h3 class="mb-3">Create your account</h3>
     {alert}
@@ -244,6 +238,7 @@ ORDER_ITEM_HTML = """
     <ul>
       {products_list}
     </ul>
+    <a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary">View Receipt</a>
   </div>
 </div>"""
 
@@ -301,13 +296,31 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
   </form>
 </div></body></html>"""
 
-# ---------- Admin Interface ----------
-def admin_page(orders_html: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Admin · Orders</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+# ---------- Admin Dashboard ----------
+def admin_dashboard_page(metrics, orders_html: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Admin · DawaLink</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container mt-4">
-  <h2>🛡️ Admin Panel · All Orders</h2>
-  {orders_html}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5>🛡️ Admin Panel</h5>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/products">View Site</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Admin Dashboard</h2>
+      <div class="row mt-4">
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_products']}</h3><p>Products in Stock</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_users']}</h3><p>Registered Users</p></div></div>
+      </div>
+      <hr class="mt-4">
+      <h4>Recent Orders</h4>
+      {orders_html}
+    </div>
+  </div>
 </div></body></html>"""
 
 def admin_order_item(order):
@@ -324,7 +337,7 @@ def admin_order_item(order):
     return f"""
     <div class="card mb-3 p-3">
       <div class="card-body">
-        <h5>Order #{order['id'][:8]} — <span class="badge status-badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
+        <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
         <p><strong>Buyer:</strong> {order.get('profiles', {}).get('full_name', 'Unknown')} ({order.get('profiles', {}).get('phone', 'N/A')})</p>
         <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Payment:</strong> {order.get('payment_method', 'N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
         <ul>{products_list}</ul>
@@ -337,6 +350,31 @@ def admin_order_item(order):
       </div>
     </div>"""
 
+# ---------- Receipt Page ----------
+def receipt_page(order):
+    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    items_html = "".join(
+        f"<tr><td>{item['products']['name']}</td><td>{item['quantity']}</td><td>KSh {item['unit_price']}</td><td>KSh {item['quantity'] * item['unit_price']}</td></tr>"
+        for item in items.data
+    )
+    return f"""<!DOCTYPE html><html><head><title>Receipt · DawaLink</title>{BOOTSTRAP}</head><body onload="window.print()">
+<div class="receipt-container mt-4">
+  <div class="text-center mb-4">
+    <h2>💊 DawaLink</h2>
+    <p>{APP_TAGLINE}</p>
+    <hr>
+    <h4>Receipt for Order #{order['id'][:8]}</h4>
+  </div>
+  <p><strong>Date:</strong> {order['created_at'][:10]} &nbsp;&nbsp; <strong>Payment:</strong> {order.get('payment_method','N/A')}</p>
+  <p><strong>Status:</strong> {order['status']}</p>
+  <table class="table table-bordered">
+    <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+    <tbody>{items_html}</tbody>
+    <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
+  </table>
+  <div class="text-center mt-4"><button class="btn btn-primary" onclick="window.print()">Print Receipt</button> <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a></div>
+</div></body></html>"""
+
 # ---------- Cart helpers ----------
 def get_cart(request: Request):
     return request.session.get("cart", [])
@@ -344,7 +382,7 @@ def get_cart(request: Request):
 def save_cart(request: Request, cart):
     request.session["cart"] = cart
 
-# ---------- Routes (identical to before, just using the new templates) ----------
+# ---------- Routes ----------
 @app.get("/")
 def root():
     return RedirectResponse("/login")
@@ -587,7 +625,8 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             sup.table("order_items").insert(oi).execute()
 
         save_cart(request, [])
-        return RedirectResponse("/orders?success=true", status_code=303)
+        # Redirect to receipt page
+        return RedirectResponse(f"/receipt/{order_id}", status_code=303)
 
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Checkout Error: {str(e)}</div>")
@@ -597,7 +636,6 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
 def orders(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    success = request.query_params.get("success") == "true"
     try:
         profile = get_user_profile(sup)
         if not profile.data:
@@ -607,7 +645,7 @@ def orders(request: Request):
         orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", desc=True).execute()
 
         if not orders_result.data:
-            return HTMLResponse(orders_page("<p>No orders yet.</p>", role, success))
+            return HTMLResponse(orders_page("<p>No orders yet.</p>", role))
 
         orders_html = ""
         for order in orders_result.data:
@@ -624,11 +662,26 @@ def orders(request: Request):
                 total=order["total_amount"],
                 payment_method=order.get("payment_method", "N/A"),
                 date=order["created_at"][:10],
-                products_list=products_list
+                products_list=products_list,
+                order_id=order["id"]
             )
-        return HTMLResponse(orders_page(orders_html, role, success))
+        return HTMLResponse(orders_page(orders_html, role))
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
+
+# ---------- Receipt ----------
+@app.get("/receipt/{order_id}", response_class=HTMLResponse)
+def view_receipt(request: Request, order_id: str):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    # Verify the order belongs to the current user
+    profile = get_user_profile(sup)
+    if not profile.data:
+        return RedirectResponse("/login")
+    order = sup.table("orders").select("*").eq("id", order_id).single().execute()
+    if not order.data or order.data["buyer_id"] != profile.data["id"]:
+        return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
+    return HTMLResponse(receipt_page(order.data))
 
 # ---------- Admin ----------
 @app.get("/admin", response_class=HTMLResponse)
@@ -638,15 +691,38 @@ def admin_dashboard(request: Request):
     profile = get_user_profile(sup)
     if not profile.data or profile.data.get("role") != "admin":
         return HTMLResponse("<div class='alert alert-danger'>Access denied · Admins only</div>")
-    orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
+    
+    # Aggregate metrics
+    total_sales_result = sup.table("orders").select("total_amount").execute()
+    total_sales = sum(o['total_amount'] for o in total_sales_result.data) if total_sales_result.data else 0
+    
+    total_orders = sup.table("orders").select("count", count="exact").execute()
+    total_orders_count = total_orders.count if total_orders.count else 0
+    
+    total_products = sup.table("products").select("count", count="exact").eq("active", True).execute()
+    total_products_count = total_products.count if total_products.count else 0
+    
+    total_users = sup.table("profiles").select("count", count="exact").execute()
+    total_users_count = total_users.count if total_users.count else 0
+    
+    metrics = {
+        "total_sales": f"{total_sales:,.2f}",
+        "total_orders": total_orders_count,
+        "total_products": total_products_count,
+        "total_users": total_users_count
+    }
+    
+    # Fetch all orders
+    orders_result = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
     orders_html = ""
-    if orders.data:
-        for o in orders.data:
+    if orders_result.data:
+        for o in orders_result.data:
             o['profiles'] = o.get('profiles', {}) or {}
             orders_html += admin_order_item(o)
     else:
         orders_html = "<p>No orders yet.</p>"
-    return HTMLResponse(admin_page(orders_html, role="admin"))
+    
+    return HTMLResponse(admin_dashboard_page(metrics, orders_html, role="admin"))
 
 @app.post("/admin/update-order/{order_id}")
 def admin_update_order(request: Request, order_id: str, status: str = Form(...)):
