@@ -134,6 +134,7 @@ PRODUCT_ITEM = """
   <strong>{name}</strong> - ${price}<br>
   <small>{description}</small><br>
   Category: {category} | Stock: {stock}
+  <a href="/cart/add/{id}">Add to Cart</a>
 </div>
 """
 
