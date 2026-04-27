@@ -10,12 +10,14 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="a-very-secret-key-change-me")
 
-# --- Supabase clients ---
+# ---------- Configurable App Name ----------
+APP_NAME = "DawaLink"
+
+# ---------- Supabase clients ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Service‑role client for stock updates (bypasses RLS)
 SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else None
 
@@ -39,29 +41,36 @@ def get_valid_session(request: Request):
         except:
             return None
 
+# ---------- Utility: get user profile ----------
+def get_user_profile(sup: Client):
+    user = sup.auth.get_user().user
+    return sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
+
 # ---------- HTML Component ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 
 def navbar(role: str = ""):
+    admin_tab = '<a class="nav-link" href="/admin">Admin</a>' if role == "admin" else ""
     seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
       <div class="container">
-        <a class="navbar-brand" href="/products">OTC Market</a>
+        <a class="navbar-brand" href="/products">{APP_NAME}</a>
         <div class="navbar-nav">
           <a class="nav-link" href="/products">Browse</a>
           <a class="nav-link" href="/cart">Cart</a>
           <a class="nav-link" href="/orders">Orders</a>
           {seller_tab}
+          {admin_tab}
           <a class="nav-link" href="/logout">Logout</a>
         </div>
       </div>
     </nav>"""
 
-NAV_GUEST = """
+NAV_GUEST = f"""
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
   <div class="container">
-    <a class="navbar-brand" href="/">OTC Market</a>
+    <a class="navbar-brand" href="/">{APP_NAME}</a>
   </div>
 </nav>"""
 
@@ -69,7 +78,7 @@ NAV_GUEST = """
 LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</head><body>
 {NAV_GUEST}
 <div class="container" style="max-width:400px;">
-  <h2 class="mb-3">Login</h2>
+  <h2 class="mb-3">Login to {APP_NAME}</h2>
   <form method="post">
     <input class="form-control mb-2" name="email" placeholder="Email" required>
     <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
@@ -81,7 +90,7 @@ LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</hea
 SIGNUP_PAGE = f"""<!DOCTYPE html><html><head><title>Sign Up</title>{BOOTSTRAP}</head><body>
 {NAV_GUEST}
 <div class="container" style="max-width:400px;">
-  <h2 class="mb-3">Create Account</h2>
+  <h2 class="mb-3">Join {APP_NAME}</h2>
   <form method="post">
     <input class="form-control mb-2" name="full_name" placeholder="Full Name" required>
     <input class="form-control mb-2" name="email" placeholder="Email" required>
@@ -110,7 +119,7 @@ def products_page(products_cards: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Products</title>{BOOTSTRAP}</head><body>
 {navbar(role)}
 <div class="container">
-  <h2>OTC Products</h2>
+  <h2>Available Medicines</h2>
   <form class="mb-3" method="get" action="/products">
     <div class="input-group">
       <input class="form-control" name="search" placeholder="Search by name or category">
@@ -196,7 +205,7 @@ ORDER_ITEM_HTML = """
 <div class="card mb-3">
   <div class="card-body">
     <h5 class="card-title">Order #{order_id}</h5>
-    <p><strong>Date:</strong> {date} | <strong>Status:</strong> <span class="badge bg-warning">{status}</span></p>
+    <p><strong>Date:</strong> {date} | <strong>Status:</strong> <span class="badge bg-{status_color}">{status}</span></p>
     <p><strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
     <ul>
       {products_list}
@@ -258,6 +267,43 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product</title>{B
   </form>
 </div></body></html>"""
 
+# ---------- Admin Interface ----------
+def admin_page(orders_html: str, role: str):
+    return f"""<!DOCTYPE html><html><head><title>Admin · Orders</title>{BOOTSTRAP}</head><body>
+{navbar(role)}
+<div class="container">
+  <h2>Admin · All Orders</h2>
+  {orders_html}
+</div></body></html>"""
+
+def admin_order_item(order):
+    # Build a status update dropdown
+    status_opts = ["pending","confirmed","shipped","delivered"]
+    options = "".join([
+        f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.capitalize()}</option>"
+        for s in status_opts
+    ])
+    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    products_list = "".join(
+        f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
+        for item in (items.data or [])
+    )
+    return f"""
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
+        <p><strong>Buyer:</strong> {order.get('profiles', {}).get('full_name', 'Unknown')} ({order.get('profiles', {}).get('phone', 'N/A')})</p>
+        <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Payment:</strong> {order.get('payment_method', 'N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
+        <ul>{products_list}</ul>
+        <form method="post" action="/admin/update-order/{order['id']}" class="d-flex align-items-center">
+          <select class="form-select me-2" name="status" style="width:auto;">
+            {options}
+          </select>
+          <button class="btn btn-sm btn-primary">Update Status</button>
+        </form>
+      </div>
+    </div>"""
+
 # ---------- Cart helpers ----------
 def get_cart(request: Request):
     return request.session.get("cart", [])
@@ -280,7 +326,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         resp = supabase.auth.sign_in_with_password({"email": email, "password": password})
         request.session["access_token"] = resp.session.access_token
         request.session["refresh_token"] = resp.session.refresh_token
-        # redirect to /products immediately after login
         return RedirectResponse("/products", status_code=303)
     except:
         return HTMLResponse(LOGIN_PAGE.replace("</body>", "<div class='alert alert-danger m-3'>Login failed</div></body>"))
@@ -306,8 +351,9 @@ def signup(full_name: str = Form(...), email: str = Form(...), password: str = F
 def dashboard(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
+    profile = get_user_profile(sup)
+    if not profile.data:
+        return RedirectResponse("/logout")
     role = profile.data.get("role", "buyer")
     full_name = profile.data.get("full_name", "User")
     return HTMLResponse(dashboard_page(full_name, role))
@@ -317,13 +363,12 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products (now the first page after login) ----------
+# ---------- Products ----------
 @app.get("/products", response_class=HTMLResponse)
 def products(request: Request, search: str = ""):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("role").eq("user_id", user.id).single().execute()
+    profile = get_user_profile(sup)
     role = profile.data.get("role", "buyer") if profile.data else "buyer"
     query = sup.table("products").select("*").eq("active", True)
     if search:
@@ -333,14 +378,13 @@ def products(request: Request, search: str = ""):
     cards = "".join([PRODUCT_CARD.format(**p) for p in products])
     return HTMLResponse(products_page(cards, role))
 
-# ---------- Seller (seller only) ----------
+# ---------- Seller ----------
 @app.get("/seller", response_class=HTMLResponse)
 def seller_dashboard(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
-    if profile.data['role'] != 'seller':
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data['role'] != 'seller':
         return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     prods = sup.table("products").select("*").eq("seller_id", profile.data['id']).execute()
     cards = "".join([SELLER_PRODUCT_CARD.format(**p) for p in (prods.data or [])])
@@ -350,9 +394,8 @@ def seller_dashboard(request: Request):
 def seller_add_form(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
-    if profile.data['role'] != 'seller':
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data['role'] != 'seller':
         return HTMLResponse("<div class='alert alert-danger'>Only sellers can add products</div>")
     nav = navbar("seller")
     return HTMLResponse(ADD_PRODUCT_PAGE.replace("{navigation}", nav))
@@ -362,8 +405,7 @@ def seller_add(request: Request, name: str = Form(...), description: str = Form(
                category: str = Form(...), price: float = Form(...), stock: int = Form(...)):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("id").eq("user_id", user.id).single().execute()
+    profile = get_user_profile(sup)
     sup.table("products").insert({
         "seller_id": profile.data['id'], "name": name, "description": description,
         "category": category, "price": price, "stock": stock
@@ -401,8 +443,7 @@ def seller_delete(request: Request, product_id: str):
 def view_cart(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    user = sup.auth.get_user().user
-    profile = sup.table("profiles").select("role").eq("user_id", user.id).single().execute()
+    profile = get_user_profile(sup)
     role = profile.data.get("role", "buyer") if profile.data else "buyer"
     cart = get_cart(request)
     if not cart:
@@ -464,10 +505,9 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
     if not sup:
         return RedirectResponse("/login")
     try:
-        user = sup.auth.get_user().user
-        profile = sup.table("profiles").select("id").eq("user_id", user.id).single().execute()
+        profile = get_user_profile(sup)
         if not profile.data:
-            return HTMLResponse("<h2>Error: Profile not found.</h2><a href='/dashboard'>Dashboard</a>")
+            return HTMLResponse("<h2>Error: Profile not found.</h2>")
         buyer_id = profile.data["id"]
         cart = get_cart(request)
         if not cart:
@@ -478,9 +518,9 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         for item in cart:
             product = sup.table("products").select("*").eq("id", item["product_id"]).single().execute()
             if not product.data:
-                return HTMLResponse(f"<h2>Product {item['product_id']} not found.</h2><a href='/cart'>Back</a>")
+                return HTMLResponse(f"<h2>Product {item['product_id']} not found.</h2>")
             if product.data["stock"] < item["quantity"]:
-                return HTMLResponse(f"<h2>Not enough stock for '{product.data['name']}'.</h2><a href='/cart'>Back</a>")
+                return HTMLResponse(f"<h2>Not enough stock for '{product.data['name']}'.</h2>")
             price = product.data["price"]
             subtotal = price * item["quantity"]
             total += subtotal
@@ -489,7 +529,6 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
                 "quantity": item["quantity"],
                 "unit_price": price
             })
-            # Reduce stock using service_role client (bypasses RLS)
             new_stock = product.data["stock"] - item["quantity"]
             if service_supabase:
                 service_supabase.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
@@ -507,7 +546,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         }).execute()
 
         if not order.data:
-            return HTMLResponse("<h2>Failed to create order. Please try again.</h2><a href='/cart'>Back</a>")
+            return HTMLResponse("<h2>Failed to create order.</h2>")
 
         order_id = order.data[0]["id"]
         for oi in order_items_data:
@@ -518,24 +557,16 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         return RedirectResponse("/orders?success=true", status_code=303)
 
     except Exception as e:
-        return HTMLResponse(f"""
-        <div class="container mt-5">
-          <div class="alert alert-danger">
-            <h4>Checkout Error</h4>
-            <p>{str(e)}</p>
-          </div>
-          <a href="/cart" class="btn btn-secondary">Back to Cart</a>
-        </div>""")
+        return HTMLResponse(f"<div class='alert alert-danger'>Checkout Error: {str(e)}</div>")
 
-# ---------- Orders ----------
+# ---------- Orders (customer) ----------
 @app.get("/orders", response_class=HTMLResponse)
 def orders(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     success = request.query_params.get("success") == "true"
     try:
-        user = sup.auth.get_user().user
-        profile = sup.table("profiles").select("id, role").eq("user_id", user.id).single().execute()
+        profile = get_user_profile(sup)
         if not profile.data:
             return RedirectResponse("/dashboard")
         buyer_id = profile.data["id"]
@@ -552,9 +583,11 @@ def orders(request: Request):
             if items.data:
                 for item in items.data:
                     products_list += f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
+            status_color = {"pending":"warning","confirmed":"info","shipped":"primary","delivered":"success"}.get(order["status"], "secondary")
             orders_html += ORDER_ITEM_HTML.format(
                 order_id=order["id"][:8],
                 status=order["status"],
+                status_color=status_color,
                 total=order["total_amount"],
                 payment_method=order.get("payment_method", "N/A"),
                 date=order["created_at"][:10],
@@ -562,11 +595,37 @@ def orders(request: Request):
             )
         return HTMLResponse(orders_page(orders_html, role, success))
     except Exception as e:
-        return HTMLResponse(f"""
-        <div class="container mt-5">
-          <div class="alert alert-danger">
-            <h4>Orders Error</h4>
-            <p>{str(e)}</p>
-          </div>
-          <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
-        </div>""")
+        return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
+
+# ---------- Admin ----------
+@app.get("/admin", response_class=HTMLResponse)
+def admin_dashboard(request: Request):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data.get("role") != "admin":
+        return HTMLResponse("<div class='alert alert-danger'>Access denied · Admins only</div>")
+    # Fetch all orders with buyer full name
+    orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
+    orders_html = ""
+    if orders.data:
+        for o in orders.data:
+            # embed the profile data into the order dict for our helper
+            o['profiles'] = o.get('profiles', {}) or {}
+            orders_html += admin_order_item(o)
+    else:
+        orders_html = "<p>No orders yet.</p>"
+    return HTMLResponse(admin_page(orders_html, role="admin"))
+
+@app.post("/admin/update-order/{order_id}")
+def admin_update_order(request: Request, order_id: str, status: str = Form(...)):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data.get("role") != "admin":
+        return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    allowed = ["pending","confirmed","shipped","delivered"]
+    if status not in allowed:
+        return RedirectResponse("/admin", status_code=303)
+    sup.table("orders").update({"status": status}).eq("id", order_id).execute()
+    return RedirectResponse("/admin", status_code=303)
