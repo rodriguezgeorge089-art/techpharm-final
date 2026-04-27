@@ -1,16 +1,12 @@
 import os
-import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
 import flet as ft
-from flet.fastapi import FastAPIAdapter
 from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def flet_main(page: ft.Page):
+def main(page: ft.Page):
     page.title = "OTC Medicine Marketplace"
     current_user = None
 
@@ -109,12 +105,5 @@ def flet_main(page: ft.Page):
     page.on_route_change = route_change
     page.go("/login")
 
-# FastAPI app with Flet mounted via official adapter
-app = FastAPI()
-
-flet_adapter = FastAPIAdapter(flet_main, mount_path="/app")
-flet_adapter.mount(app)
-
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/app")
+# Flet web server – uses Render's PORT or 10000
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=int(os.getenv("PORT", 10000)))
