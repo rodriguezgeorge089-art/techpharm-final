@@ -48,7 +48,9 @@ SIGNUP_HTML = """
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html><head><title>Dashboard</title></head><body>
-<h2>Welcome, {full_name} ({role})</h2>
+<h2><a href="/products">Browse Products</a> |
+<a href="/seller">Seller Dashboard</a> |
+<a href="/logout">Logout</a></h2>
 <a href="/products">Browse Products</a> |
 <a href="/logout">Logout</a>
 </body></html>
