@@ -60,7 +60,7 @@ NAV_GUEST = """
   </div>
 </nav>"""
 
-# ---------- Page Templates ----------
+# ---------- Templates ----------
 LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</head><body>
 {NAV_GUEST}
 <div class="container" style="max-width:400px;">
@@ -221,6 +221,9 @@ SELLER_PRODUCT_CARD = """
   </div>
 </div>"""
 
+# ---------- FIX: Define navigation before f-string ----------
+navigation = ""  # placeholder, replaced by routes
+
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
 {navigation}
 <div class="container" style="max-width:500px;">
@@ -365,7 +368,9 @@ def seller_edit_form(request: Request, product_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     product = sup.table("products").select("*").eq("id", product_id).single().execute()
-    return HTMLResponse(EDIT_PRODUCT_PAGE.replace("{navigation}", navbar("seller")).format(**product.data))
+    # Replace placeholder navigation with actual seller navbar
+    page = EDIT_PRODUCT_PAGE.replace("{navigation}", navbar("seller"))
+    return HTMLResponse(page.format(**product.data))
 
 @app.post("/seller/edit/{product_id}")
 def seller_edit(request: Request, product_id: str, name: str = Form(...), description: str = Form(""),
