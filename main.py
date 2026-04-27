@@ -1,4 +1,4 @@
-import os
+import os, traceback
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -34,11 +34,11 @@ def get_valid_session(request: Request):
         except:
             return None
 
-# ---------- Dynamic Navbar ----------
+# ---------- Shared HTML pieces ----------
+BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
+
 def navbar(role: str = ""):
-    seller_link = ""
-    if role == "seller":
-        seller_link = '<a class="nav-link" href="/seller">My Shop</a>'
+    seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
       <div class="container">
@@ -47,7 +47,7 @@ def navbar(role: str = ""):
           <a class="nav-link" href="/products">Browse</a>
           <a class="nav-link" href="/cart">Cart</a>
           <a class="nav-link" href="/orders">Orders</a>
-          {seller_link}
+          {seller_tab}
           <a class="nav-link" href="/logout">Logout</a>
         </div>
       </div>
@@ -60,9 +60,7 @@ NAV_GUEST = """
   </div>
 </nav>"""
 
-BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
-
-# ---------- Templates (Kenyan Shillings) ----------
+# ---------- Page Templates ----------
 LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</head><body>
 {NAV_GUEST}
 <div class="container" style="max-width:400px;">
@@ -135,12 +133,12 @@ PRODUCT_CARD = """
   </div>
 </div>"""
 
-def cart_page(cart_items: str, total: str, role: str):
+def cart_page(cart_items_html: str, total: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Cart</title>{BOOTSTRAP}</head><body>
 {navbar(role)}
 <div class="container">
   <h2>Your Cart</h2>
-  {cart_items}
+  {cart_items_html}
   <hr>
   <div class="text-end">
     <h4>Total: KSh {total}</h4>
@@ -178,12 +176,12 @@ CART_ITEM = """
   </div>
 </div>"""
 
-def orders_page(order_list: str, role: str):
+def orders_page(order_list_html: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Orders</title>{BOOTSTRAP}</head><body>
 {navbar(role)}
 <div class="container">
   <h2>My Orders</h2>
-  {order_list}
+  {order_list_html}
 </div></body></html>"""
 
 ORDER_ITEM_HTML = """
@@ -224,7 +222,7 @@ SELLER_PRODUCT_CARD = """
 </div>"""
 
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
-{navigation = ''  # placeholder, will be filled per request}
+{navigation}
 <div class="container" style="max-width:500px;">
   <h2>Add New Product</h2>
   <form method="post">
@@ -237,16 +235,16 @@ ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOO
   </form>
 </div></body></html>"""
 
-EDIT_PRODUCT_PAGE = """<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}</head><body>
+EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}</head><body>
 {navigation}
 <div class="container" style="max-width:500px;">
   <h2>Edit Product</h2>
   <form method="post">
-    <input class="form-control mb-2" name="name" value="{name}" required>
-    <textarea class="form-control mb-2" name="description" rows="3">{description}</textarea>
-    <input class="form-control mb-2" name="category" value="{category}" required>
-    <input class="form-control mb-2" type="number" step="0.01" name="price" value="{price}" required>
-    <input class="form-control mb-2" type="number" name="stock" value="{stock}" required>
+    <input class="form-control mb-2" name="name" value="{{name}}" required>
+    <textarea class="form-control mb-2" name="description" rows="3">{{description}}</textarea>
+    <input class="form-control mb-2" name="category" value="{{category}}" required>
+    <input class="form-control mb-2" type="number" step="0.01" name="price" value="{{price}}" required>
+    <input class="form-control mb-2" type="number" name="stock" value="{{stock}}" required>
     <button class="btn btn-primary w-100">Update Product</button>
   </form>
 </div></body></html>"""
@@ -309,7 +307,7 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products (all users) ----------
+# ---------- Products ----------
 @app.get("/products", response_class=HTMLResponse)
 def products(request: Request, search: str = ""):
     sup = get_valid_session(request)
@@ -344,11 +342,10 @@ def seller_add_form(request: Request):
     if not sup: return RedirectResponse("/login")
     user = sup.auth.get_user().user
     profile = sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
-    # Ensure seller role
     if profile.data['role'] != 'seller':
         return HTMLResponse("<div class='alert alert-danger'>Only sellers can add products</div>")
-    # Render add product page with seller nav
-    return HTMLResponse(ADD_PRODUCT_PAGE.replace("{navigation}", navbar("seller")))
+    nav = navbar("seller")
+    return HTMLResponse(ADD_PRODUCT_PAGE.replace("{navigation}", nav))
 
 @app.post("/seller/add")
 def seller_add(request: Request, name: str = Form(...), description: str = Form(""),
@@ -368,11 +365,7 @@ def seller_edit_form(request: Request, product_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     product = sup.table("products").select("*").eq("id", product_id).single().execute()
-    return HTMLResponse(EDIT_PRODUCT_PAGE.format(
-        name=product.data["name"], description=product.data["description"] or "",
-        category=product.data["category"], price=product.data["price"],
-        stock=product.data["stock"], navigation=navbar("seller")
-    ))
+    return HTMLResponse(EDIT_PRODUCT_PAGE.replace("{navigation}", navbar("seller")).format(**product.data))
 
 @app.post("/seller/edit/{product_id}")
 def seller_edit(request: Request, product_id: str, name: str = Form(...), description: str = Form(""),
@@ -497,14 +490,12 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
                 "quantity": item["quantity"],
                 "unit_price": price
             })
-            # Reduce stock
             new_stock = product.data["stock"] - item["quantity"]
             sup.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
 
         if not order_items_data:
             return RedirectResponse("/cart")
 
-        # Create order
         order = sup.table("orders").insert({
             "buyer_id": buyer_id,
             "total_amount": round(total, 2),
@@ -516,18 +507,15 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             return HTMLResponse("<h2>Failed to create order. Please try again.</h2><a href='/cart'>Back</a>")
 
         order_id = order.data[0]["id"]
-
-        # Insert order items
         for oi in order_items_data:
             oi["order_id"] = order_id
             sup.table("order_items").insert(oi).execute()
 
-        # Clear cart ONLY after all operations succeed
+        # Cart cleared only after full success
         save_cart(request, [])
         return RedirectResponse("/orders", status_code=303)
 
     except Exception as e:
-        # Show the exact error so we can debug if needed
         return HTMLResponse(f"""
         <div class="container mt-5">
           <div class="alert alert-danger">
@@ -550,6 +538,7 @@ def orders(request: Request):
         buyer_id = profile.data["id"]
         role = profile.data.get("role", "buyer")
         orders_result = sup.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at", ascending=False).execute()
+
         if not orders_result.data:
             return HTMLResponse(orders_page("<p>No orders yet.</p>", role))
 
