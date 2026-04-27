@@ -309,3 +309,206 @@ def delete_product(request: Request, product_id: str):
         return RedirectResponse("/seller", status_code=303)
     except:
         return RedirectResponse("/seller")
+# ---------- SHOPPING CART ----------
+CART_HTML = """
+<!DOCTYPE html>
+<html><head><title>Shopping Cart</title></head><body>
+<h2>Your Cart</h2>
+<div>
+{cart_items}
+</div>
+<hr>
+<strong>Total: ${total}</strong>
+<form method="post" action="/cart/checkout">
+  <button type="submit">Place Order</button>
+</form>
+<p><a href="/products">Continue Shopping</a> | <a href="/dashboard">Dashboard</a></p>
+</body></html>
+"""
+
+CART_ITEM = """
+<div style="border:1px solid #ccc; margin:10px; padding:10px;">
+  <strong>{name}</strong> - ${price} x {quantity} = ${subtotal}
+  <a href="/cart/remove/{product_id}">Remove</a>
+</div>
+"""
+
+# Initialize cart in session if not exists
+def get_cart(request: Request):
+    cart = request.session.get("cart", [])
+    request.session["cart"] = cart
+    return cart
+
+def save_cart(request: Request, cart):
+    request.session["cart"] = cart
+
+@app.get("/cart", response_class=HTMLResponse)
+def view_cart(request: Request):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    try:
+        supabase.auth.set_session(token, request.session.get("refresh_token"))
+        cart = get_cart(request)
+        if not cart:
+            return HTMLResponse(CART_HTML.replace("{cart_items}", "<p>Your cart is empty.</p>").replace("{total}", "0.00"))
+        
+        # Fetch product details for items in cart
+        product_ids = [item["product_id"] for item in cart]
+        products = supabase.table("products").select("*").in_("id", product_ids).execute()
+        product_map = {p["id"]: p for p in products.data} if products.data else {}
+        
+        items_html = ""
+        total = 0.0
+        for item in cart:
+            product = product_map.get(item["product_id"])
+            if product:
+                subtotal = product["price"] * item["quantity"]
+                total += subtotal
+                items_html += CART_ITEM.format(
+                    name=product["name"],
+                    price=product["price"],
+                    quantity=item["quantity"],
+                    product_id=product["id"],
+                    subtotal=round(subtotal, 2)
+                )
+        
+        return HTMLResponse(
+            CART_HTML.replace("{cart_items}", items_html)
+                     .replace("{total}", str(round(total, 2)))
+        )
+    except:
+        return RedirectResponse("/login")
+
+@app.get("/cart/add/{product_id}")
+def add_to_cart(request: Request, product_id: str):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    cart = get_cart(request)
+    # Check if product already in cart
+    for item in cart:
+        if item["product_id"] == product_id:
+            item["quantity"] += 1
+            save_cart(request, cart)
+            return RedirectResponse("/cart", status_code=303)
+    # New item
+    cart.append({"product_id": product_id, "quantity": 1})
+    save_cart(request, cart)
+    return RedirectResponse("/cart", status_code=303)
+
+@app.get("/cart/remove/{product_id}")
+def remove_from_cart(request: Request, product_id: str):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    cart = get_cart(request)
+    cart = [item for item in cart if item["product_id"] != product_id]
+    save_cart(request, cart)
+    return RedirectResponse("/cart", status_code=303)
+
+@app.post("/cart/checkout")
+def checkout(request: Request):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    try:
+        supabase.auth.set_session(token, request.session.get("refresh_token"))
+        user = supabase.auth.get_user().user
+        profile = supabase.table("profiles").select("id").eq("user_id", user.id).single().execute()
+        buyer_id = profile.data["id"]
+        
+        cart = get_cart(request)
+        if not cart:
+            return RedirectResponse("/cart")
+        
+        # Create order
+        total = 0.0
+        order_items = []
+        for item in cart:
+            product = supabase.table("products").select("*").eq("id", item["product_id"]).single().execute()
+            if product.data and product.data["stock"] >= item["quantity"]:
+                price = product.data["price"]
+                subtotal = price * item["quantity"]
+                total += subtotal
+                order_items.append({
+                    "product_id": item["product_id"],
+                    "quantity": item["quantity"],
+                    "unit_price": price
+                })
+                # Reduce stock
+                new_stock = product.data["stock"] - item["quantity"]
+                supabase.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
+        
+        if order_items:
+            order = supabase.table("orders").insert({
+                "buyer_id": buyer_id,
+                "total_amount": total,
+                "status": "pending"
+            }).execute()
+            
+            order_id = order.data[0]["id"]
+            for oi in order_items:
+                oi["order_id"] = order_id
+                supabase.table("order_items").insert(oi).execute()
+        
+        # Clear cart
+        save_cart(request, [])
+        return RedirectResponse("/orders", status_code=303)
+    except Exception as e:
+        return HTMLResponse(f"<h2>Error during checkout: {e}</h2><a href='/cart'>Back to Cart</a>")
+
+# ---------- ORDER HISTORY ----------
+ORDERS_HTML = """
+<!DOCTYPE html>
+<html><head><title>My Orders</title></head><body>
+<h2>My Orders</h2>
+<div>
+{order_list}
+</div>
+<p><a href="/dashboard">Back to Dashboard</a></p>
+</body></html>
+"""
+
+ORDER_ITEM_HTML = """
+<div style="border:1px solid #ccc; margin:10px; padding:10px;">
+  <strong>Order #{order_id}</strong> - Status: {status} | Total: ${total}
+  <ul>
+    {products_list}
+  </ul>
+</div>
+"""
+
+@app.get("/orders", response_class=HTMLResponse)
+def order_history(request: Request):
+    token = request.session.get("access_token")
+    if not token:
+        return RedirectResponse("/login")
+    try:
+        supabase.auth.set_session(token, request.session.get("refresh_token"))
+        user = supabase.auth.get_user().user
+        profile = supabase.table("profiles").select("id").eq("user_id", user.id).single().execute()
+        buyer_id = profile.data["id"]
+        
+        orders = supabase.table("orders").select("*").eq("buyer_id", buyer_id).order("created_at.desc").execute()
+        if not orders.data:
+            return HTMLResponse(ORDERS_HTML.replace("{order_list}", "<p>No orders yet.</p>"))
+        
+        orders_html = ""
+        for order in orders.data:
+            # Get order items
+            items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+            products_list = ""
+            for item in items.data:
+                products_list += f"<li>{item['products']['name']} x {item['quantity']} @ ${item['unit_price']}</li>"
+            
+            orders_html += ORDER_ITEM_HTML.format(
+                order_id=order["id"][:8],
+                status=order["status"],
+                total=order["total_amount"],
+                products_list=products_list
+            )
+        
+        return HTMLResponse(ORDERS_HTML.replace("{order_list}", orders_html))
+    except:
+        return RedirectResponse("/login")
