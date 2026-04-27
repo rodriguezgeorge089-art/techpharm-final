@@ -10,8 +10,10 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="a-very-secret-key-change-me")
 
-# ---------- Configurable App Name ----------
+# ---------- App Branding ----------
 APP_NAME = "DawaLink"
+APP_TAGLINE = "Your Trusted Online Pharmacy"
+PRIMARY_COLOR = "#0d6efd"  # Bootstrap primary blue
 
 # ---------- Supabase clients ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -41,22 +43,38 @@ def get_valid_session(request: Request):
         except:
             return None
 
-# ---------- Utility: get user profile ----------
 def get_user_profile(sup: Client):
     user = sup.auth.get_user().user
     return sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
 
-# ---------- HTML Component ----------
+# ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
+CUSTOM_CSS = f"""
+<style>
+  body {{ background-color: #f8f9fa; font-family: 'Segoe UI', system-ui, sans-serif; }}
+  .navbar-brand {{ font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }}
+  .navbar {{ box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+  .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
+  .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
+  .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
+  .btn-outline-primary {{ color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
+  .btn-outline-primary:hover {{ background-color: {PRIMARY_COLOR}; color: white; }}
+  .hero {{ background: linear-gradient(135deg, {PRIMARY_COLOR} 0%, #004085 100%); color: white; padding: 3rem 0; border-radius: 0 0 20px 20px; }}
+  .hero h1 {{ font-size: 3rem; font-weight: 700; }}
+  .hero p {{ font-size: 1.25rem; opacity: 0.9; }}
+  .admin-badge {{ background-color: #ffc107; color: #000; }}
+  .status-badge {{ font-size: 0.9rem; }}
+</style>
+"""
 
 def navbar(role: str = ""):
-    admin_tab = '<a class="nav-link" href="/admin">Admin</a>' if role == "admin" else ""
+    admin_tab = '<a class="nav-link" href="/admin"><span class="badge bg-warning text-dark">Admin</span></a>' if role == "admin" else ""
     seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
     return f"""
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="/products">{APP_NAME}</a>
-        <div class="navbar-nav">
+        <a class="navbar-brand" href="/products">💊 {APP_NAME}</a>
+        <div class="navbar-nav ms-auto">
           <a class="nav-link" href="/products">Browse</a>
           <a class="nav-link" href="/cart">Cart</a>
           <a class="nav-link" href="/orders">Orders</a>
@@ -68,60 +86,77 @@ def navbar(role: str = ""):
     </nav>"""
 
 NAV_GUEST = f"""
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container">
-    <a class="navbar-brand" href="/">{APP_NAME}</a>
+    <a class="navbar-brand" href="/">💊 {APP_NAME}</a>
   </div>
 </nav>"""
 
-# ---------- Templates ----------
-LOGIN_PAGE = f"""<!DOCTYPE html><html><head><title>Login</title>{BOOTSTRAP}</head><body>
+def login_page(error: str = ""):
+    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
+    return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {NAV_GUEST}
-<div class="container" style="max-width:400px;">
-  <h2 class="mb-3">Login to {APP_NAME}</h2>
-  <form method="post">
-    <input class="form-control mb-2" name="email" placeholder="Email" required>
-    <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-    <button class="btn btn-primary w-100">Log In</button>
-  </form>
-  <p class="mt-2">Don't have an account? <a href="/signup">Sign up</a></p>
+<div class="hero text-center">
+  <h1>{APP_NAME}</h1>
+  <p>{APP_TAGLINE}</p>
+</div>
+<div class="container mt-5" style="max-width:400px;">
+  <div class="card p-4">
+    <h3 class="mb-3">Welcome back</h3>
+    {alert}
+    <form method="post">
+      <input class="form-control mb-2" name="email" placeholder="Email" required>
+      <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
+      <button class="btn btn-primary w-100 mt-2">Log In</button>
+    </form>
+    <p class="mt-3 text-center">Don't have an account? <a href="/signup">Sign up</a></p>
+  </div>
 </div></body></html>"""
 
-SIGNUP_PAGE = f"""<!DOCTYPE html><html><head><title>Sign Up</title>{BOOTSTRAP}</head><body>
+def signup_page(error: str = ""):
+    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
+    return f"""<!DOCTYPE html><html><head><title>Sign Up · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {NAV_GUEST}
-<div class="container" style="max-width:400px;">
-  <h2 class="mb-3">Join {APP_NAME}</h2>
-  <form method="post">
-    <input class="form-control mb-2" name="full_name" placeholder="Full Name" required>
-    <input class="form-control mb-2" name="email" placeholder="Email" required>
-    <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-    <select class="form-control mb-2" name="role">
-      <option value="buyer">Buyer</option>
-      <option value="seller">Seller</option>
-    </select>
-    <button class="btn btn-primary w-100">Sign Up</button>
-  </form>
+<div class="hero text-center">
+  <h1>{APP_NAME}</h1>
+  <p>{APP_TAGLINE}</p>
+</div>
+<div class="container mt-5" style="max-width:400px;">
+  <div class="card p-4">
+    <h3 class="mb-3">Create your account</h3>
+    {alert}
+    <form method="post">
+      <input class="form-control mb-2" name="full_name" placeholder="Full Name" required>
+      <input class="form-control mb-2" name="email" placeholder="Email" required>
+      <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
+      <select class="form-control mb-2" name="role">
+        <option value="buyer">Buyer</option>
+        <option value="seller">Seller</option>
+      </select>
+      <button class="btn btn-primary w-100 mt-2">Sign Up</button>
+    </form>
+  </div>
 </div></body></html>"""
 
 def dashboard_page(full_name: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Dashboard</title>{BOOTSTRAP}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Dashboard · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
-  <h2>Welcome, {full_name} <span class="badge bg-info">{role}</span></h2>
+<div class="container mt-4">
+  <h2>Welcome, {full_name} <span class="badge bg-info ms-2">{role}</span></h2>
   <div class="row mt-4">
-    <div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-3">Browse Products</a></div>
-    <div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-3">View Cart</a></div>
-    <div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-3">My Orders</a></div>
+    <div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-4 fs-5">🛒 Browse Products</a></div>
+    <div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-4 fs-5">🧺 View Cart</a></div>
+    <div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-4 fs-5">📦 My Orders</a></div>
   </div>
 </div></body></html>"""
 
 def products_page(products_cards: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Products</title>{BOOTSTRAP}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Products · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
-  <h2>Available Medicines</h2>
-  <form class="mb-3" method="get" action="/products">
-    <div class="input-group">
+<div class="container mt-4">
+  <h2 class="mb-4">Available Medicines</h2>
+  <form class="mb-4" method="get" action="/products">
+    <div class="input-group input-group-lg">
       <input class="form-control" name="search" placeholder="Search by name or category">
       <button class="btn btn-primary">Search</button>
     </div>
@@ -132,14 +167,14 @@ def products_page(products_cards: str, role: str):
 </div></body></html>"""
 
 PRODUCT_CARD = """
-<div class="col-md-4 mb-3">
-  <div class="card h-100">
+<div class="col-md-4 mb-4">
+  <div class="card h-100 p-3">
     <div class="card-body">
-      <h5 class="card-title">{name}</h5>
+      <h5 class="card-title fw-bold">{name}</h5>
       <p class="card-text">{description}</p>
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
-      <h4 class="text-success">KSh {price}</h4>
-      <form action="/cart/add/{id}" method="get" class="d-flex align-items-center">
+      <h3 class="text-success">KSh {price}</h3>
+      <form action="/cart/add/{id}" method="get" class="d-flex align-items-center mt-3">
         <input type="number" name="quantity" value="1" min="1" max="{stock}" class="form-control me-2" style="width:80px;">
         <button type="submit" class="btn btn-primary">Add to Cart</button>
       </form>
@@ -148,9 +183,9 @@ PRODUCT_CARD = """
 </div>"""
 
 def cart_page(cart_items_html: str, total: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Cart</title>{BOOTSTRAP}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Cart · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
+<div class="container mt-4">
   <h2>Your Cart</h2>
   {cart_items_html}
   <hr>
@@ -172,17 +207,19 @@ def cart_page(cart_items_html: str, total: str, role: str):
 </div></body></html>"""
 
 CART_ITEM = """
-<div class="card mb-2">
-  <div class="card-body d-flex justify-content-between align-items-center">
-    <div>
-      <h5 class="card-title">{name}</h5>
-      <p class="card-text">KSh {price} each</p>
+<div class="card mb-3 p-3">
+  <div class="row align-items-center">
+    <div class="col-md-4">
+      <h5>{name}</h5>
+      <p class="text-muted">KSh {price} each</p>
     </div>
-    <div class="d-flex align-items-center">
-      <form action="/cart/update/{product_id}" method="get" class="d-flex align-items-center me-2">
-        <input type="number" name="quantity" value="{quantity}" min="1" max="999" class="form-control" style="width:80px;">
-        <button type="submit" class="btn btn-sm btn-outline-primary ms-1">Update</button>
+    <div class="col-md-4 d-flex align-items-center">
+      <form action="/cart/update/{product_id}" method="get" class="d-flex align-items-center w-100">
+        <input type="number" name="quantity" value="{quantity}" min="1" max="999" class="form-control me-2" style="width:80px;">
+        <button type="submit" class="btn btn-sm btn-outline-primary">Update</button>
       </form>
+    </div>
+    <div class="col-md-4 text-end">
       <strong>KSh {subtotal}</strong>
       <a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2">Remove</a>
     </div>
@@ -190,23 +227,20 @@ CART_ITEM = """
 </div>"""
 
 def orders_page(order_list_html: str, role: str, success: bool = False):
-    success_msg = ""
-    if success:
-        success_msg = '<div class="alert alert-success">✅ Payment successful! Your order has been placed.</div>'
-    return f"""<!DOCTYPE html><html><head><title>Orders</title>{BOOTSTRAP}</head><body>
+    success_msg = '<div class="alert alert-success">✅ Payment successful! Your order has been placed.</div>' if success else ""
+    return f"""<!DOCTYPE html><html><head><title>Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
+<div class="container mt-4">
   <h2>My Orders</h2>
   {success_msg}
   {order_list_html}
 </div></body></html>"""
 
 ORDER_ITEM_HTML = """
-<div class="card mb-3">
+<div class="card mb-3 p-3">
   <div class="card-body">
-    <h5 class="card-title">Order #{order_id}</h5>
-    <p><strong>Date:</strong> {date} | <strong>Status:</strong> <span class="badge bg-{status_color}">{status}</span></p>
-    <p><strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
+    <h5>Order #{order_id} <span class="badge bg-{status_color} ms-2">{status}</span></h5>
+    <p><strong>Date:</strong> {date} | <strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
     <ul>
       {products_list}
     </ul>
@@ -214,24 +248,24 @@ ORDER_ITEM_HTML = """
 </div>"""
 
 def seller_dashboard_page(product_cards: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>My Shop</title>{BOOTSTRAP}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>My Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
+<div class="container mt-4">
   <h2>My Products</h2>
-  <a href="/seller/add" class="btn btn-success mb-3">Add New Product</a>
+  <a href="/seller/add" class="btn btn-success mb-4">+ Add New Product</a>
   <div class="row">
     {product_cards}
   </div>
 </div></body></html>"""
 
 SELLER_PRODUCT_CARD = """
-<div class="col-md-4 mb-3">
-  <div class="card h-100">
+<div class="col-md-4 mb-4">
+  <div class="card h-100 p-3">
     <div class="card-body">
-      <h5 class="card-title">{name}</h5>
+      <h5 class="fw-bold">{name}</h5>
       <p>{description}</p>
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
-      <h4 class="text-success">KSh {price}</h4>
+      <h3 class="text-success">KSh {price}</h3>
       <a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
       <a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a>
     </div>
@@ -239,9 +273,9 @@ SELLER_PRODUCT_CARD = """
 </div>"""
 
 navigation = ""
-ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}</head><body>
+ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navigation}
-<div class="container" style="max-width:500px;">
+<div class="container mt-4" style="max-width:500px;">
   <h2>Add New Product</h2>
   <form method="post">
     <input class="form-control mb-2" name="name" placeholder="Product Name" required>
@@ -253,9 +287,9 @@ ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOO
   </form>
 </div></body></html>"""
 
-EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}</head><body>
+EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navigation}
-<div class="container" style="max-width:500px;">
+<div class="container mt-4" style="max-width:500px;">
   <h2>Edit Product</h2>
   <form method="post">
     <input class="form-control mb-2" name="name" value="{{name}}" required>
@@ -269,15 +303,14 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product</title>{B
 
 # ---------- Admin Interface ----------
 def admin_page(orders_html: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Admin · Orders</title>{BOOTSTRAP}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Admin · Orders</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
-<div class="container">
-  <h2>Admin · All Orders</h2>
+<div class="container mt-4">
+  <h2>🛡️ Admin Panel · All Orders</h2>
   {orders_html}
 </div></body></html>"""
 
 def admin_order_item(order):
-    # Build a status update dropdown
     status_opts = ["pending","confirmed","shipped","delivered"]
     options = "".join([
         f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.capitalize()}</option>"
@@ -289,9 +322,9 @@ def admin_order_item(order):
         for item in (items.data or [])
     )
     return f"""
-    <div class="card mb-3">
+    <div class="card mb-3 p-3">
       <div class="card-body">
-        <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
+        <h5>Order #{order['id'][:8]} — <span class="badge status-badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
         <p><strong>Buyer:</strong> {order.get('profiles', {}).get('full_name', 'Unknown')} ({order.get('profiles', {}).get('phone', 'N/A')})</p>
         <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Payment:</strong> {order.get('payment_method', 'N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
         <ul>{products_list}</ul>
@@ -311,14 +344,14 @@ def get_cart(request: Request):
 def save_cart(request: Request, cart):
     request.session["cart"] = cart
 
-# ---------- Routes ----------
+# ---------- Routes (identical to before, just using the new templates) ----------
 @app.get("/")
 def root():
     return RedirectResponse("/login")
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page():
-    return HTMLResponse(LOGIN_PAGE)
+def login_page_route():
+    return HTMLResponse(login_page())
 
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
@@ -328,11 +361,11 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         request.session["refresh_token"] = resp.session.refresh_token
         return RedirectResponse("/products", status_code=303)
     except:
-        return HTMLResponse(LOGIN_PAGE.replace("</body>", "<div class='alert alert-danger m-3'>Login failed</div></body>"))
+        return HTMLResponse(login_page("Invalid email or password"))
 
 @app.get("/signup", response_class=HTMLResponse)
-def signup_page():
-    return HTMLResponse(SIGNUP_PAGE)
+def signup_page_route():
+    return HTMLResponse(signup_page())
 
 @app.post("/signup")
 def signup(full_name: str = Form(...), email: str = Form(...), password: str = Form(...), role: str = Form(...)):
@@ -345,7 +378,7 @@ def signup(full_name: str = Form(...), email: str = Form(...), password: str = F
         supabase.table("profiles").update({"role": role}).eq("user_id", resp.user.id).execute()
         return RedirectResponse("/login", status_code=303)
     except Exception as e:
-        return HTMLResponse(SIGNUP_PAGE.replace("</body>", f"<div class='alert alert-danger m-3'>Error: {e}</div></body>"))
+        return HTMLResponse(signup_page(str(e)))
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -378,7 +411,7 @@ def products(request: Request, search: str = ""):
     cards = "".join([PRODUCT_CARD.format(**p) for p in products])
     return HTMLResponse(products_page(cards, role))
 
-# ---------- Seller ----------
+# ---------- Seller (seller only) ----------
 @app.get("/seller", response_class=HTMLResponse)
 def seller_dashboard(request: Request):
     sup = get_valid_session(request)
@@ -605,12 +638,10 @@ def admin_dashboard(request: Request):
     profile = get_user_profile(sup)
     if not profile.data or profile.data.get("role") != "admin":
         return HTMLResponse("<div class='alert alert-danger'>Access denied · Admins only</div>")
-    # Fetch all orders with buyer full name
     orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
     orders_html = ""
     if orders.data:
         for o in orders.data:
-            # embed the profile data into the order dict for our helper
             o['profiles'] = o.get('profiles', {}) or {}
             orders_html += admin_order_item(o)
     else:
