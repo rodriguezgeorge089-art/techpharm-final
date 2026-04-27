@@ -3,3 +3,4 @@ uvicorn
 supabase
 starlette
 python-dotenv
+itsdangerous
