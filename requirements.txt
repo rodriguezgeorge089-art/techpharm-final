@@ -4,3 +4,4 @@ supabase
 starlette
 python-dotenv
 itsdangerous
+python-multipart
