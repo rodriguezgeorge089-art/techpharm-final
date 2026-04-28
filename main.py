@@ -61,7 +61,7 @@ CUSTOM_CSS = f"""
   .receipt-container {{ max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
   .progress-tracker {{ display: flex; justify-content: space-between; margin-bottom: 0; }}
   .step {{ text-align: center; flex: 1; position: relative; }}
-  .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; }}
+  .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; font-size: 0.85rem; }}
   .step.active .circle {{ background-color: {PRIMARY_COLOR}; }}
   .step.completed .circle {{ background-color: #198754; }}
   .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
@@ -215,7 +215,8 @@ ORDER_ITEM_HTML = """<div class="card mb-3 p-4"><div class="card-body">
 <div class="step {pending_class}"><div class="circle">1</div><small>Pending</small></div>
 <div class="step {confirmed_class}"><div class="circle">2</div><small>Confirmed</small></div>
 <div class="step {shipped_class}"><div class="circle">3</div><small>Shipped</small></div>
-<div class="step {delivered_class}"><div class="circle">4</div><small>Delivered</small></div>
+<div class="step {in_transit_class}"><div class="circle">4</div><small>In Transit</small></div>
+<div class="step {delivered_class}"><div class="circle">5</div><small>Delivered</small></div>
 </div><a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary"><i class="fas fa-print"></i> View Receipt</a></div></div>"""
 
 def seller_dashboard_page(cards, role):
@@ -319,10 +320,15 @@ def admin_dashboard_page(metrics, orders_html, role):
 </div></body></html>"""
 
 def admin_order_item(order):
-    status_opts = ["pending","confirmed","shipped","delivered"]
-    status_options = "".join([f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.capitalize()}</option>" for s in status_opts])
+    # Allowed statuses now include in_transit
+    status_opts = ["pending","confirmed","shipped","in_transit","delivered"]
+    status_options = "".join([f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.replace('_',' ').title()}</option>" for s in status_opts])
     payment_status = order.get('payment_status','pending')
-    payment_btn = f'<a href="/admin/verify-payment/{order["id"]}" class="btn btn-sm btn-outline-success ms-1">Verify Payment</a>' if payment_status != 'verified' else '<span class="badge bg-success">Payment Verified</span>'
+    # Replace direct verify link with a View Payment link
+    if payment_status != 'verified':
+        payment_btn = f'<a href="/admin/payment/{order["id"]}" class="btn btn-sm btn-outline-primary ms-1">View Payment</a>'
+    else:
+        payment_btn = '<span class="badge bg-success">Payment Verified</span>'
     items = supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute()
     products_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']} (Cost KSh {i['products'].get('cost_price',0)})</li>" for i in (items.data or []))
     profit = order.get('profit',0)
@@ -335,6 +341,33 @@ def admin_order_item(order):
 <form method="post" action="/admin/update-order/{order['id']}" class="d-flex align-items-center">
 <select class="form-select me-2" name="status" style="width:auto;">{status_options}</select>
 <button class="btn btn-sm btn-primary">Update Status</button></form></div></div>"""
+
+def admin_payment_review_page(order):
+    # Page where admin can view payment details and approve
+    buyer_name = order.get('buyer_name', 'Unknown')
+    buyer_phone = order.get('buyer_phone', 'N/A')
+    buyer_email = order.get('buyer_email', 'N/A')
+    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    items_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
+    return f"""<!DOCTYPE html><html><head><title>Payment Review · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar('admin')}
+<div class="container mt-4" style="max-width:600px;">
+  <h2><i class="fas fa-credit-card"></i> Payment Review</h2>
+  <div class="card p-4 mt-3">
+    <h4>Order #{order['id'][:8]}</h4>
+    <hr>
+    <p><strong>Buyer:</strong> {buyer_name} ({buyer_email}) · {buyer_phone}</p>
+    <p><strong>Total:</strong> KSh {order['total_amount']}</p>
+    <p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
+    <p><strong>Payment Status:</strong> {order.get('payment_status','pending')}</p>
+    <h5>Order Items</h5>
+    <ul>{items_list}</ul>
+    <form method="post" action="/admin/approve-payment/{order['id']}" class="mt-3">
+      <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Approve Payment</button>
+      <a href="/admin" class="btn btn-outline-secondary ms-2">Back to Admin</a>
+    </form>
+  </div>
+</div></body></html>"""
 
 def inquiries_page(inquiries):
     rows = "".join(f"<tr><td>{i['name']}</td><td>{i['email']}</td><td>{i['message']}</td><td>{i['created_at'][:10]}</td></tr>" for i in inquiries)
@@ -356,8 +389,15 @@ def save_cart(request: Request, cart):
     request.session["cart"] = cart
 
 def get_progress_classes(status):
-    m = {"pending":("active","","",""),"confirmed":("completed","active","",""),"shipped":("completed","completed","active",""),"delivered":("completed","completed","completed","active")}
-    return m.get(status,("","","",""))
+    # Now supports 5 steps: pending, confirmed, shipped, in_transit, delivered
+    m = {
+        "pending": ("active", "", "", "", ""),
+        "confirmed": ("completed", "active", "", "", ""),
+        "shipped": ("completed", "completed", "active", "", ""),
+        "in_transit": ("completed", "completed", "completed", "active", ""),
+        "delivered": ("completed", "completed", "completed", "completed", "active"),
+    }
+    return m.get(status, ("", "", "", "", ""))
 
 def product_image_html(url):
     return f'<img src="{url}" class="card-img-top" style="height:200px; object-fit:cover;">' if url else ""
@@ -664,18 +704,20 @@ def orders(request: Request):
         for o in res.data:
             items = sup.table("order_items").select("*, products(name)").eq("order_id", o["id"]).execute()
             pl = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
-            sc = {"pending":"warning","confirmed":"info","shipped":"primary","delivered":"success"}.get(o["status"],"secondary")
+            sc = {"pending":"warning","confirmed":"info","shipped":"primary","in_transit":"info","delivered":"success"}.get(o["status"],"secondary")
             pcls = get_progress_classes(o["status"])
             html += ORDER_ITEM_HTML.format(order_id_short=o["id"][:8], order_id=o["id"], status=o["status"],
                                            status_color=sc, total=o["total_amount"],
                                            payment_method=o.get("payment_method","N/A"), date=o["created_at"][:10],
-                                           products_list=pl, pending_class=pcls[0], confirmed_class=pcls[1],
-                                           shipped_class=pcls[2], delivered_class=pcls[3])
+                                           products_list=pl,
+                                           pending_class=pcls[0], confirmed_class=pcls[1],
+                                           shipped_class=pcls[2], in_transit_class=pcls[3],
+                                           delivered_class=pcls[4])
         return HTMLResponse(orders_page(html, role, bt))
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
 
-# ---------- Admin (fully working) ----------
+# ---------- Admin ----------
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
     sup = get_valid_session(request)
@@ -705,12 +747,14 @@ def admin_dashboard(request: Request):
     profile_client = service_supabase if service_supabase else sup
     for order in all_orders:
         try:
-            buyer_profile = profile_client.table("profiles").select("full_name, phone").eq("id", order["buyer_id"]).single().execute()
+            buyer_profile = profile_client.table("profiles").select("full_name, phone, email").eq("id", order["buyer_id"]).single().execute()
             order['buyer_name'] = buyer_profile.data['full_name'] if buyer_profile.data else "Unknown"
             order['buyer_phone'] = buyer_profile.data['phone'] if buyer_profile.data else "N/A"
+            order['buyer_email'] = buyer_profile.data['email'] if buyer_profile.data else "N/A"
         except:
             order['buyer_name'] = "Unknown"
             order['buyer_phone'] = "N/A"
+            order['buyer_email'] = "N/A"
 
         order['profit'] = sum(
             (item['unit_price'] - (item['products']['cost_price'] if item['products'] else 0)) * item['quantity']
@@ -729,18 +773,45 @@ def admin_update_order(request: Request, order_id: str, status: str = Form(...))
     if not sup: return RedirectResponse("/login")
     p = get_user_profile(sup)
     if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
-    if status not in ["pending","confirmed","shipped","delivered"]: return RedirectResponse("/admin", 303)
+    allowed = ["pending","confirmed","shipped","in_transit","delivered"]
+    if status not in allowed: return RedirectResponse("/admin", 303)
     sup.table("orders").update({"status": status}).eq("id", order_id).execute()
     return RedirectResponse("/admin", 303)
 
-@app.get("/admin/verify-payment/{order_id}")
-def verify_payment(request: Request, order_id: str):
+# New: Payment review page for admin
+@app.get("/admin/payment/{order_id}", response_class=HTMLResponse)
+def admin_payment_review(request: Request, order_id: str):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    p = get_user_profile(sup)
+    if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    # Fetch order with buyer profile
+    profile_client = service_supabase if service_supabase else sup
+    order = sup.table("orders").select("*").eq("id", order_id).single().execute()
+    if not order.data:
+        return HTMLResponse("<div class='alert alert-danger'>Order not found.</div>")
+    order_data = order.data
+    # Attach buyer info
+    try:
+        buyer = profile_client.table("profiles").select("full_name, phone, email").eq("id", order_data["buyer_id"]).single().execute()
+        order_data['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
+        order_data['buyer_phone'] = buyer.data['phone'] if buyer.data else "N/A"
+        order_data['buyer_email'] = buyer.data['email'] if buyer.data else "N/A"
+    except:
+        order_data['buyer_name'] = "Unknown"
+        order_data['buyer_phone'] = "N/A"
+        order_data['buyer_email'] = "N/A"
+    return HTMLResponse(admin_payment_review_page(order_data))
+
+# New: Approve payment (POST)
+@app.post("/admin/approve-payment/{order_id}")
+def admin_approve_payment(request: Request, order_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     p = get_user_profile(sup)
     if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     sup.table("orders").update({"payment_status": "verified"}).eq("id", order_id).execute()
-    return RedirectResponse("/admin", 303)
+    return RedirectResponse("/admin", status_code=303)
 
 @app.get("/admin/inquiries", response_class=HTMLResponse)
 def admin_inquiries(request: Request):
