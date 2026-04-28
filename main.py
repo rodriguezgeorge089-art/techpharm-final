@@ -5,7 +5,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# Force rebuild 1  (comment to bust cache)
 load_dotenv()
 
 app = FastAPI()
@@ -592,7 +591,7 @@ def remove_from_cart(request: Request, product_id: str):
     save_cart(request, cart)
     return RedirectResponse("/cart", 303)
 
-# Fallback GET for /cart/checkout (prevent "Method Not Allowed")
+# Fallback GET for /cart/checkout
 @app.get("/cart/checkout")
 def checkout_get():
     return RedirectResponse("/cart", status_code=303)
@@ -703,10 +702,16 @@ def admin_dashboard(request: Request):
     }
 
     orders_html = ""
+    profile_client = service_supabase if service_supabase else sup
     for order in all_orders:
-        buyer_profile = sup.table("profiles").select("full_name, phone").eq("id", order["buyer_id"]).single().execute()
-        order['buyer_name'] = buyer_profile.data['full_name'] if buyer_profile.data else "Unknown"
-        order['buyer_phone'] = buyer_profile.data['phone'] if buyer_profile.data else "N/A"
+        try:
+            buyer_profile = profile_client.table("profiles").select("full_name, phone").eq("id", order["buyer_id"]).single().execute()
+            order['buyer_name'] = buyer_profile.data['full_name'] if buyer_profile.data else "Unknown"
+            order['buyer_phone'] = buyer_profile.data['phone'] if buyer_profile.data else "N/A"
+        except:
+            order['buyer_name'] = "Unknown"
+            order['buyer_phone'] = "N/A"
+
         order['profit'] = sum(
             (item['unit_price'] - (item['products']['cost_price'] if item['products'] else 0)) * item['quantity']
             for item in sup.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", order["id"]).execute().data or []
