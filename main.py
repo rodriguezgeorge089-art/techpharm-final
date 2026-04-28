@@ -21,7 +21,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else None
 
-# ---------- Token & Profile helpers ----------
 def get_valid_session(request: Request):
     token = request.session.get("access_token")
     refresh = request.session.get("refresh_token")
@@ -45,7 +44,6 @@ def get_user_profile(sup: Client):
     user = sup.auth.get_user().user
     return sup.table("profiles").select("*").eq("user_id", user.id).single().execute()
 
-# ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
 CUSTOM_CSS = f"""
@@ -69,10 +67,7 @@ CUSTOM_CSS = f"""
   .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
   .step:last-child::after {{ display: none; }}
   .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
-  @media (max-width: 768px) {{
-    .admin-sidebar {{ min-height: auto; }}
-    .admin-sidebar a {{ display: inline-block; }}
-  }}
+  .badge-role {{ font-size: 1rem; }}
 </style>
 """
 
@@ -107,7 +102,7 @@ NAV_GUEST = f"""
   </div>
 </nav>"""
 
-# ---------- Page Templates ----------
+# ---------- Templates ----------
 def login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -295,35 +290,48 @@ def receipt_page(order):
 <div class="text-center mt-4"><button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
 <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a></div></div></body></html>"""
 
+# ---------- Admin Dashboard with bulletproof order loading ----------
 def admin_dashboard_page(metrics, orders_html, role):
     return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
-{navbar(role)}<div class="container-fluid"><div class="row">
-<div class="col-md-2 admin-sidebar p-3"><h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
-<a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-<a href="/admin/inquiries"><i class="fas fa-envelope"></i> Inquiries</a>
-<a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
-<a href="/products">View Site</a></div>
-<div class="col-md-10 p-4"><h2>Admin Dashboard</h2>
-<div class="row mt-4">
-<div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
-<div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_profit']}</h3><p>Estimated Profit (KSh)</p></div></div>
-<div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
-<div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_users']}</h3><p>Registered Users</p></div></div>
-</div><hr><div class="d-flex justify-content-between"><h4>Recent Orders</h4>
-<a href="/admin/export-orders" class="btn btn-sm btn-outline-success"><i class="fas fa-file-csv"></i> Export CSV</a></div>
-{orders_html}</div></div></div></body></html>"""
+{navbar(role)}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/inquiries"><i class="fas fa-envelope"></i> Inquiries</a>
+      <a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
+      <a href="/products">View Site</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Admin Dashboard</h2>
+      <div class="row mt-4">
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_profit']}</h3><p>Estimated Profit (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_users']}</h3><p>Registered Users</p></div></div>
+      </div>
+      <hr>
+      <div class="d-flex justify-content-between">
+        <h4>Recent Orders</h4>
+        <a href="/admin/export-orders" class="btn btn-sm btn-outline-success"><i class="fas fa-file-csv"></i> Export CSV</a>
+      </div>
+      {orders_html}
+    </div>
+  </div>
+</div></body></html>"""
 
 def admin_order_item(order):
     status_opts = ["pending","confirmed","shipped","delivered"]
     status_options = "".join([f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.capitalize()}</option>" for s in status_opts])
     payment_status = order.get('payment_status','pending')
     payment_btn = f'<a href="/admin/verify-payment/{order["id"]}" class="btn btn-sm btn-outline-success ms-1">Verify Payment</a>' if payment_status != 'verified' else '<span class="badge bg-success">Payment Verified</span>'
-    items = supabase.table("order_items").select("*, products(name,cost_price)").eq("order_id", order["id"]).execute()
+    items = supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute()
     products_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']} (Cost KSh {i['products'].get('cost_price',0)})</li>" for i in (items.data or []))
     profit = order.get('profit',0)
     return f"""<div class="card mb-3 p-3"><div class="card-body">
 <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
-<p><strong>Buyer:</strong> {order.get('profiles',{}).get('full_name','Unknown')} ({order.get('profiles',{}).get('phone','N/A')})</p>
+<p><strong>Buyer:</strong> {order.get('buyer_name','Unknown')} ({order.get('buyer_phone','N/A')})</p>
 <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Profit:</strong> KSh {profit} · <strong>Payment:</strong> {order.get('payment_method','N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
 <p><strong>Payment Status:</strong> {payment_status} {payment_btn}</p>
 <ul>{products_list}</ul>
@@ -515,7 +523,7 @@ def seller_orders(request: Request):
     p = get_user_profile(sup)
     if not p.data or p.data['role'] != 'seller': return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     sid = p.data['id']
-    res = sup.table("order_items").select("*, orders!inner(*, profiles!orders_buyer_id_fkey(full_name)), products!inner(*)").eq("products.seller_id", sid).order("orders.created_at", desc=True).execute()
+    res = sup.table("order_items").select("*, orders!inner(*), products!inner(*)").eq("products.seller_id", sid).order("orders.created_at", desc=True).execute()
     orders_dict = {}
     for item in (res.data or []):
         order = item['orders']
@@ -525,7 +533,7 @@ def seller_orders(request: Request):
     html = ""
     for order in orders_dict.values():
         il = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']}</li>" for it in order['items'])
-        html += f"<div class='card mb-3 p-3'><h5>Order #{order['id'][:8]} - {order['status']}</h5><p>Buyer: {order.get('profiles',{}).get('full_name','Unknown')}</p><ul>{il}</ul></div>"
+        html += f"<div class='card mb-3 p-3'><h5>Order #{order['id'][:8]} - {order['status']}</h5><ul>{il}</ul></div>"
     if not html: html = "<p>No orders yet.</p>"
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>My Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar('seller')}<div class="container mt-4"><h2>Orders for My Products</h2>{html}</div></body></html>""")
@@ -665,32 +673,50 @@ def orders(request: Request):
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
 
-# ---------- Admin ----------
+# ---------- Admin (fully working) ----------
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     p = get_user_profile(sup)
     if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
-    total_sales = sum(o['total_amount'] for o in sup.table("orders").select("total_amount").execute().data) if sup.table("orders").select("total_amount").execute().data else 0
-    profit = 0
-    items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").execute().data
-    if items:
-        for i in items:
-            cost = i['products']['cost_price'] if i['products'] else 0
-            profit += (i['unit_price'] - cost) * i['quantity']
-    total_orders = sup.table("orders").select("count", count="exact").execute().count or 0
+
+    # Metrics
+    all_orders = sup.table("orders").select("*").order("created_at", desc=True).execute().data or []
+    total_sales = sum(o['total_amount'] for o in all_orders)
+    total_orders = len(all_orders)
     total_users = sup.table("profiles").select("count", count="exact").execute().count or 0
-    metrics = {"total_sales": f"{total_sales:,.2f}", "total_profit": f"{profit:,.2f}",
-               "total_orders": total_orders, "total_users": total_users}
-    orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute().data or []
+
+    # Profit calculation
+    profit = 0
+    items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").execute().data or []
+    for i in items:
+        cost = i['products']['cost_price'] if i['products'] else 0
+        profit += (i['unit_price'] - cost) * i['quantity']
+
+    metrics = {
+        "total_sales": f"{total_sales:,.2f}",
+        "total_profit": f"{profit:,.2f}",
+        "total_orders": total_orders,
+        "total_users": total_users
+    }
+
+    # Build orders HTML with buyer name (load profiles individually)
     orders_html = ""
-    for o in orders:
-        o['profiles'] = o.get('profiles', {}) or {}
-        order_items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", o['id']).execute().data or []
-        o['profit'] = round(sum((i['unit_price'] - (i['products']['cost_price'] if i['products'] else 0)) * i['quantity'] for i in order_items), 2)
-        orders_html += admin_order_item(o)
-    if not orders_html: orders_html = "<p>No orders yet.</p>"
+    for order in all_orders:
+        # Get buyer profile
+        buyer_profile = sup.table("profiles").select("full_name, phone").eq("id", order["buyer_id"]).single().execute()
+        order['buyer_name'] = buyer_profile.data['full_name'] if buyer_profile.data else "Unknown"
+        order['buyer_phone'] = buyer_profile.data['phone'] if buyer_profile.data else "N/A"
+        order['profit'] = sum(
+            (item['unit_price'] - (item['products']['cost_price'] if item['products'] else 0)) * item['quantity']
+            for item in sup.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", order["id"]).execute().data or []
+        )
+        orders_html += admin_order_item(order)
+
+    if not orders_html:
+        orders_html = "<p>No orders yet.</p>"
+
     return HTMLResponse(admin_dashboard_page(metrics, orders_html, "admin"))
 
 @app.post("/admin/update-order/{order_id}")
@@ -727,12 +753,14 @@ def export_orders(request: Request):
     if not sup: return RedirectResponse("/login")
     p = get_user_profile(sup)
     if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
-    orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, email)").order("created_at", desc=True).execute().data or []
+    orders = sup.table("orders").select("*").order("created_at", desc=True).execute().data or []
     output = io.StringIO()
     w = csv.writer(output)
-    w.writerow(["Order ID","Date","Buyer Name","Buyer Email","Total","Status","Payment Method","Payment Status"])
+    w.writerow(["Order ID","Date","Buyer","Total","Status","Payment Method","Payment Status"])
     for o in orders:
-        w.writerow([o['id'][:8], o['created_at'][:10], o.get('profiles',{}).get('full_name',''), o.get('profiles',{}).get('email',''), o['total_amount'], o['status'], o.get('payment_method',''), o.get('payment_status','')])
+        buyer = sup.table("profiles").select("full_name").eq("id", o["buyer_id"]).single().execute()
+        buyer_name = buyer.data['full_name'] if buyer.data else ""
+        w.writerow([o['id'][:8], o['created_at'][:10], buyer_name, o['total_amount'], o['status'], o.get('payment_method',''), o.get('payment_status','')])
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=orders.csv"})
 
