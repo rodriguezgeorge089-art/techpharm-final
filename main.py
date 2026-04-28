@@ -16,7 +16,7 @@ PRIMARY_COLOR = "#0d6efd"
 
 PHARMACY_ADDRESS = "Moi Avenue, Nairobi CBD"
 PHARMACY_PHONE = "+254 700 123456"
-PHARMACY_EMAIL = "info@dawalink.co.ke"
+PHARMACY_EMAIL = "info@dawalink.co.ke"   # not shown on receipt, but used for pharmacy info
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -36,7 +36,6 @@ def get_current_user(request: Request):
         return None
 
 def notify_admins(message: str):
-    """Send a notification to every admin user."""
     try:
         admins = service_supabase.table("profiles").select("user_id").eq("role", "admin").execute()
         if admins.data:
@@ -76,8 +75,8 @@ CUSTOM_CSS = f"""
   .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
   .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
   .receipt-container {{
-    max-width: 300px; margin: auto; background: white; padding: 10px;
-    font-family: 'Courier New', monospace; font-size: 14px;
+    max-width: 320px; margin: auto; background: white; padding: 12px;
+    font-family: 'Courier New', monospace; font-size: 13px;
     border: 2px dashed #198754;
   }}
   .receipt-container hr {{ border-top: 1px dashed #000; }}
@@ -331,7 +330,7 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
 <button class="btn btn-primary w-100">Update Product</button></form></div></body></html>"""
 
 # ------------------------------------------------------------
-# NEW SUPERMARKET‑STYLE RECEIPT (no errors, compact layout)
+# FINAL RECEIPT – SUPERMARKET STYLE, NO EMAIL
 # ------------------------------------------------------------
 def receipt_page(order, buyer):
     try:
@@ -354,8 +353,7 @@ def receipt_page(order, buyer):
             <strong>{APP_NAME}</strong><br>
             {APP_TAGLINE}<br>
             {PHARMACY_ADDRESS}<br>
-            Tel: {PHARMACY_PHONE}<br>
-            Email: {PHARMACY_EMAIL}
+            Tel: {PHARMACY_PHONE}
             <hr>
             <strong>Receipt</strong><br>
             Order #{order['id'][:8]}<br>
@@ -399,6 +397,9 @@ def payment_success_page(order):
 <a href="/receipt/{order['id']}" class="btn btn-primary"><i class="fas fa-print"></i> View / Print Receipt</a>
 <a href="/orders" class="btn btn-outline-secondary ms-2">My Orders</a></div></div></body></html>"""
 
+# ------------------------------------------------------------
+# ADMIN DASHBOARD – FAST (pre-loaded buyer & items)
+# ------------------------------------------------------------
 def admin_dashboard_page(metrics, orders_html, profile):
     return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar(profile)}
@@ -457,7 +458,6 @@ def admin_payment_review_page(order, profile):
     try:
         buyer_name = order.get('buyer_name', 'Unknown')
         buyer_phone = order.get('buyer_phone', 'N/A')
-        buyer_email = order.get('buyer_email', 'N/A')
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
         items_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
     except Exception as e:
@@ -469,7 +469,7 @@ def admin_payment_review_page(order, profile):
   <div class="card p-4 mt-3">
     <h4>Order #{order['id'][:8]}</h4>
     <hr>
-    <p><strong>Buyer:</strong> {buyer_name} ({buyer_email}) · {buyer_phone}</p>
+    <p><strong>Buyer:</strong> {buyer_name} · {buyer_phone}</p>
     <p><strong>Total:</strong> KSh {order['total_amount']}</p>
     <p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
     <p><strong>Payment Status:</strong> {order.get('payment_status','pending')}</p>
@@ -811,7 +811,6 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         oi["order_id"] = oid
         service_supabase.table("order_items").insert(oi).execute()
     save_cart(request, [])
-    # Notify all admins
     notify_admins(f"New order #{oid[:8]} placed, awaiting payment.")
     return RedirectResponse(f"/payment-success/{oid}", 303)
 
@@ -832,7 +831,8 @@ def view_receipt(request: Request, order_id: str):
         order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
         if not order.data or order.data["buyer_id"] != profile["id"]:
             return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-        buyer = service_supabase.table("profiles").select("full_name, email, phone").eq("id", profile["id"]).single().execute()
+        # Fetch only full_name and phone, no email
+        buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", profile["id"]).single().execute()
         buyer_data = buyer.data if buyer.data else {}
         return HTMLResponse(receipt_page(order.data, buyer_data))
     except Exception as e:
@@ -896,32 +896,51 @@ def submit_return(request: Request, order_id: str, reason: str = Form(...)):
 def admin_dashboard(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
-    # load orders with buyer profiles in one go? We'll fetch separately for simplicity but optimized
+    # Load all orders and buyer profiles in bulk to reduce queries
     all_orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
+    # Collect unique buyer IDs
+    buyer_ids = list(set(o['buyer_id'] for o in all_orders))
+    # Fetch all those buyers at once
+    buyers_map = {}
+    if buyer_ids:
+        buyers = service_supabase.table("profiles").select("id, full_name, phone").in_("id", buyer_ids).execute().data or []
+        for b in buyers:
+            buyers_map[b['id']] = b
+    # Pre-load all order items (inefficient loop but okay)
+    all_items = service_supabase.table("order_items").select("*, products(name, cost_price)").execute().data or []
+    items_by_order = {}
+    for it in all_items:
+        items_by_order.setdefault(it['order_id'], []).append(it)
+
     total_sales = sum(o['total_amount'] for o in all_orders)
     total_orders = len(all_orders)
     total_users = service_supabase.table("profiles").select("count", count="exact").execute().count or 0
     profit = 0
-    items = service_supabase.table("order_items").select("quantity, unit_price, products(cost_price)").execute().data or []
-    for i in items:
-        cost = i['products']['cost_price'] if i['products'] else 0
-        profit += (i['unit_price'] - cost) * i['quantity']
-    metrics = {"total_sales": f"{total_sales:,.2f}", "total_profit": f"{profit:,.2f}", "total_orders": total_orders, "total_users": total_users}
+    for it in all_items:
+        cost = it['products']['cost_price'] if it['products'] else 0
+        profit += (it['unit_price'] - cost) * it['quantity']
+
+    metrics = {
+        "total_sales": f"{total_sales:,.2f}",
+        "total_profit": f"{profit:,.2f}",
+        "total_orders": total_orders,
+        "total_users": total_users
+    }
+
     orders_html = ""
     for order in all_orders:
-        try:
-            buyer = service_supabase.table("profiles").select("full_name, phone, email").eq("id", order["buyer_id"]).single().execute()
-            order['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
-            order['buyer_phone'] = buyer.data['phone'] if buyer.data else "N/A"
-            order['buyer_email'] = buyer.data['email'] if buyer.data else "N/A"
-        except:
-            order['buyer_name'] = order['buyer_phone'] = order['buyer_email'] = "N/A"
-        # pre-load items for display
-        items_data = service_supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute().data or []
+        buyer = buyers_map.get(order['buyer_id'], {"full_name": "Unknown", "phone": "N/A"})
+        order['buyer_name'] = buyer.get('full_name','Unknown')
+        order['buyer_phone'] = buyer.get('phone','N/A')
+        # Get items for this order
+        items_data = items_by_order.get(order['id'], [])
         order['items_list'] = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']} (Cost KSh {it['products'].get('cost_price',0)})</li>" for it in items_data)
         order['profit'] = sum((it['unit_price'] - (it['products']['cost_price'] if it['products'] else 0)) * it['quantity'] for it in items_data)
         orders_html += admin_order_item(order)
-    if not orders_html: orders_html = "<p>No orders yet.</p>"
+
+    if not orders_html:
+        orders_html = "<p>No orders yet.</p>"
+
     return HTMLResponse(admin_dashboard_page(metrics, orders_html, profile))
 
 @app.post("/admin/update-order/{order_id}")
@@ -944,13 +963,14 @@ def admin_payment_review(request: Request, order_id: str):
     order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
     if not order.data: return HTMLResponse("<div class='alert alert-danger'>Order not found.</div>")
     order_data = order.data
+    # get buyer info
     try:
-        buyer = service_supabase.table("profiles").select("full_name, phone, email").eq("id", order_data["buyer_id"]).single().execute()
+        buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", order_data["buyer_id"]).single().execute()
         order_data['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
         order_data['buyer_phone'] = buyer.data['phone'] if buyer.data else "N/A"
-        order_data['buyer_email'] = buyer.data['email'] if buyer.data else "N/A"
     except:
-        order_data['buyer_name'] = order_data['buyer_phone'] = order_data['buyer_email'] = "N/A"
+        order_data['buyer_name'] = "Unknown"
+        order_data['buyer_phone'] = "N/A"
     return HTMLResponse(admin_payment_review_page(order_data, profile))
 
 @app.post("/admin/approve-payment/{order_id}")
@@ -981,9 +1001,14 @@ def admin_returns(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
     returns = service_supabase.table("returns").select("*").order("created_at", desc=True).execute().data or []
+    # get buyer names
+    buyer_ids = [ret['buyer_id'] for ret in returns]
+    buyers = {}
+    if buyer_ids:
+        profiles = service_supabase.table("profiles").select("id, full_name").in_("id", buyer_ids).execute().data or []
+        buyers = {p['id']: p['full_name'] for p in profiles}
     for ret in returns:
-        buyer = service_supabase.table("profiles").select("full_name").eq("id", ret["buyer_id"]).single().execute()
-        ret["buyer_name"] = buyer.data["full_name"] if buyer.data else "Unknown"
+        ret['buyer_name'] = buyers.get(ret['buyer_id'], 'Unknown')
     return HTMLResponse(returns_management_page(returns))
 
 @app.get("/admin/return/approve/{return_id}")
@@ -1063,7 +1088,6 @@ def contact_submit(name: str = Form(...), email: str = Form(...), message: str =
     service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
     return RedirectResponse("/contact?success=true", 303)
 
-# Catch-all
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
     return RedirectResponse("/login")
