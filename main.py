@@ -1,193 +1,4 @@
-import os, csv, io, json
-from fastapi import FastAPI, Request, Form, File, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
-from supabase import create_client, Client
-
-load_dotenv()
-
-app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="dawalink-pro-secret-key")
-
-APP_NAME = "DawaLink Pro"
-APP_TAGLINE = "Your Trusted Online Pharmacy"
-PRIMARY_COLOR = "#0d6efd"
-
-# Fake pharmacy details for receipts
-PHARMACY_ADDRESS = "Moi Avenue, Nairobi CBD"
-PHARMACY_PHONE = "+254 700 123456"
-PHARMACY_EMAIL = "info@dawalink.co.ke"
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else supabase
-
-# ---------- Simple session (no token size issues) ----------
-def get_current_user(request: Request):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return None
-    try:
-        profile = service_supabase.table("profiles").select("*").eq("user_id", user_id).single().execute()
-        return profile.data if profile.data else None
-    except:
-        return None
-
-def create_notification(user_id: str, message: str):
-    try:
-        service_supabase.table("notifications").insert({"user_id": user_id, "message": message}).execute()
-    except:
-        pass
-
-def get_unread_count(user_id: str):
-    try:
-        res = service_supabase.table("notifications").select("count", count="exact").eq("user_id", user_id).eq("is_read", False).execute()
-        return res.count if res.count else 0
-    except:
-        return 0
-
-# ---------- HTML Components ----------
-BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
-FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
-CUSTOM_CSS = f"""
-<style>
-  body {{ background: linear-gradient(135deg, #e0f7fa 0%, #f0f4f8 100%); font-family: 'Segoe UI', system-ui, sans-serif; }}
-  .navbar {{ box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
-  .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
-  .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
-  .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
-  .admin-sidebar {{ background-color: #1e293b; color: white; min-height: 100vh; }}
-  .admin-sidebar a {{ color: #cbd5e1; padding: 10px; display: block; border-radius: 6px; text-decoration: none; }}
-  .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
-  .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
-  .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
-  .receipt-container {{ max-width: 400px; margin: auto; background: white; padding: 20px; border: 1px dashed #ccc; font-family: 'Courier New', monospace; }}
-  .progress-tracker {{ display: flex; justify-content: space-between; margin-bottom: 0; }}
-  .step {{ text-align: center; flex: 1; position: relative; }}
-  .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; font-size: 0.85rem; }}
-  .step.active .circle {{ background-color: {PRIMARY_COLOR}; }}
-  .step.completed .circle {{ background-color: #198754; }}
-  .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
-  .step:last-child::after {{ display: none; }}
-  .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
-  .notification-badge {{ position: absolute; top: -8px; right: -8px; font-size: 0.7rem; }}
-</style>
-"""
-
-def navbar(profile):
-    role = profile.get("role","") if profile else ""
-    buyer_type = profile.get("buyer_type","") if profile else ""
-    user_id = profile.get("user_id","") if profile else ""
-    admin_tab = '<a class="nav-link" href="/admin"><span class="badge bg-warning text-dark">Admin</span></a>' if role == "admin" else ""
-    seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
-    buyer_label = f' <span class="badge bg-secondary">{buyer_type}</span>' if role == "buyer" and buyer_type else ""
-    bell = ""
-    if user_id:
-        count = get_unread_count(user_id)
-        bell = f'<a class="nav-link position-relative" href="/notifications"><i class="fas fa-bell"></i>'
-        if count > 0:
-            bell += f'<span class="badge rounded-pill bg-danger notification-badge">{count}</span>'
-        bell += '</a>'
-    return f"""
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-      <div class="container">
-        <a class="navbar-brand" href="/products"><i class="fas fa-pills"></i> {APP_NAME}{buyer_label}</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navMain">
-          <div class="navbar-nav ms-auto">
-            <a class="nav-link" href="/products">Browse</a>
-            <a class="nav-link" href="/cart"><i class="fas fa-shopping-cart"></i> Cart</a>
-            <a class="nav-link" href="/orders">Orders</a>
-            {seller_tab}
-            {admin_tab}
-            {bell}
-            <a class="nav-link" href="/logout">Logout</a>
-          </div>
-        </div>
-      </div>
-    </nav>"""
-
-NAV_GUEST = f"""
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-  <div class="container">
-    <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {APP_NAME}</a>
-  </div>
-</nav>"""
-
-def login_page(error=""):
-    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
-    return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{NAV_GUEST}
-<div class="container text-center mt-5"><h1>{APP_NAME}</h1><p class="lead">{APP_TAGLINE}</p></div>
-<div class="container mt-3" style="max-width:400px;"><div class="card p-4"><h3>Welcome back</h3>{alert}
-<form method="post"><input class="form-control mb-2" name="email" placeholder="Email" required>
-<input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-<button class="btn btn-primary w-100 mt-2">Log In</button></form>
-<p class="mt-3 text-center"><a href="/forgot-password">Forgot password?</a></p>
-<p class="text-center">Don't have an account? <a href="/signup">Sign up</a></p></div></div></body></html>"""
-
-def signup_page(error=""):
-    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
-    return f"""<!DOCTYPE html><html><head><title>Sign Up · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{NAV_GUEST}
-<div class="container mt-4" style="max-width:400px;"><div class="card p-4"><h3>Create your account</h3>{alert}
-<form method="post"><input class="form-control mb-2" name="full_name" placeholder="Full Name" required>
-<input class="form-control mb-2" name="email" placeholder="Email" required>
-<input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-<select class="form-control mb-2" name="role" id="roleSelect"><option value="buyer">Buyer</option><option value="seller">Seller</option></select>
-<div id="buyerTypeDiv" class="mb-2"><label class="form-label">Buyer Type:</label>
-<select class="form-control" name="buyer_type"><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select></div>
-<button class="btn btn-primary w-100 mt-2">Sign Up</button></form>
-<script>document.getElementById('roleSelect').addEventListener('change',function(){{document.getElementById('buyerTypeDiv').style.display=this.value==='buyer'?'block':'none';}});</script>
-</div></div></body></html>"""
-
-def forgot_password_page(error="", success=""):
-    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
-    succ = f'<div class="alert alert-success">{success}</div>' if success else ""
-    return f"""<!DOCTYPE html><html><head><title>Forgot Password · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{NAV_GUEST}
-<div class="container mt-5" style="max-width:400px;"><div class="card p-4"><h3>Reset Password</h3>{alert}{succ}
-<form method="post"><input class="form-control mb-2" name="email" placeholder="Email" required>
-<button class="btn btn-primary w-100">Send Reset Link</button></form>
-<p class="mt-3 text-center"><a href="/login">Back to Login</a></p></div></div></body></html>"""
-
-def dashboard_page(profile):
-    role = profile.get("role","buyer")
-    buyer_type = profile.get("buyer_type","")
-    full_name = profile.get("full_name","User")
-    type_badge = f' <span class="badge bg-secondary">{buyer_type}</span>' if role == "buyer" and buyer_type else ""
-    return f"""<!DOCTYPE html><html><head><title>Dashboard · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{navbar(profile)}
-<div class="container mt-4"><h2>Welcome, {full_name} <span class="badge bg-info ms-2">{role}{type_badge}</span></h2>
-<div class="row mt-4">
-<div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-4 fs-5"><i class="fas fa-store"></i> Browse Products</a></div>
-<div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-4 fs-5"><i class="fas fa-shopping-cart"></i> View Cart</a></div>
-<div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-4 fs-5"><i class="fas fa-box"></i> My Orders</a></div>
-</div></div></body></html>"""
-
-# ... (keep all other page functions exactly as the previous full code, but I will only include the changed ones to save space. The full file will be provided with all functions.)
-# I'll now provide the complete corrected file with all fixes, including the receipt redesign and return fixes.
-
-# I'll embed the full corrected code in the final answer.I've carefully addressed every issue. The Internal Server Errors on payment and receipt came from unhandled database exceptions—I wrapped them all in `try/except` so you’ll now see a clear error message instead of a crash. The receipt has been completely redesigned to look like a real pharmacy receipt, with address, phone, email, and a dashed‑border layout. Returns now instantly change status when the admin approves/denies them, and the admin return page correctly shows buyer names.
-
-Below is the **final, stable `main.py`** with all fixes included.
-
----
-
-## 📄 Final `main.py` – DawaLink Pro (Receipt, Returns & Errors Fixed)
-
-👉 **[Edit main.py directly](https://github.com/rodriguezgeorge089-art/techpharm-final/edit/main/main.py)**
-
-Delete everything and paste the code below.
-
-```python
-import os, csv, io, json
+import os, csv, io
 from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -476,7 +287,7 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
 <input class="form-control mb-2" type="file" name="image" accept="image/*">
 <button class="btn btn-primary w-100">Update Product</button></form></div></body></html>"""
 
-# ------------------ New Professional Receipt ------------------
+# Professional receipt with pharmacy details
 def receipt_page(order, buyer):
     try:
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
@@ -595,7 +406,6 @@ def admin_order_item(order):
 <button class="btn btn-sm btn-primary">Update Status</button></form></div></div>"""
 
 def admin_payment_review_page(order, profile):
-    """Payment review with error handling."""
     try:
         buyer_name = order.get('buyer_name', 'Unknown')
         buyer_phone = order.get('buyer_phone', 'N/A')
@@ -1023,7 +833,6 @@ def admin_payment_review(request: Request, order_id: str):
     order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
     if not order.data: return HTMLResponse("<div class='alert alert-danger'>Order not found.</div>")
     order_data = order.data
-    # attach buyer info
     try:
         buyer = service_supabase.table("profiles").select("full_name, phone, email").eq("id", order_data["buyer_id"]).single().execute()
         order_data['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
@@ -1056,13 +865,12 @@ def admin_deny_payment(request: Request, order_id: str):
         create_notification(order.data["buyer_id"], f"Payment for order #{order_id[:8]} denied. Contact support.")
     return RedirectResponse("/admin", 303)
 
-# ---------- Return Management (fixed) ----------
+# ---------- Return Management ----------
 @app.get("/admin/returns", response_class=HTMLResponse)
 def admin_returns(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
     returns = service_supabase.table("returns").select("*").order("created_at", desc=True).execute().data or []
-    # Fetch buyer names manually
     for ret in returns:
         buyer = service_supabase.table("profiles").select("full_name").eq("id", ret["buyer_id"]).single().execute()
         ret["buyer_name"] = buyer.data["full_name"] if buyer.data else "Unknown"
@@ -1073,7 +881,6 @@ def admin_approve_return(request: Request, return_id: str):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
     service_supabase.table("returns").update({"status": "approved"}).eq("id", return_id).execute()
-    # Notify buyer? optional
     ret = service_supabase.table("returns").select("buyer_id").eq("id", return_id).single().execute()
     if ret.data:
         create_notification(ret.data["buyer_id"], f"Your return request #{return_id[:8]} has been approved.")
