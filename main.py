@@ -1,6 +1,6 @@
-import os
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+import os, csv, io
+from fastapi import FastAPI, Request, Form, File, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -11,7 +11,7 @@ app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="a-very-secret-key-change-me")
 
 # ---------- Branding ----------
-APP_NAME = "DawaLink"
+APP_NAME = "DawaLink Pro"
 APP_TAGLINE = "Your Trusted Online Pharmacy"
 PRIMARY_COLOR = "#0d6efd"
 
@@ -49,19 +49,20 @@ def get_user_profile(sup: Client):
 
 # ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
+FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
 CUSTOM_CSS = f"""
 <style>
   body {{ background-color: #f4f6f9; font-family: 'Segoe UI', system-ui, sans-serif; }}
   .navbar {{ box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
   .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
   .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
+  .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
   .admin-sidebar {{ background-color: #1e293b; color: white; min-height: 100vh; }}
   .admin-sidebar a {{ color: #cbd5e1; padding: 10px; display: block; border-radius: 6px; text-decoration: none; }}
   .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
   .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
   .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
   .receipt-container {{ max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
-  .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
   .progress-tracker {{ display: flex; justify-content: space-between; margin-bottom: 0; }}
   .step {{ text-align: center; flex: 1; position: relative; }}
   .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; }}
@@ -70,23 +71,34 @@ CUSTOM_CSS = f"""
   .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
   .step:last-child::after {{ display: none; }}
   .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
+  .verified-badge {{ color: #198754; }}
+  @media (max-width: 768px) {{
+    .admin-sidebar {{ min-height: auto; }}
+    .admin-sidebar a {{ display: inline-block; }}
+  }}
 </style>
 """
 
+# Navbar with hamburger for mobile
 def navbar(role: str = ""):
     admin_tab = '<a class="nav-link" href="/admin"><span class="badge bg-warning text-dark">Admin</span></a>' if role == "admin" else ""
     seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="/products">💊 {APP_NAME}</a>
-        <div class="navbar-nav ms-auto">
-          <a class="nav-link" href="/products">Browse</a>
-          <a class="nav-link" href="/cart">Cart</a>
-          <a class="nav-link" href="/orders">Orders</a>
-          {seller_tab}
-          {admin_tab}
-          <a class="nav-link" href="/logout">Logout</a>
+        <a class="navbar-brand" href="/products"><i class="fas fa-pills"></i> {APP_NAME}</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+          <div class="navbar-nav ms-auto">
+            <a class="nav-link" href="/products">Browse</a>
+            <a class="nav-link" href="/cart"><i class="fas fa-shopping-cart"></i> Cart</a>
+            <a class="nav-link" href="/orders">Orders</a>
+            {seller_tab}
+            {admin_tab}
+            <a class="nav-link" href="/logout">Logout</a>
+          </div>
         </div>
       </div>
     </nav>"""
@@ -94,10 +106,11 @@ def navbar(role: str = ""):
 NAV_GUEST = f"""
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container">
-    <a class="navbar-brand" href="/">💊 {APP_NAME}</a>
+    <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {APP_NAME}</a>
   </div>
 </nav>"""
 
+# ---------- Page Templates (with improvements) ----------
 def login_page(error: str = ""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -115,7 +128,8 @@ def login_page(error: str = ""):
       <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
       <button class="btn btn-primary w-100 mt-2">Log In</button>
     </form>
-    <p class="mt-3 text-center">Don't have an account? <a href="/signup">Sign up</a></p>
+    <p class="mt-3 text-center"><a href="/forgot-password">Forgot password?</a></p>
+    <p class="text-center">Don't have an account? <a href="/signup">Sign up</a></p>
   </div>
 </div></body></html>"""
 
@@ -140,37 +154,63 @@ def signup_page(error: str = ""):
   </div>
 </div></body></html>"""
 
+def forgot_password_page(error: str = "", success: str = ""):
+    alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
+    succ = f'<div class="alert alert-success">{success}</div>' if success else ""
+    return f"""<!DOCTYPE html><html><head><title>Forgot Password · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{NAV_GUEST}
+<div class="container mt-5" style="max-width:400px;">
+  <div class="card p-4">
+    <h3 class="mb-3">Reset Password</h3>
+    {alert}{succ}
+    <form method="post">
+      <input class="form-control mb-2" name="email" placeholder="Email" required>
+      <button class="btn btn-primary w-100">Send Reset Link</button>
+    </form>
+    <p class="mt-3 text-center"><a href="/login">Back to Login</a></p>
+  </div>
+</div></body></html>"""
+
 def dashboard_page(full_name: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Dashboard · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
 <div class="container mt-4">
   <h2>Welcome, {full_name} <span class="badge bg-info ms-2">{role}</span></h2>
   <div class="row mt-4">
-    <div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-4 fs-5">🛒 Browse Products</a></div>
-    <div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-4 fs-5">🧺 View Cart</a></div>
-    <div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-4 fs-5">📦 My Orders</a></div>
+    <div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-4 fs-5"><i class="fas fa-store"></i> Browse Products</a></div>
+    <div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-4 fs-5"><i class="fas fa-shopping-cart"></i> View Cart</a></div>
+    <div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-4 fs-5"><i class="fas fa-box"></i> My Orders</a></div>
   </div>
 </div></body></html>"""
 
-def products_page(products_cards: str, role: str):
+def products_page(products_cards: str, role: str, page: int, total_pages: int, search: str = ""):
+    pagination = ""
+    if total_pages > 1:
+        pagination = '<nav class="mt-3"><ul class="pagination justify-content-center">'
+        for p in range(1, total_pages+1):
+            active = "active" if p == page else ""
+            pagination += f'<li class="page-item {active}"><a class="page-link" href="/products?page={p}&search={search}">{p}</a></li>'
+        pagination += '</ul></nav>'
     return f"""<!DOCTYPE html><html><head><title>Products · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
 <div class="container mt-4">
   <h2 class="mb-4">Available Medicines</h2>
   <form class="mb-4" method="get" action="/products">
     <div class="input-group input-group-lg">
-      <input class="form-control" name="search" placeholder="Search by name or category">
+      <input class="form-control" name="search" value="{search}" placeholder="Search by name or category">
       <button class="btn btn-primary">Search</button>
     </div>
   </form>
   <div class="row">
     {products_cards}
   </div>
+  {pagination}
 </div></body></html>"""
 
 PRODUCT_CARD = """
 <div class="col-md-4 mb-4">
   <div class="card h-100 p-3">
+    {image_html}
     <div class="card-body">
       <h5 class="card-title fw-bold">{name}</h5>
       <p class="card-text">{description}</p>
@@ -223,7 +263,7 @@ CART_ITEM = """
     </div>
     <div class="col-md-4 text-end">
       <strong>KSh {subtotal}</strong>
-      <a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2">Remove</a>
+      <a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('Remove this item?')">Remove</a>
     </div>
   </div>
 </div>"""
@@ -236,7 +276,6 @@ def orders_page(order_list_html: str, role: str):
   {order_list_html}
 </div></body></html>"""
 
-# Enhanced ORDER_ITEM_HTML with progress tracker
 ORDER_ITEM_HTML = """
 <div class="card mb-3 p-4">
   <div class="card-body">
@@ -251,16 +290,17 @@ ORDER_ITEM_HTML = """
       <div class="step {shipped_class}"><div class="circle">3</div><small>Shipped</small></div>
       <div class="step {delivered_class}"><div class="circle">4</div><small>Delivered</small></div>
     </div>
-    <a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary">View Receipt</a>
+    <a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary"><i class="fas fa-print"></i> View Receipt</a>
   </div>
 </div>"""
 
 def seller_dashboard_page(product_cards: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>My Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>My Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar(role)}
 <div class="container mt-4">
   <h2>My Products</h2>
-  <a href="/seller/add" class="btn btn-success mb-4">+ Add New Product</a>
+  <a href="/seller/add" class="btn btn-success mb-4"><i class="fas fa-plus"></i> Add New Product</a>
+  <a href="/seller/orders" class="btn btn-info mb-4"><i class="fas fa-list"></i> My Orders</a>
   <div class="row">
     {product_cards}
   </div>
@@ -269,10 +309,11 @@ def seller_dashboard_page(product_cards: str, role: str):
 SELLER_PRODUCT_CARD = """
 <div class="col-md-4 mb-4">
   <div class="card h-100 p-3">
+    {image_html}
     <div class="card-body">
       <h5 class="fw-bold">{name}</h5>
       <p>{description}</p>
-      <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
+      <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock} | <strong>Cost:</strong> KSh {cost_price}</p>
       <h3 class="text-success">KSh {price}</h3>
       <a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
       <a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a>
@@ -280,17 +321,19 @@ SELLER_PRODUCT_CARD = """
   </div>
 </div>"""
 
-navigation = ""
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navigation}
 <div class="container mt-4" style="max-width:500px;">
   <h2>Add New Product</h2>
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     <input class="form-control mb-2" name="name" placeholder="Product Name" required>
     <textarea class="form-control mb-2" name="description" placeholder="Description" rows="3"></textarea>
     <input class="form-control mb-2" name="category" placeholder="Category" required>
     <input class="form-control mb-2" type="number" step="0.01" name="price" placeholder="Price (KSh)" required>
+    <input class="form-control mb-2" type="number" step="0.01" name="cost_price" placeholder="Cost Price (KSh)">
     <input class="form-control mb-2" type="number" name="stock" placeholder="Stock Quantity" required>
+    <label class="form-label">Product Image</label>
+    <input class="form-control mb-2" type="file" name="image" accept="image/*">
     <button class="btn btn-primary w-100">Add Product</button>
   </form>
 </div></body></html>"""
@@ -299,17 +342,20 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
 {navigation}
 <div class="container mt-4" style="max-width:500px;">
   <h2>Edit Product</h2>
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     <input class="form-control mb-2" name="name" value="{{name}}" required>
     <textarea class="form-control mb-2" name="description" rows="3">{{description}}</textarea>
     <input class="form-control mb-2" name="category" value="{{category}}" required>
     <input class="form-control mb-2" type="number" step="0.01" name="price" value="{{price}}" required>
+    <input class="form-control mb-2" type="number" step="0.01" name="cost_price" value="{{cost_price}}">
     <input class="form-control mb-2" type="number" name="stock" value="{{stock}}" required>
+    <label class="form-label">Replace Image (leave empty to keep current)</label>
+    <input class="form-control mb-2" type="file" name="image" accept="image/*">
     <button class="btn btn-primary w-100">Update Product</button>
   </form>
 </div></body></html>"""
 
-# ---------- Payment Success Page ----------
+# Payment Success
 def payment_success_page(order):
     items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
     items_html = "".join(
@@ -319,7 +365,7 @@ def payment_success_page(order):
     return f"""<!DOCTYPE html><html><head><title>Payment Successful · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <div class="container mt-5" style="max-width:600px;">
   <div class="card p-4 text-center">
-    <h2 class="text-success">✅ Payment Successful!</h2>
+    <h2 class="text-success"><i class="fas fa-check-circle"></i> Payment Successful!</h2>
     <p>Your order has been placed.</p>
     <hr>
     <h5>Order Summary</h5>
@@ -329,12 +375,12 @@ def payment_success_page(order):
       <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
     </table>
     <p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
-    <a href="/receipt/{order['id']}" class="btn btn-primary">View / Print Receipt</a>
+    <a href="/receipt/{order['id']}" class="btn btn-primary"><i class="fas fa-print"></i> View / Print Receipt</a>
     <a href="/orders" class="btn btn-outline-secondary ms-2">My Orders</a>
   </div>
 </div></body></html>"""
 
-# ---------- Receipt Page (no auto-print) ----------
+# Receipt
 def receipt_page(order):
     items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
     items_html = "".join(
@@ -344,7 +390,7 @@ def receipt_page(order):
     return f"""<!DOCTYPE html><html><head><title>Receipt · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <div class="receipt-container mt-4">
   <div class="text-center mb-4">
-    <h2>💊 {APP_NAME}</h2>
+    <h2><i class="fas fa-pills"></i> {APP_NAME}</h2>
     <p>{APP_TAGLINE}</p>
     <hr>
     <h4>Receipt for Order #{order['id'][:8]}</h4>
@@ -357,33 +403,37 @@ def receipt_page(order):
     <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
   </table>
   <div class="text-center mt-4">
-    <button class="btn btn-primary" onclick="window.print()">Print Receipt</button>
+    <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
     <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a>
   </div>
 </div></body></html>"""
 
-# ---------- Admin Dashboard ----------
+# ---------- Admin Dashboard with Profit & CSV export ----------
 def admin_dashboard_page(metrics, orders_html: str, role: str):
-    return f"""<!DOCTYPE html><html><head><title>Admin · DawaLink</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar(role)}
 <div class="container-fluid">
   <div class="row">
     <div class="col-md-2 admin-sidebar p-3">
-      <h5>🛡️ Admin Panel</h5>
-      <a href="/admin">Dashboard</a>
-      <a href="/admin/inquiries">Inquiries</a>
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/inquiries"><i class="fas fa-envelope"></i> Inquiries</a>
+      <a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
       <a href="/products">View Site</a>
     </div>
     <div class="col-md-10 p-4">
       <h2>Admin Dashboard</h2>
       <div class="row mt-4">
         <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_profit']}</h3><p>Estimated Profit (KSh)</p></div></div>
         <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
-        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_products']}</h3><p>Products in Stock</p></div></div>
         <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_users']}</h3><p>Registered Users</p></div></div>
       </div>
       <hr class="mt-4">
-      <h4>Recent Orders</h4>
+      <div class="d-flex justify-content-between align-items-center">
+        <h4>Recent Orders</h4>
+        <a href="/admin/export-orders" class="btn btn-sm btn-outline-success"><i class="fas fa-file-csv"></i> Export CSV</a>
+      </div>
       {orders_html}
     </div>
   </div>
@@ -395,17 +445,18 @@ def admin_order_item(order):
         f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.capitalize()}</option>"
         for s in status_opts
     ])
-    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    items = supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute()
     products_list = "".join(
-        f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
+        f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']} (Cost KSh {item['products'].get('cost_price',0)})</li>"
         for item in (items.data or [])
     )
+    profit = order.get('profit', 0)
     return f"""
     <div class="card mb-3 p-3">
       <div class="card-body">
         <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
         <p><strong>Buyer:</strong> {order.get('profiles', {}).get('full_name', 'Unknown')} ({order.get('profiles', {}).get('phone', 'N/A')})</p>
-        <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Payment:</strong> {order.get('payment_method', 'N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
+        <p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Profit:</strong> KSh {profit} · <strong>Payment:</strong> {order.get('payment_method', 'N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
         <ul>{products_list}</ul>
         <form method="post" action="/admin/update-order/{order['id']}" class="d-flex align-items-center">
           <select class="form-select me-2" name="status" style="width:auto;">
@@ -413,8 +464,46 @@ def admin_order_item(order):
           </select>
           <button class="btn btn-sm btn-primary">Update Status</button>
         </form>
+        <div class="mt-2">
+          <a href="/admin/toggle-verification/{order.get('buyer_id')}" class="btn btn-sm btn-outline-secondary">Toggle Seller Verified</a>
+        </div>
       </div>
     </div>"""
+
+# Inquiries page
+def inquiries_page(inquiries):
+    rows = ""
+    for inq in inquiries:
+        rows += f"<tr><td>{inq['name']}</td><td>{inq['email']}</td><td>{inq['message']}</td><td>{inq['created_at'][:10]}</td></tr>"
+    return f"""<!DOCTYPE html><html><head><title>Inquiries · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar('admin')}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/admin/export-orders">Export CSV</a>
+      <a href="/products">View Site</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Customer Inquiries</h2>
+      <table class="table table-bordered">
+        <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Date</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+  </div>
+</div></body></html>"""
+
+# Legal pages
+TERMS_PAGE = f"""<!DOCTYPE html><html><head><title>Terms · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{NAV_GUEST}
+<div class="container mt-4"><h2>Terms of Service</h2><p>Sample terms. Replace with real legal text.</p></div></body></html>"""
+
+PRIVACY_PAGE = f"""<!DOCTYPE html><html><head><title>Privacy · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{NAV_GUEST}
+<div class="container mt-4"><h2>Privacy Policy</h2><p>Sample privacy policy. Replace with real text.</p></div></body></html>"""
 
 # ---------- Cart helpers ----------
 def get_cart(request: Request):
@@ -423,7 +512,6 @@ def get_cart(request: Request):
 def save_cart(request: Request, cart):
     request.session["cart"] = cart
 
-# ---------- Helper to determine progress classes ----------
 def get_progress_classes(status):
     mapping = {
         "pending": ("active", "", "", ""),
@@ -432,6 +520,28 @@ def get_progress_classes(status):
         "delivered": ("completed", "completed", "completed", "active")
     }
     return mapping.get(status, ("", "", "", ""))
+
+# Helper for image HTML
+def product_image_html(url):
+    if url:
+        return f'<img src="{url}" class="card-img-top" style="height:200px; object-fit:cover;">'
+    return ""
+
+# Helper to upload image to Supabase Storage (using service key)
+def upload_image(file: UploadFile):
+    if not file or not file.filename:
+        return None
+    if not service_supabase:
+        return None
+    try:
+        contents = file.file.read()
+        file_name = f"{int(os.path.urandom(4).hex(),16)}_{file.filename}"
+        bucket = "product-images"
+        res = service_supabase.storage.from_(bucket).upload(file_name, contents, {"content-type": file.content_type})
+        url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{file_name}"
+        return url
+    except Exception:
+        return None
 
 # ---------- Routes ----------
 @app.get("/")
@@ -469,6 +579,19 @@ def signup(full_name: str = Form(...), email: str = Form(...), password: str = F
     except Exception as e:
         return HTMLResponse(signup_page(str(e)))
 
+# ---------- Forgot Password ----------
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page_route():
+    return HTMLResponse(forgot_password_page())
+
+@app.post("/forgot-password")
+def forgot_password(email: str = Form(...)):
+    try:
+        supabase.auth.reset_password_email(email)
+        return HTMLResponse(forgot_password_page(success="Password reset link sent! Check your email."))
+    except Exception as e:
+        return HTMLResponse(forgot_password_page(error=str(e)))
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     sup = get_valid_session(request)
@@ -485,20 +608,62 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products ----------
+# ---------- Products with pagination ----------
 @app.get("/products", response_class=HTMLResponse)
-def products(request: Request, search: str = ""):
+def products(request: Request, search: str = "", page: int = 1):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     profile = get_user_profile(sup)
     role = profile.data.get("role", "buyer") if profile.data else "buyer"
-    query = sup.table("products").select("*").eq("active", True)
+    per_page = 6
+    offset = (page - 1) * per_page
+    query = sup.table("products").select("*", count="exact").eq("active", True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    result = query.execute()
+    # Get total count
+    count_result = sup.table("products").select("count", count="exact").eq("active", True)
+    if search:
+        count_result = count_result.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
+    total = count_result.execute().count or 0
+    result = query.range(offset, offset + per_page - 1).execute()
     products = result.data or []
-    cards = "".join([PRODUCT_CARD.format(**p) for p in products])
-    return HTMLResponse(products_page(cards, role))
+    cards = ""
+    for p in products:
+        img = product_image_html(p.get("image_url"))
+        cards += PRODUCT_CARD.format(image_html=img, **p)
+    total_pages = (total + per_page - 1) // per_page
+    return HTMLResponse(products_page(cards, role, page, total_pages, search))
+
+# ---------- Seller Orders View ----------
+@app.get("/seller/orders", response_class=HTMLResponse)
+def seller_orders(request: Request):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data['role'] != 'seller':
+        return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    seller_id = profile.data['id']
+    # Find orders that contain products by this seller
+    # Join order_items with products and filter by seller_id
+    result = sup.table("order_items").select("*, orders!inner(*, profiles!orders_buyer_id_fkey(full_name)), products!inner(*)").eq("products.seller_id", seller_id).order("orders.created_at", desc=True).execute()
+    # Process unique orders
+    orders_dict = {}
+    for item in result.data or []:
+        order = item['orders']
+        order_id = order['id']
+        if order_id not in orders_dict:
+            order['items'] = []
+            orders_dict[order_id] = order
+        orders_dict[order_id]['items'].append(item)
+    html = ""
+    for order in orders_dict.values():
+        items_list = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']}</li>" for it in order['items'])
+        html += f"<div class='card mb-3 p-3'><h5>Order #{order['id'][:8]} - {order['status']}</h5><p>Buyer: {order.get('profiles',{}).get('full_name','Unknown')}</p><ul>{items_list}</ul></div>"
+    if not html:
+        html = "<p>No orders containing your products yet.</p>"
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>My Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar('seller')}
+<div class="container mt-4"><h2>Orders for My Products</h2>{html}</div></body></html>""")
 
 # ---------- Seller (seller only) ----------
 @app.get("/seller", response_class=HTMLResponse)
@@ -509,7 +674,10 @@ def seller_dashboard(request: Request):
     if not profile.data or profile.data['role'] != 'seller':
         return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     prods = sup.table("products").select("*").eq("seller_id", profile.data['id']).execute()
-    cards = "".join([SELLER_PRODUCT_CARD.format(**p) for p in (prods.data or [])])
+    cards = ""
+    for p in (prods.data or []):
+        img = product_image_html(p.get("image_url"))
+        cards += SELLER_PRODUCT_CARD.format(image_html=img, **p)
     return HTMLResponse(seller_dashboard_page(cards, role="seller"))
 
 @app.get("/seller/add", response_class=HTMLResponse)
@@ -523,14 +691,23 @@ def seller_add_form(request: Request):
     return HTMLResponse(ADD_PRODUCT_PAGE.replace("{navigation}", nav))
 
 @app.post("/seller/add")
-def seller_add(request: Request, name: str = Form(...), description: str = Form(""),
-               category: str = Form(...), price: float = Form(...), stock: int = Form(...)):
+async def seller_add(request: Request,
+                     name: str = Form(...), description: str = Form(""),
+                     category: str = Form(...), price: float = Form(...),
+                     cost_price: float = Form(0), stock: int = Form(...),
+                     image: UploadFile = File(None)):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
     profile = get_user_profile(sup)
+    image_url = None
+    if image and image.filename:
+        image_url = upload_image(image)
     sup.table("products").insert({
-        "seller_id": profile.data['id'], "name": name, "description": description,
-        "category": category, "price": price, "stock": stock
+        "seller_id": profile.data['id'],
+        "name": name, "description": description,
+        "category": category, "price": price,
+        "cost_price": cost_price, "stock": stock,
+        "image_url": image_url
     }).execute()
     return RedirectResponse("/seller", status_code=303)
 
@@ -543,14 +720,23 @@ def seller_edit_form(request: Request, product_id: str):
     return HTMLResponse(page.format(**product.data))
 
 @app.post("/seller/edit/{product_id}")
-def seller_edit(request: Request, product_id: str, name: str = Form(...), description: str = Form(""),
-                category: str = Form(...), price: float = Form(...), stock: int = Form(...)):
+async def seller_edit(request: Request, product_id: str,
+                      name: str = Form(...), description: str = Form(""),
+                      category: str = Form(...), price: float = Form(...),
+                      cost_price: float = Form(0), stock: int = Form(...),
+                      image: UploadFile = File(None)):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    sup.table("products").update({
-        "name": name, "description": description, "category": category,
-        "price": price, "stock": stock
-    }).eq("id", product_id).execute()
+    update_data = {
+        "name": name, "description": description,
+        "category": category, "price": price,
+        "cost_price": cost_price, "stock": stock
+    }
+    if image and image.filename:
+        image_url = upload_image(image)
+        if image_url:
+            update_data["image_url"] = image_url
+    sup.table("products").update(update_data).eq("id", product_id).execute()
     return RedirectResponse("/seller", status_code=303)
 
 @app.get("/seller/delete/{product_id}")
@@ -676,13 +862,11 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             sup.table("order_items").insert(oi).execute()
 
         save_cart(request, [])
-        # Redirect to payment success page instead of receipt
         return RedirectResponse(f"/payment-success/{order_id}", status_code=303)
 
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Checkout Error: {str(e)}</div>")
 
-# ---------- Payment Success Page ----------
 @app.get("/payment-success/{order_id}", response_class=HTMLResponse)
 def payment_success(request: Request, order_id: str):
     sup = get_valid_session(request)
@@ -695,7 +879,6 @@ def payment_success(request: Request, order_id: str):
         return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
     return HTMLResponse(payment_success_page(order.data))
 
-# ---------- Receipt ----------
 @app.get("/receipt/{order_id}", response_class=HTMLResponse)
 def view_receipt(request: Request, order_id: str):
     sup = get_valid_session(request)
@@ -708,7 +891,6 @@ def view_receipt(request: Request, order_id: str):
         return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
     return HTMLResponse(receipt_page(order.data))
 
-# ---------- Orders (customer) ----------
 @app.get("/orders", response_class=HTMLResponse)
 def orders(request: Request):
     sup = get_valid_session(request)
@@ -732,7 +914,6 @@ def orders(request: Request):
                 for item in items.data:
                     products_list += f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
             status_color = {"pending":"warning","confirmed":"info","shipped":"primary","delivered":"success"}.get(order["status"], "secondary")
-            # Get progress classes
             pending_cls, confirmed_cls, shipped_cls, delivered_cls = get_progress_classes(order["status"])
             orders_html += ORDER_ITEM_HTML.format(
                 order_id_short=order["id"][:8],
@@ -764,28 +945,38 @@ def admin_dashboard(request: Request):
     # Aggregate metrics
     total_sales_result = sup.table("orders").select("total_amount").execute()
     total_sales = sum(o['total_amount'] for o in total_sales_result.data) if total_sales_result.data else 0
+    # Profit = total sales - sum(cost_price * quantity) for all order_items
+    # We'll do a rough estimate: sum of (unit_price - cost_price) * quantity
+    profit = 0
+    items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").execute()
+    if items.data:
+        for it in items.data:
+            cost = it['products']['cost_price'] if it['products'] else 0
+            profit += (it['unit_price'] - cost) * it['quantity']
     
     total_orders = sup.table("orders").select("count", count="exact").execute()
-    total_orders_count = total_orders.count if total_orders.count else 0
-    
-    total_products = sup.table("products").select("count", count="exact").eq("active", True).execute()
-    total_products_count = total_products.count if total_products.count else 0
-    
     total_users = sup.table("profiles").select("count", count="exact").execute()
-    total_users_count = total_users.count if total_users.count else 0
     
     metrics = {
         "total_sales": f"{total_sales:,.2f}",
-        "total_orders": total_orders_count,
-        "total_products": total_products_count,
-        "total_users": total_users_count
+        "total_profit": f"{profit:,.2f}",
+        "total_orders": total_orders.count or 0,
+        "total_users": total_users.count or 0
     }
     
-    orders_result = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
+    orders_result = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone, verified)").order("created_at", desc=True).execute()
     orders_html = ""
     if orders_result.data:
         for o in orders_result.data:
             o['profiles'] = o.get('profiles', {}) or {}
+            # Calculate profit for this order
+            order_items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", o['id']).execute()
+            order_profit = 0
+            if order_items.data:
+                for it in order_items.data:
+                    cost = it['products']['cost_price'] if it['products'] else 0
+                    order_profit += (it['unit_price'] - cost) * it['quantity']
+            o['profit'] = round(order_profit, 2)
             orders_html += admin_order_item(o)
     else:
         orders_html = "<p>No orders yet.</p>"
@@ -804,3 +995,72 @@ def admin_update_order(request: Request, order_id: str, status: str = Form(...))
         return RedirectResponse("/admin", status_code=303)
     sup.table("orders").update({"status": status}).eq("id", order_id).execute()
     return RedirectResponse("/admin", status_code=303)
+
+@app.get("/admin/toggle-verification/{user_id}")
+def toggle_verification(request: Request, user_id: str):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data.get("role") != "admin":
+        return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    # Toggle verified flag
+    user_profile = sup.table("profiles").select("verified").eq("user_id", user_id).single().execute()
+    if user_profile.data:
+        new_val = not user_profile.data['verified']
+        sup.table("profiles").update({"verified": new_val}).eq("user_id", user_id).execute()
+    return RedirectResponse("/admin", status_code=303)
+
+@app.get("/admin/inquiries", response_class=HTMLResponse)
+def admin_inquiries(request: Request):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data.get("role") != "admin":
+        return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    inquiries = sup.table("inquiries").select("*").order("created_at", desc=True).execute()
+    return HTMLResponse(inquiries_page(inquiries.data or []))
+
+@app.get("/admin/export-orders")
+def export_orders(request: Request):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data or profile.data.get("role") != "admin":
+        return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
+    orders = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, email)").order("created_at", desc=True).execute()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Order ID", "Date", "Buyer Name", "Buyer Email", "Total Amount", "Status", "Payment Method"])
+    for o in orders.data or []:
+        writer.writerow([o['id'][:8], o['created_at'][:10], o.get('profiles',{}).get('full_name',''), o.get('profiles',{}).get('email',''), o['total_amount'], o['status'], o.get('payment_method','')])
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=orders.csv"})
+
+# ---------- Legal ----------
+@app.get("/terms", response_class=HTMLResponse)
+def terms():
+    return HTMLResponse(TERMS_PAGE)
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy():
+    return HTMLResponse(PRIVACY_PAGE)
+
+# ---------- Contact / Inquiry form (for users) ----------
+@app.get("/contact", response_class=HTMLResponse)
+def contact_page():
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{NAV_GUEST}
+<div class="container mt-4" style="max-width:500px;">
+  <h2>Contact Us</h2>
+  <form method="post" action="/contact">
+    <input class="form-control mb-2" name="name" placeholder="Your Name" required>
+    <input class="form-control mb-2" name="email" type="email" placeholder="Your Email" required>
+    <textarea class="form-control mb-2" name="message" rows="4" placeholder="Message" required></textarea>
+    <button class="btn btn-primary">Send Message</button>
+  </form>
+</div></body></html>""")
+
+@app.post("/contact")
+def contact_submit(name: str = Form(...), email: str = Form(...), message: str = Form(...)):
+    supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
+    return RedirectResponse("/contact?success=true", status_code=303)
