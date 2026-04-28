@@ -110,7 +110,7 @@ NAV_GUEST = f"""
   </div>
 </nav>"""
 
-# ---------- Page Templates (with improvements) ----------
+# ---------- Page Templates ----------
 def login_page(error: str = ""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -320,6 +320,9 @@ SELLER_PRODUCT_CARD = """
     </div>
   </div>
 </div>"""
+
+# Define navigation BEFORE using it in f-strings
+navigation = ""
 
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navigation}
@@ -535,7 +538,7 @@ def upload_image(file: UploadFile):
         return None
     try:
         contents = file.file.read()
-        file_name = f"{int(os.path.urandom(4).hex(),16)}_{file.filename}"
+        file_name = f"{int(os.urandom(4).hex(),16)}_{file.filename}"
         bucket = "product-images"
         res = service_supabase.storage.from_(bucket).upload(file_name, contents, {"content-type": file.content_type})
         url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{file_name}"
@@ -617,14 +620,15 @@ def products(request: Request, search: str = "", page: int = 1):
     role = profile.data.get("role", "buyer") if profile.data else "buyer"
     per_page = 6
     offset = (page - 1) * per_page
-    query = sup.table("products").select("*", count="exact").eq("active", True)
+    # Get total count
+    count_query = sup.table("products").select("count", count="exact").eq("active", True)
+    if search:
+        count_query = count_query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
+    total = count_query.execute().count or 0
+    # Fetch page
+    query = sup.table("products").select("*").eq("active", True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    # Get total count
-    count_result = sup.table("products").select("count", count="exact").eq("active", True)
-    if search:
-        count_result = count_result.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    total = count_result.execute().count or 0
     result = query.range(offset, offset + per_page - 1).execute()
     products = result.data or []
     cards = ""
@@ -643,10 +647,7 @@ def seller_orders(request: Request):
     if not profile.data or profile.data['role'] != 'seller':
         return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
     seller_id = profile.data['id']
-    # Find orders that contain products by this seller
-    # Join order_items with products and filter by seller_id
     result = sup.table("order_items").select("*, orders!inner(*, profiles!orders_buyer_id_fkey(full_name)), products!inner(*)").eq("products.seller_id", seller_id).order("orders.created_at", desc=True).execute()
-    # Process unique orders
     orders_dict = {}
     for item in result.data or []:
         order = item['orders']
@@ -946,7 +947,6 @@ def admin_dashboard(request: Request):
     total_sales_result = sup.table("orders").select("total_amount").execute()
     total_sales = sum(o['total_amount'] for o in total_sales_result.data) if total_sales_result.data else 0
     # Profit = total sales - sum(cost_price * quantity) for all order_items
-    # We'll do a rough estimate: sum of (unit_price - cost_price) * quantity
     profit = 0
     items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").execute()
     if items.data:
@@ -1003,7 +1003,6 @@ def toggle_verification(request: Request, user_id: str):
     profile = get_user_profile(sup)
     if not profile.data or profile.data.get("role") != "admin":
         return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
-    # Toggle verified flag
     user_profile = sup.table("profiles").select("verified").eq("user_id", user_id).single().execute()
     if user_profile.data:
         new_val = not user_profile.data['verified']
@@ -1045,7 +1044,7 @@ def terms():
 def privacy():
     return HTMLResponse(PRIVACY_PAGE)
 
-# ---------- Contact / Inquiry form (for users) ----------
+# ---------- Contact / Inquiry form ----------
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
