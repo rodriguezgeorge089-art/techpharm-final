@@ -81,10 +81,12 @@ CUSTOM_CSS = f"""
 def navbar(role: str = "", buyer_type: str = ""):
     admin_tab = '<a class="nav-link" href="/admin"><span class="badge bg-warning text-dark">Admin</span></a>' if role == "admin" else ""
     seller_tab = '<a class="nav-link" href="/seller">My Shop</a>' if role == "seller" else ""
+    # Show buyer_type label in navbar for buyers
+    buyer_label = f' <span class="badge bg-secondary">{buyer_type}</span>' if role == "buyer" and buyer_type else ""
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="/products"><i class="fas fa-pills"></i> {APP_NAME}</a>
+        <a class="navbar-brand" href="/products"><i class="fas fa-pills"></i> {APP_NAME}{buyer_label}</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -147,7 +149,6 @@ def signup_page(error: str = ""):
         <option value="buyer">Buyer</option>
         <option value="seller">Seller</option>
       </select>
-      <!-- Buyer type selection (visible when role is buyer) -->
       <div id="buyerTypeDiv" class="mb-2">
         <label class="form-label">Buyer Type:</label>
         <select class="form-control" name="buyer_type">
@@ -220,27 +221,24 @@ def products_page(products_cards: str, role: str, buyer_type: str, page: int, to
 </div></body></html>"""
 
 def product_card(product: dict, is_buyer: bool, buyer_type: str = "retail"):
-    # Determine price to display and use for cart
     price = product['price']
-    price_label = "KSh " + str(price)
-    if is_buyer and buyer_type == "wholesale" and product.get('wholesale_price') is not None:
-        price = product['wholesale_price']
-        price_label = f"<span class='text-success'>Wholesale: KSh {price}</span><br><small class='text-muted'>Retail: KSh {product['price']}</small>"
-    elif is_buyer and buyer_type == "retail":
-        if product.get('wholesale_price'):
-            price_label = f"<strong>KSh {price}</strong> <span class='badge bg-info'>Retail</span><br><small class='text-muted'>Wholesale: KSh {product['wholesale_price']}</small>"
+    price_display = ""
+    add_to_cart = ""
+    if is_buyer:
+        if buyer_type == "wholesale" and product.get('wholesale_price') is not None:
+            price = product['wholesale_price']
+            price_display = f"<h3 class='text-success'>Wholesale: KSh {price}</h3><small class='text-muted'>Retail: KSh {product['price']}</small>"
         else:
-            price_label = f"KSh {price}"
-    else:
-        price_label = f"KSh {price}"
+            price_display = f"<h3 class='text-success'>KSh {price}</h3>"
+            if product.get('wholesale_price'):
+                price_display += f"<small class='text-muted'>Wholesale: KSh {product['wholesale_price']}</small>"
+        add_to_cart = f"""
+        <form action="/cart/add/{product['id']}" method="get" class="d-flex align-items-center mt-3">
+            <input type="number" name="quantity" value="1" min="1" max="{product['stock']}" class="form-control me-2" style="width:80px;">
+            <button type="submit" class="btn btn-primary">Add to Cart</button>
+        </form>"""
 
     img_html = f'<img src="{product.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if product.get("image_url") else ""
-
-    add_to_cart_form = f"""
-    <form action="/cart/add/{product['id']}" method="get" class="d-flex align-items-center mt-3">
-        <input type="number" name="quantity" value="1" min="1" max="{product['stock']}" class="form-control me-2" style="width:80px;">
-        <button type="submit" class="btn btn-primary">Add to Cart</button>
-    </form>"""
 
     return f"""
     <div class="col-md-4 mb-4">
@@ -250,8 +248,8 @@ def product_card(product: dict, is_buyer: bool, buyer_type: str = "retail"):
           <h5 class="card-title fw-bold">{product['name']}</h5>
           <p class="card-text">{product['description']}</p>
           <p><strong>Category:</strong> {product['category']} | <strong>Stock:</strong> {product['stock']}</p>
-          <div class="mb-2">{price_label}</div>
-          {add_to_cart_form if is_buyer else ""}
+          {price_display}
+          {add_to_cart}
         </div>
       </div>
     </div>"""
@@ -346,7 +344,7 @@ SELLER_PRODUCT_CARD = """
       <h5 class="fw-bold">{name}</h5>
       <p>{description}</p>
       <p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock} | <strong>Cost:</strong> KSh {cost_price}</p>
-      <h3 class="text-success">Retail: KSh {price}</h3>
+      <h4>Retail: KSh {price}</h4>
       {wholesale_info}
       <a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
       <a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a>
@@ -354,7 +352,7 @@ SELLER_PRODUCT_CARD = """
   </div>
 </div>"""
 
-# Navigation placeholder
+# Navigation variable defined before use
 navigation = ""
 
 ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -393,7 +391,7 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
   </form>
 </div></body></html>"""
 
-# Payment Success (updated with receipt link)
+# Payment Success
 def payment_success_page(order):
     items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
     items_html = "".join(
@@ -404,7 +402,7 @@ def payment_success_page(order):
 <div class="container mt-5" style="max-width:600px;">
   <div class="card p-4 text-center">
     <h2 class="text-success"><i class="fas fa-check-circle"></i> Payment Successful!</h2>
-    <p>Your order has been placed and is pending admin confirmation.</p>
+    <p>Your order has been placed and is pending admin verification.</p>
     <hr>
     <h5>Order Summary</h5>
     <table class="table table-bordered">
@@ -418,6 +416,7 @@ def payment_success_page(order):
   </div>
 </div></body></html>"""
 
+# Receipt
 def receipt_page(order):
     items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
     items_html = "".join(
@@ -667,9 +666,7 @@ def products(request: Request, search: str = "", page: int = 1):
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
     result = query.range(offset, offset + per_page - 1).execute()
     products_data = result.data or []
-    cards = ""
-    for p in products_data:
-        cards += product_card(p, is_buyer, buyer_type)
+    cards = "".join(product_card(p, is_buyer, buyer_type) for p in products_data)
     total_pages = (total + per_page - 1) // per_page
     return HTMLResponse(products_page(cards, role, buyer_type, page, total_pages, search))
 
@@ -701,7 +698,7 @@ def seller_orders(request: Request):
 {navbar('seller')}
 <div class="container mt-4"><h2>Orders for My Products</h2>{html}</div></body></html>""")
 
-# ---------- Seller (remainder unchanged, but with wholesale price handling) ----------
+# ---------- Seller (with wholesale price) ----------
 @app.get("/seller", response_class=HTMLResponse)
 def seller_dashboard(request: Request):
     sup = get_valid_session(request)
@@ -780,7 +777,7 @@ def seller_delete(request: Request, product_id: str):
     sup.table("products").delete().eq("id", product_id).execute()
     return RedirectResponse("/seller", status_code=303)
 
-# ---------- Cart (now stores unit price) ----------
+# ---------- Cart ----------
 @app.get("/cart", response_class=HTMLResponse)
 def view_cart(request: Request):
     sup = get_valid_session(request)
@@ -816,7 +813,6 @@ def add_to_cart(request: Request, product_id: str, quantity: int = 1):
     product = sup.table("products").select("*").eq("id", product_id).single().execute()
     if not product.data or not product.data['active']:
         return RedirectResponse("/products")
-    # Determine unit price based on buyer type
     price = product.data['price']
     if buyer_type == "wholesale" and product.data.get('wholesale_price') is not None:
         price = product.data['wholesale_price']
@@ -876,7 +872,7 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             product = sup.table("products").select("*").eq("id", item["product_id"]).single().execute()
             if not product.data or product.data["stock"] < item["quantity"]:
                 return HTMLResponse(f"<h2>Not enough stock for '{product.data.get('name','product')}'.</h2><a href='/cart'>Back</a>")
-            price = item["unit_price"]  # already selected correctly
+            price = item["unit_price"]
             subtotal = price * item["quantity"]
             total += subtotal
             order_items_data.append({
@@ -974,7 +970,7 @@ def orders(request: Request):
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
 
-# ---------- Admin with payment verification ----------
+# ---------- Admin with Payment Verification ----------
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
     sup = get_valid_session(request)
@@ -1004,7 +1000,6 @@ def admin_dashboard(request: Request):
     if orders_result.data:
         for o in orders_result.data:
             o['profiles'] = o.get('profiles', {}) or {}
-            # Calculate profit for order
             order_items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", o['id']).execute()
             order_profit = 0
             if order_items.data:
