@@ -25,7 +25,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else supabase
 
-# ---------- Safe user fetching (never crashes) ----------
+# ---------- Safe user fetching ----------
 def get_current_user(request: Request):
     user_id = request.session.get("user_id")
     if not user_id:
@@ -58,7 +58,7 @@ def get_unread_count(user_id: str):
     except:
         return 0
 
-# ---------- Style ----------
+# ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
 CUSTOM_CSS = f"""
@@ -103,7 +103,6 @@ CUSTOM_CSS = f"""
 """
 
 def navbar(profile):
-    # safe fallback if profile is None (e.g., after logout)
     role = profile.get("role","") if profile else ""
     buyer_type = profile.get("buyer_type","") if profile else ""
     user_id = profile.get("user_id","") if profile else ""
@@ -273,11 +272,466 @@ def dashboard_page(profile):
 </div>
 </body></html>"""
 
-# ... (all other page functions remain the same as previous stable version, I'm including the essential ones)
-# For brevity, I'll include the full routes in the final answer.
+def products_page(cards, profile, page, total_pages, search=""):
+    pagination = ""
+    if total_pages > 1:
+        pagination = '<nav class="mt-3"><ul class="pagination justify-content-center">'
+        for p in range(1, total_pages+1):
+            active = "active" if p == page else ""
+            pagination += f'<li class="page-item {active}"><a class="page-link" href="/products?page={p}&search={search}">{p}</a></li>'
+        pagination += '</ul></nav>'
+    return f"""<!DOCTYPE html><html><head><title>Pharmacy Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navbar(profile)}
+<div class="container mt-4"><h2 class="mb-4">Pharmacy Shop</h2>
+<form class="mb-4" method="get" action="/products"><div class="input-group input-group-lg">
+<input class="form-control" name="search" value="{search}" placeholder="Search medicines...">
+<button class="btn btn-primary">Search</button></div></form>
+<div class="row">{cards}</div>{pagination}</div></body></html>"""
 
-# ---------- Products, Cart, Orders, Seller, Receipt, Admin, Returns, Notifications (identical to previous working version) ----------
-# (They are all present and tested)
+def product_card(product, is_buyer, buyer_type="retail"):
+    retail_price = product['price']
+    wholesale_price = product.get('wholesale_price')
+    cost_price = product.get('cost_price', 0)
+
+    price_lines = []
+    if is_buyer:
+        if buyer_type == "wholesale" and wholesale_price is not None:
+            display_price = wholesale_price
+            price_lines.append(f"<h4 class='text-success'>Wholesale: KSh {display_price}</h4>")
+            price_lines.append(f"<small class='text-muted'>Retail: KSh {retail_price}</small>")
+        else:
+            display_price = retail_price
+            price_lines.append(f"<h4 class='text-success'>KSh {display_price}</h4>")
+            if wholesale_price is not None:
+                price_lines.append(f"<small class='text-muted'>Wholesale: KSh {wholesale_price}</small>")
+    else:
+        price_lines.append(f"<strong>Retail:</strong> KSh {retail_price}")
+        if wholesale_price:
+            price_lines.append(f"<strong>Wholesale:</strong> KSh {wholesale_price}")
+        price_lines.append(f"<strong>Cost:</strong> KSh {cost_price}")
+
+    price_html = "<br>".join(price_lines)
+
+    add_to_cart = ""
+    if is_buyer:
+        add_to_cart = f"""<form action="/cart/add/{product['id']}" method="get" class="d-flex align-items-center mt-3">
+        <input type="number" name="quantity" value="1" min="1" max="{product['stock']}" class="form-control me-2" style="width:80px;">
+        <button type="submit" class="btn btn-primary">Add to Cart</button></form>"""
+
+    img_html = f'<img src="{product.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if product.get("image_url") else ""
+
+    return f"""<div class="col-md-4 mb-4"><div class="card h-100 p-3">{img_html}<div class="card-body">
+<h5 class="card-title fw-bold">{product['name']}</h5>
+<p class="card-text">{product['description']}</p>
+<p><strong>Category:</strong> {product['category']} | <strong>Stock:</strong> {product['stock']}</p>
+<div class="price-box">{price_html}</div>
+{add_to_cart}
+</div></div></div>"""
+
+def cart_page(items_html, total, profile):
+    return f"""<!DOCTYPE html><html><head><title>Cart · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navbar(profile)}
+<div class="container mt-4"><h2>Your Cart</h2>{items_html}<hr><div class="text-end"><h4>Total: KSh {total}</h4>
+<form method="post" action="/cart/checkout" class="row g-2 align-items-center mt-3">
+<div class="col-auto"><label class="form-label me-2">Payment:</label>
+<select class="form-select" name="payment_method"><option value="cash_on_delivery">Cash on Delivery</option><option value="mobile_money">M Pesa</option></select></div>
+<div class="col-auto"><button type="submit" class="btn btn-success">Place Order</button></div></form></div></div></body></html>"""
+
+CART_ITEM = """<div class="card mb-3 p-3"><div class="row align-items-center">
+<div class="col-md-4"><h5>{name}</h5><p class="text-muted">KSh {unit_price} each</p></div>
+<div class="col-md-4 d-flex align-items-center"><form action="/cart/update/{product_id}" method="get" class="d-flex align-items-center w-100">
+<input type="number" name="quantity" value="{quantity}" min="1" max="999" class="form-control me-2" style="width:80px;">
+<button type="submit" class="btn btn-sm btn-outline-primary">Update</button></form></div>
+<div class="col-md-4 text-end"><strong>KSh {subtotal}</strong>
+<a href="/cart/remove/{product_id}" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('Remove?')">Remove</a></div></div></div>"""
+
+def orders_page(order_list, profile):
+    return f"""<!DOCTYPE html><html><head><title>Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navbar(profile)}
+<div class="container mt-4"><h2>My Orders</h2>{order_list}</div></body></html>"""
+
+ORDER_ITEM_HTML = """<div class="card mb-3 p-4"><div class="card-body">
+<h5>Order #{order_id_short} <span class="badge bg-{status_color} ms-2">{status}</span></h5>
+<p><strong>Date:</strong> {date} | <strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
+<ul>{products_list}</ul>
+<div class="progress-tracker mt-3 mb-3">
+<div class="step {pending_class}"><div class="circle">1</div><small>Pending</small></div>
+<div class="step {confirmed_class}"><div class="circle">2</div><small>Confirmed</small></div>
+<div class="step {shipped_class}"><div class="circle">3</div><small>Shipped</small></div>
+<div class="step {in_transit_class}"><div class="circle">4</div><small>In Transit</small></div>
+<div class="step {delivered_class}"><div class="circle">5</div><small>Delivered</small></div>
+</div>
+<a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary"><i class="fas fa-print"></i> View Receipt</a>
+<a href="/return/{order_id}" class="btn btn-sm btn-outline-warning ms-1"><i class="fas fa-undo"></i> Return</a>
+</div></div>"""
+
+def seller_dashboard_page(cards, profile):
+    return f"""<!DOCTYPE html><html><head><title>My Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar(profile)}
+<div class="container mt-4"><h2>My Products</h2>
+<a href="/seller/add" class="btn btn-success mb-4"><i class="fas fa-plus"></i> Add New Product</a>
+<a href="/seller/orders" class="btn btn-info mb-4"><i class="fas fa-list"></i> My Orders</a>
+<div class="row">{cards}</div></div></body></html>"""
+
+SELLER_PRODUCT_CARD = """<div class="col-md-4 mb-4"><div class="card h-100 p-3">{image_html}<div class="card-body">
+<h5 class="fw-bold">{name}</h5><p>{description}</p>
+<p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
+<div class="price-box">
+  <p><strong>Retail:</strong> KSh {price}</p>
+  {wholesale_info}
+  <p><strong>Cost:</strong> KSh {cost_price}</p>
+</div>
+<a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
+<a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a></div></div></div>"""
+
+navigation = ""
+
+ADD_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Add Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navigation}<div class="container mt-4" style="max-width:500px;"><h2>Add New Product</h2>
+<form method="post" enctype="multipart/form-data">
+<input class="form-control mb-2" name="name" placeholder="Product Name" required>
+<textarea class="form-control mb-2" name="description" placeholder="Description" rows="3"></textarea>
+<input class="form-control mb-2" name="category" placeholder="Category" required>
+<input class="form-control mb-2" type="number" step="0.01" name="price" placeholder="Retail Price (KSh)" required>
+<input class="form-control mb-2" type="number" step="0.01" name="wholesale_price" placeholder="Wholesale Price (optional)">
+<input class="form-control mb-2" type="number" step="0.01" name="cost_price" placeholder="Cost Price (KSh)">
+<input class="form-control mb-2" type="number" name="stock" placeholder="Stock Quantity" required>
+<label class="form-label">Product Image</label>
+<input class="form-control mb-2" type="file" name="image" accept="image/*">
+<button class="btn btn-primary w-100">Add Product</button></form></div></body></html>"""
+
+EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navigation}<div class="container mt-4" style="max-width:500px;"><h2>Edit Product</h2>
+<form method="post" enctype="multipart/form-data">
+<input class="form-control mb-2" name="name" value="{{name}}" required>
+<textarea class="form-control mb-2" name="description" rows="3">{{description}}</textarea>
+<input class="form-control mb-2" name="category" value="{{category}}" required>
+<input class="form-control mb-2" type="number" step="0.01" name="price" value="{{price}}" placeholder="Retail Price" required>
+<input class="form-control mb-2" type="number" step="0.01" name="wholesale_price" value="{{wholesale_price}}" placeholder="Wholesale (optional)">
+<input class="form-control mb-2" type="number" step="0.01" name="cost_price" value="{{cost_price}}" placeholder="Cost Price">
+<input class="form-control mb-2" type="number" name="stock" value="{{stock}}" required>
+<label class="form-label">Replace Image</label>
+<input class="form-control mb-2" type="file" name="image" accept="image/*">
+<button class="btn btn-primary w-100">Update Product</button></form></div></body></html>"""
+
+def receipt_page(order, buyer):
+    try:
+        items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+        items_html = ""
+        for item in items.data:
+            items_html += f"""
+            <div style="display:flex; justify-content:space-between;">
+                <span>{item['products']['name']} x{item['quantity']}</span>
+                <span>KSh {item['quantity'] * item['unit_price']}</span>
+            </div>
+            <div style="text-align:right; font-size:12px;">(@ KSh {item['unit_price']})</div>"""
+    except Exception as e:
+        items_html = f"<p>Error loading items: {str(e)}</p>"
+
+    return f"""<!DOCTYPE html><html><head><title>Receipt · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<div class="container mt-4">
+    <div class="receipt-container">
+        <div class="text-center">
+            <strong>{APP_NAME}</strong><br>
+            {APP_TAGLINE}<br>
+            {PHARMACY_ADDRESS}<br>
+            Tel: {PHARMACY_PHONE}
+            <hr>
+            <strong>Receipt</strong><br>
+            Order #{order['id'][:8]}<br>
+            Date: {order['created_at'][:10]}<br>
+            Payment: {order.get('payment_method','N/A')}
+            <hr>
+        </div>
+        <div style="text-align:left;">
+            Customer: {buyer.get('full_name','')}<br>
+            Tel: {buyer.get('phone','')}
+        </div>
+        <hr>
+        {items_html}
+        <hr>
+        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+            <span>Total</span>
+            <span>KSh {order['total_amount']}</span>
+        </div>
+        <hr>
+        <p class="text-center text-muted">Thank you for choosing {APP_NAME}!</p>
+        <div class="text-center mt-2">
+            <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+            <a href="/orders" class="btn btn-outline-secondary btn-sm">Back to Orders</a>
+        </div>
+    </div>
+</div></body></html>"""
+
+def payment_success_page(order):
+    try:
+        items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+        items_html = "".join(f"<tr><td>{i['products']['name']}</td><td>{i['quantity']}</td><td>KSh {i['unit_price']}</td><td>KSh {i['quantity']*i['unit_price']}</td></tr>" for i in items.data)
+    except:
+        items_html = "<tr><td colspan='4'>Error loading items</td></tr>"
+    return f"""<!DOCTYPE html><html><head><title>Payment Successful · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<div class="container mt-5" style="max-width:600px;"><div class="card p-4 text-center">
+<h2 class="text-success"><i class="fas fa-check-circle"></i> Payment Successful!</h2>
+<p>Your order has been placed and is pending admin verification.</p><hr><h5>Order Summary</h5>
+<table class="table table-bordered"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+<tbody>{items_html}</tbody><tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot></table>
+<p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
+<a href="/receipt/{order['id']}" class="btn btn-primary"><i class="fas fa-print"></i> View / Print Receipt</a>
+<a href="/orders" class="btn btn-outline-secondary ms-2">My Orders</a></div></div></body></html>"""
+
+def admin_dashboard_page(metrics, orders_html, profile):
+    return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar(profile)}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/transactions">Transaction History</a>
+      <a href="/admin/users">Manage Users</a>
+      <a href="/admin/pending-approvals">Pending Approvals</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/admin/returns">Returns</a>
+      <a href="/admin/export-orders">Export CSV</a>
+      <a href="/home">Home</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Admin Dashboard</h2>
+      <div class="row mt-4">
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_profit']}</h3><p>Estimated Profit (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_users']}</h3><p>Registered Users</p></div></div>
+      </div>
+      <hr>
+      <div class="d-flex justify-content-between">
+        <h4>Recent Orders</h4>
+        <a href="/admin/export-orders" class="btn btn-sm btn-outline-success"><i class="fas fa-file-csv"></i> Export CSV</a>
+      </div>
+      {orders_html}
+    </div>
+  </div>
+</div></body></html>"""
+
+def admin_order_item(order):
+    status_opts = ["pending","confirmed","shipped","in_transit","delivered"]
+    status_options = "".join([f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.replace('_',' ').title()}</option>" for s in status_opts])
+    payment_status = order.get('payment_status','pending')
+    if payment_status == 'pending':
+        payment_btn = f'<a href="/admin/payment/{order["id"]}" class="btn btn-sm btn-outline-primary ms-1">View Payment</a>'
+    elif payment_status == 'verified':
+        payment_btn = '<span class="badge bg-success">Approved</span>'
+    else:
+        payment_btn = '<span class="badge bg-danger">Denied</span>'
+    products_list = order.get('items_list', '')
+    profit = order.get('profit',0)
+    return f"""<div class="card mb-3 p-3"><div class="card-body">
+<h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
+<p><strong>Buyer:</strong> {order.get('buyer_name','Unknown')} ({order.get('buyer_phone','N/A')})</p>
+<p><strong>Total:</strong> KSh {order['total_amount']} · <strong>Profit:</strong> KSh {profit} · <strong>Payment:</strong> {order.get('payment_method','N/A')} · <strong>Date:</strong> {order['created_at'][:10]}</p>
+<p><strong>Payment Status:</strong> {payment_status} {payment_btn}</p>
+<ul>{products_list}</ul>
+<form method="post" action="/admin/update-order/{order['id']}" class="d-flex align-items-center">
+<select class="form-select me-2" name="status" style="width:auto;">{status_options}</select>
+<button class="btn btn-sm btn-primary">Update Status</button></form></div></div>"""
+
+def admin_payment_review_page(order, profile):
+    try:
+        buyer_name = order.get('buyer_name', 'Unknown')
+        buyer_phone = order.get('buyer_phone', 'N/A')
+        items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+        items_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
+    except Exception as e:
+        return f"""<div class="container mt-4"><div class="alert alert-danger">Error loading payment details: {str(e)}</div><a href='/admin'>Back</a></div>"""
+    return f"""<!DOCTYPE html><html><head><title>Payment Review · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar(profile)}
+<div class="container mt-4" style="max-width:600px;">
+  <h2><i class="fas fa-credit-card"></i> Payment Review</h2>
+  <div class="card p-4 mt-3">
+    <h4>Order #{order['id'][:8]}</h4>
+    <hr>
+    <p><strong>Buyer:</strong> {buyer_name} · {buyer_phone}</p>
+    <p><strong>Total:</strong> KSh {order['total_amount']}</p>
+    <p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
+    <p><strong>Payment Status:</strong> {order.get('payment_status','pending')}</p>
+    <h5>Order Items</h5>
+    <ul>{items_list}</ul>
+    <form method="post" action="/admin/approve-payment/{order['id']}" class="d-inline">
+      <button class="btn btn-success"><i class="fas fa-check"></i> Approve Payment</button>
+    </form>
+    <form method="post" action="/admin/deny-payment/{order['id']}" class="d-inline ms-2">
+      <button class="btn btn-danger"><i class="fas fa-times"></i> Deny Payment</button>
+    </form>
+    <a href="/admin" class="btn btn-outline-secondary ms-2">Back to Admin</a>
+  </div>
+</div></body></html>"""
+
+def admin_users_page(users):
+    rows = ""
+    for u in users:
+        status_badge = "bg-success" if u.get("is_approved") else "bg-warning"
+        rows += f"""<tr>
+            <td>{u['full_name']}</td>
+            <td>{u.get('email','')}</td>
+            <td>{u.get('phone','')}</td>
+            <td>{u['role']}</td>
+            <td><span class="badge {status_badge}">{u.get('signup_status','pending')}</span></td>
+            <td>
+                <a href="/admin/approve-user/{u['user_id']}" class="btn btn-sm btn-success">Approve</a>
+                <a href="/admin/deny-user/{u['user_id']}" class="btn btn-sm btn-danger">Deny</a>
+            </td>
+        </tr>"""
+    return f"""<!DOCTYPE html><html><head><title>Manage Users · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar({'role':'admin'})}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/transactions">Transaction History</a>
+      <a href="/admin/users">Manage Users</a>
+      <a href="/admin/pending-approvals">Pending Approvals</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/admin/returns">Returns</a>
+      <a href="/admin/export-orders">Export CSV</a>
+      <a href="/home">Home</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Registered Users</h2>
+      <table class="table table-bordered">
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+  </div>
+</div></body></html>"""
+
+def admin_transactions_page(orders):
+    rows = ""
+    for o in orders:
+        items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", o["id"]).execute()
+        pl = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
+        rows += f"""<div class="card mb-3 p-3">
+          <h5>Order #{o['id'][:8]} - {o['status']}</h5>
+          <p><strong>Buyer:</strong> {o.get('buyer_name','Unknown')} | <strong>Total:</strong> KSh {o['total_amount']} | <strong>Date:</strong> {o['created_at'][:10]}</p>
+          <ul>{pl}</ul>
+          <a href="/receipt/{o['id']}" class="btn btn-sm btn-outline-primary"><i class="fas fa-print"></i> View Receipt</a>
+        </div>"""
+    if not rows: rows = "<p>No transactions yet.</p>"
+    return f"""<!DOCTYPE html><html><head><title>Transaction History · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar({'role':'admin'})}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/transactions">Transaction History</a>
+      <a href="/admin/users">Manage Users</a>
+      <a href="/admin/pending-approvals">Pending Approvals</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/admin/returns">Returns</a>
+      <a href="/admin/export-orders">Export CSV</a>
+      <a href="/home">Home</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Transaction History</h2>
+      {rows}
+    </div>
+  </div>
+</div></body></html>"""
+
+def inquiries_page(inquiries):
+    rows = "".join(f"<tr><td>{inq['name']}</td><td>{inq['email']}</td><td>{inq['message']}</td><td>{inq['created_at'][:10]}</td></tr>" for inq in inquiries)
+    return f"""<!DOCTYPE html><html><head><title>Inquiries · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar({'role':'admin'})}<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+<a href="/admin">Dashboard</a><a href="/admin/transactions">Transaction History</a><a href="/admin/users">Manage Users</a><a href="/admin/pending-approvals">Pending Approvals</a><a href="/admin/inquiries">Inquiries</a><a href="/admin/returns">Returns</a><a href="/admin/export-orders">Export CSV</a><a href="/home">Home</a></div>
+<div class="col-md-10 p-4"><h2>Customer Inquiries</h2>
+<table class="table table-bordered"><thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Date</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>"""
+
+def returns_management_page(returns_list):
+    rows = "".join(f"""<tr>
+            <td>{ret['id'][:8]}</td>
+            <td>{ret.get('order_id','')[:8]}</td>
+            <td>{ret.get('buyer_name','')}</td>
+            <td>{ret['reason']}</td>
+            <td>{ret['status']}</td>
+            <td>
+                <a href="/admin/return/approve/{ret['id']}" class="btn btn-sm btn-success">Approve</a>
+                <a href="/admin/return/deny/{ret['id']}" class="btn btn-sm btn-danger">Deny</a>
+            </td>
+        </tr>""" for ret in returns_list)
+    return f"""<!DOCTYPE html><html><head><title>Returns · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar({'role':'admin'})}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-2 admin-sidebar p-3">
+      <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/transactions">Transaction History</a>
+      <a href="/admin/users">Manage Users</a>
+      <a href="/admin/pending-approvals">Pending Approvals</a>
+      <a href="/admin/inquiries">Inquiries</a>
+      <a href="/admin/returns">Returns</a>
+      <a href="/admin/export-orders">Export CSV</a>
+      <a href="/home">Home</a>
+    </div>
+    <div class="col-md-10 p-4">
+      <h2>Return Requests</h2>
+      <table class="table table-bordered">
+        <thead><tr><th>ID</th><th>Order</th><th>Buyer</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+  </div>
+</div></body></html>"""
+
+def notifications_page(notifications):
+    items = "".join(f"""<div class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{n['message']} <small class="text-muted">{n['created_at'][:10]}</small></span>
+            <span class="badge {'bg-success' if n['is_read'] else 'bg-secondary'}">{'Read' if n['is_read'] else 'Unread'}</span>
+        </div>""" for n in notifications)
+    return f"""<!DOCTYPE html><html><head><title>Notifications</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{navbar(None)}
+<div class="container mt-4">
+    <h2><i class="fas fa-bell"></i> Notifications</h2>
+    <div class="list-group mt-3">{items}</div>
+    <p class="mt-3"><a href="/notifications/mark-all-read" class="btn btn-sm btn-outline-primary">Mark All as Read</a></p>
+</div></body></html>"""
+
+TERMS_PAGE = f"""<!DOCTYPE html><html><head><title>Terms · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>{NAV_GUEST}<div class="container mt-4"><h2>Terms of Service</h2><p>Sample terms.</p></div></body></html>"""
+PRIVACY_PAGE = f"""<!DOCTYPE html><html><head><title>Privacy · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>{NAV_GUEST}<div class="container mt-4"><h2>Privacy Policy</h2><p>Sample policy.</p></div></body></html>"""
+
+# ---------- Helpers ----------
+def get_cart(request: Request):
+    return request.session.get("cart", [])
+
+def save_cart(request: Request, cart):
+    request.session["cart"] = cart
+
+def get_progress_classes(status):
+    m = {
+        "pending": ("active", "", "", "", ""),
+        "confirmed": ("completed", "active", "", "", ""),
+        "shipped": ("completed", "completed", "active", "", ""),
+        "in_transit": ("completed", "completed", "completed", "active", ""),
+        "delivered": ("completed", "completed", "completed", "completed", "active"),
+    }
+    return m.get(status, ("", "", "", "", ""))
+
+def product_image_html(url):
+    return f'<img src="{url}" class="card-img-top" style="height:200px; object-fit:cover;">' if url else ""
+
+def upload_image(file: UploadFile):
+    if not file or not file.filename or not service_supabase:
+        return None
+    try:
+        contents = file.file.read()
+        fname = f"{int(os.urandom(4).hex(),16)}_{file.filename}"
+        service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": file.content_type})
+        return f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
+    except:
+        return None
 
 # ---------- Routes ----------
 @app.get("/")
@@ -291,7 +745,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     try:
         r = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if r.user:
-            # Check if approved
             profile = service_supabase.table("profiles").select("is_approved").eq("user_id", r.user.id).single().execute()
             if profile.data and not profile.data.get("is_approved", True):
                 return HTMLResponse(login_page("Your account is pending admin approval."))
@@ -741,8 +1194,97 @@ def admin_transactions(request: Request):
         o['buyer_name'] = buyers_map.get(o['buyer_id'], 'Unknown')
     return HTMLResponse(admin_transactions_page(all_orders))
 
-# ---------- Returns, Inquiries, Export, Notifications ----------
-# (all identical to previous version, omitted for brevity but present in the full downloadable file)
+# ---------- Returns Management ----------
+@app.get("/admin/returns", response_class=HTMLResponse)
+def admin_returns(request: Request):
+    profile = get_current_user(request)
+    if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    returns = service_supabase.table("returns").select("*").order("created_at", desc=True).execute().data or []
+    buyer_ids = [ret['buyer_id'] for ret in returns]
+    buyers = {}
+    if buyer_ids:
+        profiles = service_supabase.table("profiles").select("id, full_name").in_("id", buyer_ids).execute().data or []
+        buyers = {p['id']: p['full_name'] for p in profiles}
+    for ret in returns:
+        ret['buyer_name'] = buyers.get(ret['buyer_id'], 'Unknown')
+    return HTMLResponse(returns_management_page(returns))
+
+@app.get("/admin/return/approve/{return_id}")
+def admin_approve_return(request: Request, return_id: str):
+    profile = get_current_user(request)
+    if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    service_supabase.table("returns").update({"status": "approved"}).eq("id", return_id).execute()
+    ret = service_supabase.table("returns").select("buyer_id").eq("id", return_id).single().execute()
+    if ret.data:
+        create_notification(ret.data["buyer_id"], f"Your return request #{return_id[:8]} has been approved.")
+    return RedirectResponse("/admin/returns", 303)
+
+@app.get("/admin/return/deny/{return_id}")
+def admin_deny_return(request: Request, return_id: str):
+    profile = get_current_user(request)
+    if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    service_supabase.table("returns").update({"status": "denied"}).eq("id", return_id).execute()
+    ret = service_supabase.table("returns").select("buyer_id").eq("id", return_id).single().execute()
+    if ret.data:
+        create_notification(ret.data["buyer_id"], f"Your return request #{return_id[:8]} has been denied.")
+    return RedirectResponse("/admin/returns", 303)
+
+@app.get("/admin/inquiries", response_class=HTMLResponse)
+def admin_inquiries(request: Request):
+    profile = get_current_user(request)
+    if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    inq = service_supabase.table("inquiries").select("*").order("created_at", desc=True).execute().data or []
+    return HTMLResponse(inquiries_page(inq))
+
+@app.get("/admin/export-orders")
+def export_orders(request: Request):
+    profile = get_current_user(request)
+    if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    orders = service_supabase.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, email)").order("created_at", desc=True).execute().data or []
+    output = io.StringIO()
+    w = csv.writer(output)
+    w.writerow(["Order ID","Date","Buyer","Total","Status","Payment Method","Payment Status"])
+    for o in orders:
+        buyer = o.get("profiles", {}) or {}
+        w.writerow([o['id'][:8], o['created_at'][:10], buyer.get("full_name",""), o['total_amount'], o['status'], o.get('payment_method',''), o.get('payment_status','')])
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=orders.csv"})
+
+@app.get("/notifications", response_class=HTMLResponse)
+def view_notifications(request: Request):
+    profile = get_current_user(request)
+    if not profile: return RedirectResponse("/login")
+    user_id = profile["user_id"]
+    notifs = service_supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    service_supabase.table("notifications").update({"is_read": True}).eq("user_id", user_id).eq("is_read", False).execute()
+    return HTMLResponse(notifications_page(notifs.data or []))
+
+@app.get("/notifications/mark-all-read")
+def mark_all_read(request: Request):
+    profile = get_current_user(request)
+    if not profile: return RedirectResponse("/login")
+    service_supabase.table("notifications").update({"is_read": True}).eq("user_id", profile["user_id"]).execute()
+    return RedirectResponse("/notifications", 303)
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms(): return HTMLResponse(TERMS_PAGE)
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy(): return HTMLResponse(PRIVACY_PAGE)
+
+@app.get("/contact", response_class=HTMLResponse)
+def contact_page():
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{NAV_GUEST}<div class="container mt-4" style="max-width:500px;"><h2>Contact Us</h2>
+<form method="post" action="/contact"><input class="form-control mb-2" name="name" placeholder="Your Name" required>
+<input class="form-control mb-2" name="email" type="email" placeholder="Your Email" required>
+<textarea class="form-control mb-2" name="message" rows="4" placeholder="Message" required></textarea>
+<button class="btn btn-primary">Send Message</button></form></div></body></html>""")
+
+@app.post("/contact")
+def contact_submit(name: str = Form(...), email: str = Form(...), message: str = Form(...)):
+    service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
+    return RedirectResponse("/contact?success=true", 303)
 
 # Catch-all to prevent "Not Found"
 @app.get("/{full_path:path}")
