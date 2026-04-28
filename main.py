@@ -220,20 +220,18 @@ CART_ITEM = """
   </div>
 </div>"""
 
-def orders_page(order_list_html: str, role: str, success: bool = False):
-    success_msg = '<div class="alert alert-success">✅ Payment successful! Your order has been placed.</div>' if success else ""
+def orders_page(order_list_html: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(role)}
 <div class="container mt-4">
   <h2>My Orders</h2>
-  {success_msg}
   {order_list_html}
 </div></body></html>"""
 
 ORDER_ITEM_HTML = """
 <div class="card mb-3 p-3">
   <div class="card-body">
-    <h5>Order #{order_id} <span class="badge bg-{status_color} ms-2">{status}</span></h5>
+    <h5>Order #{order_id_short} <span class="badge bg-{status_color} ms-2">{status}</span></h5>
     <p><strong>Date:</strong> {date} | <strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
     <ul>
       {products_list}
@@ -656,14 +654,14 @@ def orders(request: Request):
                     products_list += f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
             status_color = {"pending":"warning","confirmed":"info","shipped":"primary","delivered":"success"}.get(order["status"], "secondary")
             orders_html += ORDER_ITEM_HTML.format(
-                order_id=order["id"][:8],
+                order_id_short=order["id"][:8],
+                order_id=order["id"],
                 status=order["status"],
                 status_color=status_color,
                 total=order["total_amount"],
                 payment_method=order.get("payment_method", "N/A"),
                 date=order["created_at"][:10],
-                products_list=products_list,
-                order_id=order["id"]
+                products_list=products_list
             )
         return HTMLResponse(orders_page(orders_html, role))
     except Exception as e:
@@ -674,7 +672,6 @@ def orders(request: Request):
 def view_receipt(request: Request, order_id: str):
     sup = get_valid_session(request)
     if not sup: return RedirectResponse("/login")
-    # Verify the order belongs to the current user
     profile = get_user_profile(sup)
     if not profile.data:
         return RedirectResponse("/login")
@@ -712,7 +709,6 @@ def admin_dashboard(request: Request):
         "total_users": total_users_count
     }
     
-    # Fetch all orders
     orders_result = sup.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, phone)").order("created_at", desc=True).execute()
     orders_html = ""
     if orders_result.data:
