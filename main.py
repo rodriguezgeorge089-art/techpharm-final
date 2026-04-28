@@ -35,6 +35,19 @@ def get_current_user(request: Request):
     except:
         return None
 
+def notify_admins(message: str):
+    """Send a notification to every admin user."""
+    try:
+        admins = service_supabase.table("profiles").select("user_id").eq("role", "admin").execute()
+        if admins.data:
+            for admin in admins.data:
+                service_supabase.table("notifications").insert({
+                    "user_id": admin["user_id"],
+                    "message": message
+                }).execute()
+    except:
+        pass
+
 def create_notification(user_id: str, message: str):
     try:
         service_supabase.table("notifications").insert({"user_id": user_id, "message": message}).execute()
@@ -52,7 +65,7 @@ BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/b
 FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
 CUSTOM_CSS = f"""
 <style>
-  body {{ background: linear-gradient(135deg, #e0f7fa 0%, #f0f4f8 100%); font-family: 'Segoe UI', system-ui, sans-serif; }}
+  body {{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: 'Segoe UI', system-ui, sans-serif; }}
   .navbar {{ box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
   .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
   .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
@@ -62,7 +75,12 @@ CUSTOM_CSS = f"""
   .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
   .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
   .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
-  .receipt-container {{ max-width: 400px; margin: auto; background: white; padding: 20px; border: 2px dashed #198754; font-family: 'Courier New', monospace; }}
+  .receipt-container {{
+    max-width: 300px; margin: auto; background: white; padding: 10px;
+    font-family: 'Courier New', monospace; font-size: 14px;
+    border: 2px dashed #198754;
+  }}
+  .receipt-container hr {{ border-top: 1px dashed #000; }}
   .progress-tracker {{ display: flex; justify-content: space-between; margin-bottom: 0; }}
   .step {{ text-align: center; flex: 1; position: relative; }}
   .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; font-size: 0.85rem; }}
@@ -72,6 +90,7 @@ CUSTOM_CSS = f"""
   .step:last-child::after {{ display: none; }}
   .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
   .notification-badge {{ position: absolute; top: -8px; right: -8px; font-size: 0.7rem; }}
+  .price-box {{ background: #f8f9fa; border-radius: 8px; padding: 8px; margin-top: 10px; }}
 </style>
 """
 
@@ -185,25 +204,45 @@ def products_page(cards, profile, page, total_pages, search=""):
 <div class="row">{cards}</div>{pagination}</div></body></html>"""
 
 def product_card(product, is_buyer, buyer_type="retail"):
-    price = product['price']
-    price_display = ""
+    retail_price = product['price']
+    wholesale_price = product.get('wholesale_price')
+    cost_price = product.get('cost_price', 0)
+
+    price_lines = []
+    if is_buyer:
+        if buyer_type == "wholesale" and wholesale_price is not None:
+            display_price = wholesale_price
+            price_lines.append(f"<h4 class='text-success'>Wholesale: KSh {display_price}</h4>")
+            price_lines.append(f"<small class='text-muted'>Retail: KSh {retail_price}</small>")
+        else:
+            display_price = retail_price
+            price_lines.append(f"<h4 class='text-success'>KSh {display_price}</h4>")
+            if wholesale_price is not None:
+                price_lines.append(f"<small class='text-muted'>Wholesale: KSh {wholesale_price}</small>")
+    else:
+        # seller or admin view
+        price_lines.append(f"<strong>Retail:</strong> KSh {retail_price}")
+        if wholesale_price:
+            price_lines.append(f"<strong>Wholesale:</strong> KSh {wholesale_price}")
+        price_lines.append(f"<strong>Cost:</strong> KSh {cost_price}")
+
+    price_html = "<br>".join(price_lines)
+
     add_to_cart = ""
     if is_buyer:
-        if buyer_type == "wholesale" and product.get('wholesale_price') is not None:
-            price = product['wholesale_price']
-            price_display = f"<h3 class='text-success'>Wholesale: KSh {price}</h3><small class='text-muted'>Retail: KSh {product['price']}</small>"
-        else:
-            price_display = f"<h3 class='text-success'>KSh {price}</h3>"
-            if product.get('wholesale_price'):
-                price_display += f"<small class='text-muted'>Wholesale: KSh {product['wholesale_price']}</small>"
         add_to_cart = f"""<form action="/cart/add/{product['id']}" method="get" class="d-flex align-items-center mt-3">
         <input type="number" name="quantity" value="1" min="1" max="{product['stock']}" class="form-control me-2" style="width:80px;">
         <button type="submit" class="btn btn-primary">Add to Cart</button></form>"""
+
     img_html = f'<img src="{product.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if product.get("image_url") else ""
+
     return f"""<div class="col-md-4 mb-4"><div class="card h-100 p-3">{img_html}<div class="card-body">
-<h5 class="card-title fw-bold">{product['name']}</h5><p class="card-text">{product['description']}</p>
+<h5 class="card-title fw-bold">{product['name']}</h5>
+<p class="card-text">{product['description']}</p>
 <p><strong>Category:</strong> {product['category']} | <strong>Stock:</strong> {product['stock']}</p>
-{price_display}{add_to_cart}</div></div></div>"""
+<div class="price-box">{price_html}</div>
+{add_to_cart}
+</div></div></div>"""
 
 def cart_page(items_html, total, profile):
     return f"""<!DOCTYPE html><html><head><title>Cart · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -252,8 +291,12 @@ def seller_dashboard_page(cards, profile):
 
 SELLER_PRODUCT_CARD = """<div class="col-md-4 mb-4"><div class="card h-100 p-3">{image_html}<div class="card-body">
 <h5 class="fw-bold">{name}</h5><p>{description}</p>
-<p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock} | <strong>Cost:</strong> KSh {cost_price}</p>
-<h4>Retail: KSh {price}</h4>{wholesale_info}
+<p><strong>Category:</strong> {category} | <strong>Stock:</strong> {stock}</p>
+<div class="price-box">
+  <p><strong>Retail:</strong> KSh {price}</p>
+  {wholesale_info}
+  <p><strong>Cost:</strong> KSh {cost_price}</p>
+</div>
 <a href="/seller/edit/{id}" class="btn btn-warning btn-sm">Edit</a>
 <a href="/seller/delete/{id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a></div></div></div>"""
 
@@ -287,43 +330,51 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
 <input class="form-control mb-2" type="file" name="image" accept="image/*">
 <button class="btn btn-primary w-100">Update Product</button></form></div></body></html>"""
 
-# Professional receipt with pharmacy details
+# ------------------------------------------------------------
+# NEW SUPERMARKET‑STYLE RECEIPT (no errors, compact layout)
+# ------------------------------------------------------------
 def receipt_page(order, buyer):
     try:
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
         items_html = ""
-        for i in items.data:
-            items_html += f"""<tr>
-                <td>{i['products']['name']}</td>
-                <td>{i['quantity']}</td>
-                <td>KSh {i['unit_price']}</td>
-                <td>KSh {i['quantity'] * i['unit_price']}</td>
-            </tr>"""
-    except:
-        items_html = "<tr><td colspan='4'>Error loading items</td></tr>"
+        for item in items.data:
+            items_html += f"""
+            <div style="display:flex; justify-content:space-between;">
+                <span>{item['products']['name']} x{item['quantity']}</span>
+                <span>KSh {item['quantity'] * item['unit_price']}</span>
+            </div>
+            <div style="text-align:right; font-size:12px;">(@ KSh {item['unit_price']})</div>"""
+    except Exception as e:
+        items_html = f"<p>Error loading items: {str(e)}</p>"
 
     return f"""<!DOCTYPE html><html><head><title>Receipt · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <div class="container mt-4">
     <div class="receipt-container">
-        <div class="text-center mb-3">
-            <h2><i class="fas fa-pills"></i> {APP_NAME}</h2>
-            <p class="mb-0">{APP_TAGLINE}</p>
-            <p class="mb-0">{PHARMACY_ADDRESS}</p>
-            <p class="mb-0">Tel: {PHARMACY_PHONE} | Email: {PHARMACY_EMAIL}</p>
-            <hr style="border-top: 1px dashed #000;">
-            <h4>Official Receipt</h4>
+        <div class="text-center">
+            <strong>{APP_NAME}</strong><br>
+            {APP_TAGLINE}<br>
+            {PHARMACY_ADDRESS}<br>
+            Tel: {PHARMACY_PHONE}<br>
+            Email: {PHARMACY_EMAIL}
+            <hr>
+            <strong>Receipt</strong><br>
+            Order #{order['id'][:8]}<br>
+            Date: {order['created_at'][:10]}<br>
+            Payment: {order.get('payment_method','N/A')}
+            <hr>
         </div>
-        <p><strong>Order ID:</strong> #{order['id'][:8]}</p>
-        <p><strong>Date:</strong> {order['created_at'][:10]}</p>
-        <p><strong>Payment:</strong> {order.get('payment_method','N/A')}</p>
-        <p><strong>Customer:</strong> {buyer.get('full_name','')} | Tel: {buyer.get('phone','')}</p>
-        <hr style="border-top: 1px dashed #000;">
-        <table style="width:100%; border-collapse: collapse;">
-            <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
-            <tbody>{items_html}</tbody>
-            <tfoot><tr><td colspan="3" style="text-align:right;"><strong>Total</strong></td><td><strong>KSh {order['total_amount']}</strong></td></tr></tfoot>
-        </table>
-        <hr style="border-top: 1px dashed #000;">
+        <div style="text-align:left;">
+            Customer: {buyer.get('full_name','')}<br>
+            Tel: {buyer.get('phone','')}
+        </div>
+        <hr>
+        {items_html}
+        <hr>
+        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+            <span>Total</span>
+            <span>KSh {order['total_amount']}</span>
+        </div>
+        <hr>
         <p class="text-center text-muted">Thank you for choosing {APP_NAME}!</p>
         <div class="text-center mt-2">
             <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
@@ -337,7 +388,7 @@ def payment_success_page(order):
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
         items_html = "".join(f"<tr><td>{i['products']['name']}</td><td>{i['quantity']}</td><td>KSh {i['unit_price']}</td><td>KSh {i['quantity']*i['unit_price']}</td></tr>" for i in items.data)
     except:
-        items_html = ""
+        items_html = "<tr><td colspan='4'>Error loading items</td></tr>"
     return f"""<!DOCTYPE html><html><head><title>Payment Successful · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <div class="container mt-5" style="max-width:600px;"><div class="card p-4 text-center">
 <h2 class="text-success"><i class="fas fa-check-circle"></i> Payment Successful!</h2>
@@ -389,11 +440,8 @@ def admin_order_item(order):
         payment_btn = '<span class="badge bg-success">Approved</span>'
     else:
         payment_btn = '<span class="badge bg-danger">Denied</span>'
-    try:
-        items = service_supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute()
-        products_list = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']} (Cost KSh {i['products'].get('cost_price',0)})</li>" for i in (items.data or []))
-    except:
-        products_list = "<li>Error loading items</li>"
+    # order already has items_list pre-loaded
+    products_list = order.get('items_list', '')
     profit = order.get('profit',0)
     return f"""<div class="card mb-3 p-3"><div class="card-body">
 <h5>Order #{order['id'][:8]} — <span class="badge bg-{'warning' if order['status']=='pending' else 'info'}">{order['status']}</span></h5>
@@ -438,9 +486,7 @@ def admin_payment_review_page(order, profile):
 </div></body></html>"""
 
 def inquiries_page(inquiries):
-    rows = ""
-    for inq in inquiries:
-        rows += f"<tr><td>{inq['name']}</td><td>{inq['email']}</td><td>{inq['message']}</td><td>{inq['created_at'][:10]}</td></tr>"
+    rows = "".join(f"<tr><td>{inq['name']}</td><td>{inq['email']}</td><td>{inq['message']}</td><td>{inq['created_at'][:10]}</td></tr>" for inq in inquiries)
     return f"""<!DOCTYPE html><html><head><title>Inquiries · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar({'role':'admin'})}<div class="container-fluid"><div class="row">
 <div class="col-md-2 admin-sidebar p-3"><h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
@@ -449,9 +495,7 @@ def inquiries_page(inquiries):
 <table class="table table-bordered"><thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Date</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>"""
 
 def returns_management_page(returns_list):
-    rows = ""
-    for ret in returns_list:
-        rows += f"""<tr>
+    rows = "".join(f"""<tr>
             <td>{ret['id'][:8]}</td>
             <td>{ret.get('order_id','')[:8]}</td>
             <td>{ret.get('buyer_name','')}</td>
@@ -461,7 +505,7 @@ def returns_management_page(returns_list):
                 <a href="/admin/return/approve/{ret['id']}" class="btn btn-sm btn-success">Approve</a>
                 <a href="/admin/return/deny/{ret['id']}" class="btn btn-sm btn-danger">Deny</a>
             </td>
-        </tr>"""
+        </tr>""" for ret in returns_list)
     return f"""<!DOCTYPE html><html><head><title>Returns · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar({'role':'admin'})}
 <div class="container-fluid">
@@ -485,13 +529,10 @@ def returns_management_page(returns_list):
 </div></body></html>"""
 
 def notifications_page(notifications):
-    items = ""
-    for n in notifications:
-        read_badge = "bg-success" if n['is_read'] else "bg-secondary"
-        items += f"""<div class="list-group-item d-flex justify-content-between align-items-center">
+    items = "".join(f"""<div class="list-group-item d-flex justify-content-between align-items-center">
             <span>{n['message']} <small class="text-muted">{n['created_at'][:10]}</small></span>
-            <span class="badge {read_badge}">{'Read' if n['is_read'] else 'Unread'}</span>
-        </div>"""
+            <span class="badge {'bg-success' if n['is_read'] else 'bg-secondary'}">{'Read' if n['is_read'] else 'Unread'}</span>
+        </div>""" for n in notifications)
     return f"""<!DOCTYPE html><html><head><title>Notifications</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(None)}
 <div class="container mt-4">
@@ -545,12 +586,11 @@ def login_page_route(): return HTMLResponse(login_page())
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
     try:
         r = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        user = r.user
-        if user:
-            request.session["user_id"] = user.id
+        if r.user:
+            request.session["user_id"] = r.user.id
             return RedirectResponse("/products", 303)
         else:
-            return HTMLResponse(login_page("Login failed. Please try again."))
+            return HTMLResponse(login_page("Login failed."))
     except:
         return HTMLResponse(login_page("Invalid email or password"))
 
@@ -618,8 +658,12 @@ def seller_dashboard(request: Request):
     cards = ""
     for pr in (prods.data or []):
         img = product_image_html(pr.get("image_url"))
-        wi = f"<p><strong>Wholesale:</strong> KSh {pr['wholesale_price']}</p>" if pr.get("wholesale_price") else "<p>No wholesale price set</p>"
-        cards += SELLER_PRODUCT_CARD.format(image_html=img, wholesale_info=wi, **pr)
+        wholesale_info = ""
+        if pr.get("wholesale_price"):
+            wholesale_info = f"<p><strong>Wholesale:</strong> KSh {pr['wholesale_price']}</p>"
+        else:
+            wholesale_info = "<p>No wholesale price set</p>"
+        cards += SELLER_PRODUCT_CARD.format(image_html=img, wholesale_info=wholesale_info, **pr)
     return HTMLResponse(seller_dashboard_page(cards, profile))
 
 @app.get("/seller/add", response_class=HTMLResponse)
@@ -640,6 +684,53 @@ async def seller_add(request: Request, name: str = Form(...), description: str =
     if wholesale_price is not None: data["wholesale_price"] = wholesale_price
     service_supabase.table("products").insert(data).execute()
     return RedirectResponse("/seller", 303)
+
+@app.get("/seller/edit/{product_id}", response_class=HTMLResponse)
+def seller_edit_form(request: Request, product_id: str):
+    profile = get_current_user(request)
+    if not profile or profile['role'] != 'seller': return RedirectResponse("/login")
+    prod = service_supabase.table("products").select("*").eq("id", product_id).single().execute()
+    return HTMLResponse(EDIT_PRODUCT_PAGE.replace("{navigation}", navbar(profile)).format(**prod.data))
+
+@app.post("/seller/edit/{product_id}")
+async def seller_edit(request: Request, product_id: str, name: str = Form(...), description: str = Form(""),
+                      category: str = Form(...), price: float = Form(...), wholesale_price: float = Form(None),
+                      cost_price: float = Form(0), stock: int = Form(...), image: UploadFile = File(None)):
+    profile = get_current_user(request)
+    if not profile or profile['role'] != 'seller': return RedirectResponse("/login")
+    upd = {"name": name, "description": description, "category": category, "price": price, "stock": stock, "cost_price": cost_price}
+    if wholesale_price is not None: upd["wholesale_price"] = wholesale_price
+    img_url = upload_image(image)
+    if img_url: upd["image_url"] = img_url
+    service_supabase.table("products").update(upd).eq("id", product_id).execute()
+    return RedirectResponse("/seller", 303)
+
+@app.get("/seller/delete/{product_id}")
+def seller_delete(request: Request, product_id: str):
+    profile = get_current_user(request)
+    if not profile or profile['role'] != 'seller': return RedirectResponse("/login")
+    service_supabase.table("products").delete().eq("id", product_id).execute()
+    return RedirectResponse("/seller", 303)
+
+@app.get("/seller/orders", response_class=HTMLResponse)
+def seller_orders(request: Request):
+    profile = get_current_user(request)
+    if not profile or profile['role'] != 'seller': return RedirectResponse("/login")
+    sid = profile['id']
+    res = service_supabase.table("order_items").select("*, orders!inner(*), products!inner(*)").eq("products.seller_id", sid).order("orders.created_at", desc=True).execute()
+    orders_dict = {}
+    for item in (res.data or []):
+        order = item['orders']; oid = order['id']
+        if oid not in orders_dict: orders_dict[oid] = order; order['items'] = []
+        orders_dict[oid]['items'].append(item)
+    html = ""
+    for order in orders_dict.values():
+        il = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']}</li>" for it in order['items'])
+        html += f"<div class='card mb-3 p-3'><h5>Order #{order['id'][:8]} - {order['status']}</h5><ul>{il}</ul></div>"
+    if not html: html = "<p>No orders yet.</p>"
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>My Orders · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
+{navbar(profile)}
+<div class="container mt-4"><h2>Orders for My Products</h2>{html}</div></body></html>""")
 
 # ---------- Cart ----------
 @app.get("/cart", response_class=HTMLResponse)
@@ -674,6 +765,23 @@ def add_to_cart(request: Request, product_id: str, quantity: int = 1):
     save_cart(request, cart)
     return RedirectResponse("/cart", 303)
 
+@app.get("/cart/update/{product_id}")
+def update_cart_item(request: Request, product_id: str, quantity: int = 1):
+    if not get_current_user(request): return RedirectResponse("/login")
+    if quantity < 1: quantity = 1
+    cart = get_cart(request)
+    for item in cart:
+        if item["product_id"] == product_id: item["quantity"] = quantity; break
+    save_cart(request, cart)
+    return RedirectResponse("/cart", 303)
+
+@app.get("/cart/remove/{product_id}")
+def remove_from_cart(request: Request, product_id: str):
+    if not get_current_user(request): return RedirectResponse("/login")
+    cart = [i for i in get_cart(request) if i["product_id"] != product_id]
+    save_cart(request, cart)
+    return RedirectResponse("/cart", 303)
+
 @app.get("/cart/checkout")
 def checkout_get(): return RedirectResponse("/cart", status_code=303)
 
@@ -703,7 +811,8 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
         oi["order_id"] = oid
         service_supabase.table("order_items").insert(oi).execute()
     save_cart(request, [])
-    create_notification("admin", f"New order #{oid[:8]} placed, awaiting payment.")
+    # Notify all admins
+    notify_admins(f"New order #{oid[:8]} placed, awaiting payment.")
     return RedirectResponse(f"/payment-success/{oid}", 303)
 
 @app.get("/payment-success/{order_id}", response_class=HTMLResponse)
@@ -711,18 +820,23 @@ def payment_success(request: Request, order_id: str):
     profile = get_current_user(request)
     if not profile: return RedirectResponse("/login")
     order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
-    if not order.data or order.data["buyer_id"] != profile["id"]: return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
+    if not order.data or order.data["buyer_id"] != profile["id"]:
+        return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
     return HTMLResponse(payment_success_page(order.data))
 
 @app.get("/receipt/{order_id}", response_class=HTMLResponse)
 def view_receipt(request: Request, order_id: str):
     profile = get_current_user(request)
     if not profile: return RedirectResponse("/login")
-    order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
-    if not order.data or order.data["buyer_id"] != profile["id"]: return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-    buyer = service_supabase.table("profiles").select("full_name, email, phone").eq("id", profile["id"]).single().execute()
-    buyer_data = buyer.data if buyer.data else {}
-    return HTMLResponse(receipt_page(order.data, buyer_data))
+    try:
+        order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
+        if not order.data or order.data["buyer_id"] != profile["id"]:
+            return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
+        buyer = service_supabase.table("profiles").select("full_name, email, phone").eq("id", profile["id"]).single().execute()
+        buyer_data = buyer.data if buyer.data else {}
+        return HTMLResponse(receipt_page(order.data, buyer_data))
+    except Exception as e:
+        return HTMLResponse(f"<div class='alert alert-danger'>Error loading receipt: {str(e)}</div>")
 
 @app.get("/orders", response_class=HTMLResponse)
 def orders(request: Request):
@@ -774,7 +888,7 @@ def submit_return(request: Request, order_id: str, reason: str = Form(...)):
         "reason": reason,
         "status": "pending"
     }).execute()
-    create_notification("admin", f"New return request for order #{order_id[:8]}.")
+    notify_admins(f"New return request for order #{order_id[:8]}.")
     return RedirectResponse("/orders", 303)
 
 # ---------- Admin ----------
@@ -782,6 +896,7 @@ def submit_return(request: Request, order_id: str, reason: str = Form(...)):
 def admin_dashboard(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    # load orders with buyer profiles in one go? We'll fetch separately for simplicity but optimized
     all_orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
     total_sales = sum(o['total_amount'] for o in all_orders)
     total_orders = len(all_orders)
@@ -791,12 +906,7 @@ def admin_dashboard(request: Request):
     for i in items:
         cost = i['products']['cost_price'] if i['products'] else 0
         profit += (i['unit_price'] - cost) * i['quantity']
-    metrics = {
-        "total_sales": f"{total_sales:,.2f}",
-        "total_profit": f"{profit:,.2f}",
-        "total_orders": total_orders,
-        "total_users": total_users
-    }
+    metrics = {"total_sales": f"{total_sales:,.2f}", "total_profit": f"{profit:,.2f}", "total_orders": total_orders, "total_users": total_users}
     orders_html = ""
     for order in all_orders:
         try:
@@ -806,10 +916,10 @@ def admin_dashboard(request: Request):
             order['buyer_email'] = buyer.data['email'] if buyer.data else "N/A"
         except:
             order['buyer_name'] = order['buyer_phone'] = order['buyer_email'] = "N/A"
-        order['profit'] = sum(
-            (item['unit_price'] - (item['products']['cost_price'] if item['products'] else 0)) * item['quantity']
-            for item in service_supabase.table("order_items").select("quantity, unit_price, products(cost_price)").eq("order_id", order["id"]).execute().data or []
-        )
+        # pre-load items for display
+        items_data = service_supabase.table("order_items").select("*, products(name, cost_price)").eq("order_id", order["id"]).execute().data or []
+        order['items_list'] = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']} (Cost KSh {it['products'].get('cost_price',0)})</li>" for it in items_data)
+        order['profit'] = sum((it['unit_price'] - (it['products']['cost_price'] if it['products'] else 0)) * it['quantity'] for it in items_data)
         orders_html += admin_order_item(order)
     if not orders_html: orders_html = "<p>No orders yet.</p>"
     return HTMLResponse(admin_dashboard_page(metrics, orders_html, profile))
@@ -824,6 +934,7 @@ def admin_update_order(request: Request, order_id: str, status: str = Form(...))
     order = service_supabase.table("orders").select("buyer_id").eq("id", order_id).single().execute()
     if order.data:
         create_notification(order.data["buyer_id"], f"Order #{order_id[:8]} status updated to {status}.")
+    notify_admins(f"Order #{order_id[:8]} status changed to {status}.")
     return RedirectResponse("/admin", 303)
 
 @app.get("/admin/payment/{order_id}", response_class=HTMLResponse)
@@ -838,7 +949,7 @@ def admin_payment_review(request: Request, order_id: str):
         order_data['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
         order_data['buyer_phone'] = buyer.data['phone'] if buyer.data else "N/A"
         order_data['buyer_email'] = buyer.data['email'] if buyer.data else "N/A"
-    except Exception as e:
+    except:
         order_data['buyer_name'] = order_data['buyer_phone'] = order_data['buyer_email'] = "N/A"
     return HTMLResponse(admin_payment_review_page(order_data, profile))
 
@@ -846,13 +957,11 @@ def admin_payment_review(request: Request, order_id: str):
 def admin_approve_payment(request: Request, order_id: str):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
-    service_supabase.table("orders").update({
-        "payment_status": "verified",
-        "status": "confirmed"
-    }).eq("id", order_id).execute()
+    service_supabase.table("orders").update({"payment_status": "verified", "status": "confirmed"}).eq("id", order_id).execute()
     order = service_supabase.table("orders").select("buyer_id").eq("id", order_id).single().execute()
     if order.data:
         create_notification(order.data["buyer_id"], f"Payment for order #{order_id[:8]} approved. Order confirmed.")
+    notify_admins(f"Payment approved for order #{order_id[:8]}")
     return RedirectResponse("/admin", 303)
 
 @app.post("/admin/deny-payment/{order_id}")
@@ -863,6 +972,7 @@ def admin_deny_payment(request: Request, order_id: str):
     order = service_supabase.table("orders").select("buyer_id").eq("id", order_id).single().execute()
     if order.data:
         create_notification(order.data["buyer_id"], f"Payment for order #{order_id[:8]} denied. Contact support.")
+    notify_admins(f"Payment denied for order #{order_id[:8]}")
     return RedirectResponse("/admin", 303)
 
 # ---------- Return Management ----------
