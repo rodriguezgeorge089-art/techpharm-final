@@ -5,6 +5,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+# Force rebuild 1  (comment to bust cache)
 load_dotenv()
 
 app = FastAPI()
@@ -67,7 +68,6 @@ CUSTOM_CSS = f"""
   .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
   .step:last-child::after {{ display: none; }}
   .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
-  .badge-role {{ font-size: 1rem; }}
 </style>
 """
 
@@ -102,7 +102,6 @@ NAV_GUEST = f"""
   </div>
 </nav>"""
 
-# ---------- Templates ----------
 def login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -290,7 +289,6 @@ def receipt_page(order):
 <div class="text-center mt-4"><button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
 <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a></div></div></body></html>"""
 
-# ---------- Admin Dashboard with bulletproof order loading ----------
 def admin_dashboard_page(metrics, orders_html, role):
     return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar(role)}
@@ -594,6 +592,11 @@ def remove_from_cart(request: Request, product_id: str):
     save_cart(request, cart)
     return RedirectResponse("/cart", 303)
 
+# Fallback GET for /cart/checkout (prevent "Method Not Allowed")
+@app.get("/cart/checkout")
+def checkout_get():
+    return RedirectResponse("/cart", status_code=303)
+
 @app.post("/cart/checkout")
 def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
     sup = get_valid_session(request)
@@ -681,13 +684,11 @@ def admin_dashboard(request: Request):
     p = get_user_profile(sup)
     if not p.data or p.data.get("role") != "admin": return HTMLResponse("<div class='alert alert-danger'>Access denied</div>")
 
-    # Metrics
     all_orders = sup.table("orders").select("*").order("created_at", desc=True).execute().data or []
     total_sales = sum(o['total_amount'] for o in all_orders)
     total_orders = len(all_orders)
     total_users = sup.table("profiles").select("count", count="exact").execute().count or 0
 
-    # Profit calculation
     profit = 0
     items = sup.table("order_items").select("quantity, unit_price, products(cost_price)").execute().data or []
     for i in items:
@@ -701,10 +702,8 @@ def admin_dashboard(request: Request):
         "total_users": total_users
     }
 
-    # Build orders HTML with buyer name (load profiles individually)
     orders_html = ""
     for order in all_orders:
-        # Get buyer profile
         buyer_profile = sup.table("profiles").select("full_name, phone").eq("id", order["buyer_id"]).single().execute()
         order['buyer_name'] = buyer_profile.data['full_name'] if buyer_profile.data else "Unknown"
         order['buyer_phone'] = buyer_profile.data['phone'] if buyer_profile.data else "N/A"
