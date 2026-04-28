@@ -62,6 +62,14 @@ CUSTOM_CSS = f"""
   .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
   .receipt-container {{ max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
   .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
+  .progress-tracker {{ display: flex; justify-content: space-between; margin-bottom: 0; }}
+  .step {{ text-align: center; flex: 1; position: relative; }}
+  .step .circle {{ width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; margin: 0 auto 5px; line-height: 30px; color: white; }}
+  .step.active .circle {{ background-color: {PRIMARY_COLOR}; }}
+  .step.completed .circle {{ background-color: #198754; }}
+  .step::after {{ content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background-color: #dee2e6; z-index: -1; }}
+  .step:last-child::after {{ display: none; }}
+  .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
 </style>
 """
 
@@ -228,14 +236,21 @@ def orders_page(order_list_html: str, role: str):
   {order_list_html}
 </div></body></html>"""
 
+# Enhanced ORDER_ITEM_HTML with progress tracker
 ORDER_ITEM_HTML = """
-<div class="card mb-3 p-3">
+<div class="card mb-3 p-4">
   <div class="card-body">
     <h5>Order #{order_id_short} <span class="badge bg-{status_color} ms-2">{status}</span></h5>
     <p><strong>Date:</strong> {date} | <strong>Payment:</strong> {payment_method} | <strong>Total:</strong> KSh {total}</p>
     <ul>
       {products_list}
     </ul>
+    <div class="progress-tracker mt-3 mb-3">
+      <div class="step {pending_class}"><div class="circle">1</div><small>Pending</small></div>
+      <div class="step {confirmed_class}"><div class="circle">2</div><small>Confirmed</small></div>
+      <div class="step {shipped_class}"><div class="circle">3</div><small>Shipped</small></div>
+      <div class="step {delivered_class}"><div class="circle">4</div><small>Delivered</small></div>
+    </div>
     <a href="/receipt/{order_id}" class="btn btn-sm btn-outline-primary">View Receipt</a>
   </div>
 </div>"""
@@ -294,6 +309,59 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
   </form>
 </div></body></html>"""
 
+# ---------- Payment Success Page ----------
+def payment_success_page(order):
+    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    items_html = "".join(
+        f"<tr><td>{item['products']['name']}</td><td>{item['quantity']}</td><td>KSh {item['unit_price']}</td><td>KSh {item['quantity'] * item['unit_price']}</td></tr>"
+        for item in items.data
+    )
+    return f"""<!DOCTYPE html><html><head><title>Payment Successful · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<div class="container mt-5" style="max-width:600px;">
+  <div class="card p-4 text-center">
+    <h2 class="text-success">✅ Payment Successful!</h2>
+    <p>Your order has been placed.</p>
+    <hr>
+    <h5>Order Summary</h5>
+    <table class="table table-bordered">
+      <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+      <tbody>{items_html}</tbody>
+      <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
+    </table>
+    <p><strong>Payment Method:</strong> {order.get('payment_method','N/A')}</p>
+    <a href="/receipt/{order['id']}" class="btn btn-primary">View / Print Receipt</a>
+    <a href="/orders" class="btn btn-outline-secondary ms-2">My Orders</a>
+  </div>
+</div></body></html>"""
+
+# ---------- Receipt Page (no auto-print) ----------
+def receipt_page(order):
+    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
+    items_html = "".join(
+        f"<tr><td>{item['products']['name']}</td><td>{item['quantity']}</td><td>KSh {item['unit_price']}</td><td>KSh {item['quantity'] * item['unit_price']}</td></tr>"
+        for item in items.data
+    )
+    return f"""<!DOCTYPE html><html><head><title>Receipt · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<div class="receipt-container mt-4">
+  <div class="text-center mb-4">
+    <h2>💊 {APP_NAME}</h2>
+    <p>{APP_TAGLINE}</p>
+    <hr>
+    <h4>Receipt for Order #{order['id'][:8]}</h4>
+  </div>
+  <p><strong>Date:</strong> {order['created_at'][:10]} &nbsp;&nbsp; <strong>Payment:</strong> {order.get('payment_method','N/A')}</p>
+  <p><strong>Status:</strong> {order['status']}</p>
+  <table class="table table-bordered">
+    <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+    <tbody>{items_html}</tbody>
+    <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
+  </table>
+  <div class="text-center mt-4">
+    <button class="btn btn-primary" onclick="window.print()">Print Receipt</button>
+    <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a>
+  </div>
+</div></body></html>"""
+
 # ---------- Admin Dashboard ----------
 def admin_dashboard_page(metrics, orders_html: str, role: str):
     return f"""<!DOCTYPE html><html><head><title>Admin · DawaLink</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -348,37 +416,22 @@ def admin_order_item(order):
       </div>
     </div>"""
 
-# ---------- Receipt Page ----------
-def receipt_page(order):
-    items = supabase.table("order_items").select("*, products(name)").eq("order_id", order["id"]).execute()
-    items_html = "".join(
-        f"<tr><td>{item['products']['name']}</td><td>{item['quantity']}</td><td>KSh {item['unit_price']}</td><td>KSh {item['quantity'] * item['unit_price']}</td></tr>"
-        for item in items.data
-    )
-    return f"""<!DOCTYPE html><html><head><title>Receipt · DawaLink</title>{BOOTSTRAP}</head><body onload="window.print()">
-<div class="receipt-container mt-4">
-  <div class="text-center mb-4">
-    <h2>💊 DawaLink</h2>
-    <p>{APP_TAGLINE}</p>
-    <hr>
-    <h4>Receipt for Order #{order['id'][:8]}</h4>
-  </div>
-  <p><strong>Date:</strong> {order['created_at'][:10]} &nbsp;&nbsp; <strong>Payment:</strong> {order.get('payment_method','N/A')}</p>
-  <p><strong>Status:</strong> {order['status']}</p>
-  <table class="table table-bordered">
-    <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
-    <tbody>{items_html}</tbody>
-    <tfoot><tr><th colspan="3" class="text-end">Total</th><th>KSh {order['total_amount']}</th></tr></tfoot>
-  </table>
-  <div class="text-center mt-4"><button class="btn btn-primary" onclick="window.print()">Print Receipt</button> <a href="/orders" class="btn btn-outline-secondary">Back to Orders</a></div>
-</div></body></html>"""
-
 # ---------- Cart helpers ----------
 def get_cart(request: Request):
     return request.session.get("cart", [])
 
 def save_cart(request: Request, cart):
     request.session["cart"] = cart
+
+# ---------- Helper to determine progress classes ----------
+def get_progress_classes(status):
+    mapping = {
+        "pending": ("active", "", "", ""),
+        "confirmed": ("completed", "active", "", ""),
+        "shipped": ("completed", "completed", "active", ""),
+        "delivered": ("completed", "completed", "completed", "active")
+    }
+    return mapping.get(status, ("", "", "", ""))
 
 # ---------- Routes ----------
 @app.get("/")
@@ -623,11 +676,37 @@ def checkout(request: Request, payment_method: str = Form("cash_on_delivery")):
             sup.table("order_items").insert(oi).execute()
 
         save_cart(request, [])
-        # Redirect to receipt page
-        return RedirectResponse(f"/receipt/{order_id}", status_code=303)
+        # Redirect to payment success page instead of receipt
+        return RedirectResponse(f"/payment-success/{order_id}", status_code=303)
 
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Checkout Error: {str(e)}</div>")
+
+# ---------- Payment Success Page ----------
+@app.get("/payment-success/{order_id}", response_class=HTMLResponse)
+def payment_success(request: Request, order_id: str):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data:
+        return RedirectResponse("/login")
+    order = sup.table("orders").select("*").eq("id", order_id).single().execute()
+    if not order.data or order.data["buyer_id"] != profile.data["id"]:
+        return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
+    return HTMLResponse(payment_success_page(order.data))
+
+# ---------- Receipt ----------
+@app.get("/receipt/{order_id}", response_class=HTMLResponse)
+def view_receipt(request: Request, order_id: str):
+    sup = get_valid_session(request)
+    if not sup: return RedirectResponse("/login")
+    profile = get_user_profile(sup)
+    if not profile.data:
+        return RedirectResponse("/login")
+    order = sup.table("orders").select("*").eq("id", order_id).single().execute()
+    if not order.data or order.data["buyer_id"] != profile.data["id"]:
+        return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
+    return HTMLResponse(receipt_page(order.data))
 
 # ---------- Orders (customer) ----------
 @app.get("/orders", response_class=HTMLResponse)
@@ -653,6 +732,8 @@ def orders(request: Request):
                 for item in items.data:
                     products_list += f"<li>{item['products']['name']} x {item['quantity']} @ KSh {item['unit_price']}</li>"
             status_color = {"pending":"warning","confirmed":"info","shipped":"primary","delivered":"success"}.get(order["status"], "secondary")
+            # Get progress classes
+            pending_cls, confirmed_cls, shipped_cls, delivered_cls = get_progress_classes(order["status"])
             orders_html += ORDER_ITEM_HTML.format(
                 order_id_short=order["id"][:8],
                 order_id=order["id"],
@@ -661,24 +742,15 @@ def orders(request: Request):
                 total=order["total_amount"],
                 payment_method=order.get("payment_method", "N/A"),
                 date=order["created_at"][:10],
-                products_list=products_list
+                products_list=products_list,
+                pending_class=pending_cls,
+                confirmed_class=confirmed_cls,
+                shipped_class=shipped_cls,
+                delivered_class=delivered_cls
             )
         return HTMLResponse(orders_page(orders_html, role))
     except Exception as e:
         return HTMLResponse(f"<div class='alert alert-danger'>Orders Error: {str(e)}</div>")
-
-# ---------- Receipt ----------
-@app.get("/receipt/{order_id}", response_class=HTMLResponse)
-def view_receipt(request: Request, order_id: str):
-    sup = get_valid_session(request)
-    if not sup: return RedirectResponse("/login")
-    profile = get_user_profile(sup)
-    if not profile.data:
-        return RedirectResponse("/login")
-    order = sup.table("orders").select("*").eq("id", order_id).single().execute()
-    if not order.data or order.data["buyer_id"] != profile.data["id"]:
-        return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-    return HTMLResponse(receipt_page(order.data))
 
 # ---------- Admin ----------
 @app.get("/admin", response_class=HTMLResponse)
