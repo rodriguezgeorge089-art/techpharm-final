@@ -16,7 +16,7 @@ PRIMARY_COLOR = "#0d6efd"
 
 PHARMACY_ADDRESS = "Moi Avenue, Nairobi CBD"
 PHARMACY_PHONE = "+254 700 123456"
-PHARMACY_EMAIL = "info@dawalink.co.ke"   # not shown on receipt, but used for pharmacy info
+PHARMACY_EMAIL = "info@dawalink.co.ke"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -90,6 +90,14 @@ CUSTOM_CSS = f"""
   .step.active::after, .step.completed::after {{ background-color: {PRIMARY_COLOR}; }}
   .notification-badge {{ position: absolute; top: -8px; right: -8px; font-size: 0.7rem; }}
   .price-box {{ background: #f8f9fa; border-radius: 8px; padding: 8px; margin-top: 10px; }}
+  .home-card {{ padding: 30px; text-align: center; color: white; border-radius: 15px; }}
+  .home-card i {{ font-size: 3rem; margin-bottom: 15px; }}
+  .home-card h4 {{ font-weight: bold; }}
+  .pharmacy-shop-card {{ background: linear-gradient(135deg, #0d6efd, #0099ff); }}
+  .cart-card {{ background: linear-gradient(135deg, #198754, #28a745); }}
+  .orders-card {{ background: linear-gradient(135deg, #ffc107, #fd7e14); color: #333; }}
+  .admin-card {{ background: linear-gradient(135deg, #6f42c1, #9b59b6); }}
+  .seller-card {{ background: linear-gradient(135deg, #20c997, #0d9e6c); }}
 </style>
 """
 
@@ -110,13 +118,13 @@ def navbar(profile):
     return f"""
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="/products"><i class="fas fa-pills"></i> {APP_NAME}{buyer_label}</a>
+        <a class="navbar-brand" href="/home"><i class="fas fa-pills"></i> {APP_NAME}{buyer_label}</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navMain">
           <div class="navbar-nav ms-auto">
-            <a class="nav-link" href="/products">Browse</a>
+            <a class="nav-link" href="/products">Pharmacy Shop</a>
             <a class="nav-link" href="/cart"><i class="fas fa-shopping-cart"></i> Cart</a>
             <a class="nav-link" href="/orders">Orders</a>
             {seller_tab}
@@ -172,19 +180,77 @@ def forgot_password_page(error="", success=""):
 <button class="btn btn-primary w-100">Send Reset Link</button></form>
 <p class="mt-3 text-center"><a href="/login">Back to Login</a></p></div></div></body></html>"""
 
+# New unified dashboard page (served at /home and /dashboard)
 def dashboard_page(profile):
     role = profile.get("role","buyer")
     buyer_type = profile.get("buyer_type","")
     full_name = profile.get("full_name","User")
     type_badge = f' <span class="badge bg-secondary">{buyer_type}</span>' if role == "buyer" and buyer_type else ""
+
+    # Build extra card for admin / seller if needed (optional)
+    extra_cards = ""
+    if role == "admin":
+        extra_cards += f"""
+        <div class="col-md-4 mb-4">
+          <a href="/admin" class="text-decoration-none">
+            <div class="home-card admin-card">
+              <i class="fas fa-shield-alt"></i>
+              <h4>Admin Panel</h4>
+              <p>Manage orders, payments, returns</p>
+            </div>
+          </a>
+        </div>"""
+    if role == "seller":
+        extra_cards += f"""
+        <div class="col-md-4 mb-4">
+          <a href="/seller" class="text-decoration-none">
+            <div class="home-card seller-card">
+              <i class="fas fa-store-alt"></i>
+              <h4>My Shop</h4>
+              <p>Manage your products & orders</p>
+            </div>
+          </a>
+        </div>"""
+
     return f"""<!DOCTYPE html><html><head><title>Dashboard · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(profile)}
-<div class="container mt-4"><h2>Welcome, {full_name} <span class="badge bg-info ms-2">{role}{type_badge}</span></h2>
-<div class="row mt-4">
-<div class="col-md-4 mb-3"><a href="/products" class="btn btn-outline-primary w-100 py-4 fs-5"><i class="fas fa-store"></i> Browse Products</a></div>
-<div class="col-md-4 mb-3"><a href="/cart" class="btn btn-outline-success w-100 py-4 fs-5"><i class="fas fa-shopping-cart"></i> View Cart</a></div>
-<div class="col-md-4 mb-3"><a href="/orders" class="btn btn-outline-warning w-100 py-4 fs-5"><i class="fas fa-box"></i> My Orders</a></div>
-</div></div></body></html>"""
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1>Welcome back, {full_name} <span class="badge bg-info ms-2">{role}{type_badge}</span></h1>
+        <p class="lead">What would you like to do today?</p>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-4 mb-4">
+            <a href="/products" class="text-decoration-none">
+                <div class="home-card pharmacy-shop-card">
+                    <i class="fas fa-pills"></i>
+                    <h4>Pharmacy Shop</h4>
+                    <p>Browse all OTC medicines</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-4">
+            <a href="/cart" class="text-decoration-none">
+                <div class="home-card cart-card">
+                    <i class="fas fa-shopping-cart"></i>
+                    <h4>Shopping Cart</h4>
+                    <p>Review and checkout your items</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-4">
+            <a href="/orders" class="text-decoration-none">
+                <div class="home-card orders-card">
+                    <i class="fas fa-box"></i>
+                    <h4>My Orders</h4>
+                    <p>Track your orders & deliveries</p>
+                </div>
+            </a>
+        </div>
+        {extra_cards}
+    </div>
+</div>
+</body></html>"""
 
 def products_page(cards, profile, page, total_pages, search=""):
     pagination = ""
@@ -194,11 +260,11 @@ def products_page(cards, profile, page, total_pages, search=""):
             active = "active" if p == page else ""
             pagination += f'<li class="page-item {active}"><a class="page-link" href="/products?page={p}&search={search}">{p}</a></li>'
         pagination += '</ul></nav>'
-    return f"""<!DOCTYPE html><html><head><title>Products · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+    return f"""<!DOCTYPE html><html><head><title>Pharmacy Shop · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {navbar(profile)}
-<div class="container mt-4"><h2 class="mb-4">Available Medicines</h2>
+<div class="container mt-4"><h2 class="mb-4">Pharmacy Shop</h2>
 <form class="mb-4" method="get" action="/products"><div class="input-group input-group-lg">
-<input class="form-control" name="search" value="{search}" placeholder="Search by name or category">
+<input class="form-control" name="search" value="{search}" placeholder="Search medicines...">
 <button class="btn btn-primary">Search</button></div></form>
 <div class="row">{cards}</div>{pagination}</div></body></html>"""
 
@@ -219,7 +285,6 @@ def product_card(product, is_buyer, buyer_type="retail"):
             if wholesale_price is not None:
                 price_lines.append(f"<small class='text-muted'>Wholesale: KSh {wholesale_price}</small>")
     else:
-        # seller or admin view
         price_lines.append(f"<strong>Retail:</strong> KSh {retail_price}")
         if wholesale_price:
             price_lines.append(f"<strong>Wholesale:</strong> KSh {wholesale_price}")
@@ -330,7 +395,7 @@ EDIT_PRODUCT_PAGE = f"""<!DOCTYPE html><html><head><title>Edit Product · {APP_N
 <button class="btn btn-primary w-100">Update Product</button></form></div></body></html>"""
 
 # ------------------------------------------------------------
-# FINAL RECEIPT – SUPERMARKET STYLE, NO EMAIL
+# RECEIPT (unchanged, supermarket style)
 # ------------------------------------------------------------
 def receipt_page(order, buyer):
     try:
@@ -397,9 +462,6 @@ def payment_success_page(order):
 <a href="/receipt/{order['id']}" class="btn btn-primary"><i class="fas fa-print"></i> View / Print Receipt</a>
 <a href="/orders" class="btn btn-outline-secondary ms-2">My Orders</a></div></div></body></html>"""
 
-# ------------------------------------------------------------
-# ADMIN DASHBOARD – FAST (pre-loaded buyer & items)
-# ------------------------------------------------------------
 def admin_dashboard_page(metrics, orders_html, profile):
     return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar(profile)}
@@ -411,7 +473,7 @@ def admin_dashboard_page(metrics, orders_html, profile):
       <a href="/admin/inquiries"><i class="fas fa-envelope"></i> Inquiries</a>
       <a href="/admin/returns"><i class="fas fa-undo"></i> Returns</a>
       <a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
-      <a href="/products">View Site</a>
+      <a href="/home">Home</a>
     </div>
     <div class="col-md-10 p-4">
       <h2>Admin Dashboard</h2>
@@ -441,7 +503,6 @@ def admin_order_item(order):
         payment_btn = '<span class="badge bg-success">Approved</span>'
     else:
         payment_btn = '<span class="badge bg-danger">Denied</span>'
-    # order already has items_list pre-loaded
     products_list = order.get('items_list', '')
     profit = order.get('profit',0)
     return f"""<div class="card mb-3 p-3"><div class="card-body">
@@ -490,7 +551,7 @@ def inquiries_page(inquiries):
     return f"""<!DOCTYPE html><html><head><title>Inquiries · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}{FONTAWESOME}</head><body>
 {navbar({'role':'admin'})}<div class="container-fluid"><div class="row">
 <div class="col-md-2 admin-sidebar p-3"><h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
-<a href="/admin">Dashboard</a><a href="/admin/inquiries">Inquiries</a><a href="/admin/returns">Returns</a><a href="/admin/export-orders">Export CSV</a><a href="/products">View Site</a></div>
+<a href="/admin">Dashboard</a><a href="/admin/inquiries">Inquiries</a><a href="/admin/returns">Returns</a><a href="/admin/export-orders">Export CSV</a><a href="/home">Home</a></div>
 <div class="col-md-10 p-4"><h2>Customer Inquiries</h2>
 <table class="table table-bordered"><thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Date</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>"""
 
@@ -516,7 +577,7 @@ def returns_management_page(returns_list):
       <a href="/admin/inquiries">Inquiries</a>
       <a href="/admin/returns">Returns</a>
       <a href="/admin/export-orders">Export CSV</a>
-      <a href="/products">View Site</a>
+      <a href="/home">Home</a>
     </div>
     <div class="col-md-10 p-4">
       <h2>Return Requests</h2>
@@ -588,7 +649,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         r = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if r.user:
             request.session["user_id"] = r.user.id
-            return RedirectResponse("/products", 303)
+            return RedirectResponse("/home", 303)   # redirect to unified home
         else:
             return HTMLResponse(login_page("Login failed."))
     except:
@@ -619,8 +680,9 @@ def forgot_password(email: str = Form(...)):
     except Exception as e:
         return HTMLResponse(forgot_password_page(error=str(e)))
 
+@app.get("/home", response_class=HTMLResponse)
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request):
+def home(request: Request):
     profile = get_current_user(request)
     if not profile: return RedirectResponse("/login")
     return HTMLResponse(dashboard_page(profile))
@@ -630,7 +692,7 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
 
-# ---------- Products ----------
+# ---------- Products (Pharmacy Shop) ----------
 @app.get("/products", response_class=HTMLResponse)
 def products(request: Request, search: str = "", page: int = 1):
     profile = get_current_user(request)
@@ -831,7 +893,6 @@ def view_receipt(request: Request, order_id: str):
         order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
         if not order.data or order.data["buyer_id"] != profile["id"]:
             return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-        # Fetch only full_name and phone, no email
         buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", profile["id"]).single().execute()
         buyer_data = buyer.data if buyer.data else {}
         return HTMLResponse(receipt_page(order.data, buyer_data))
@@ -896,21 +957,15 @@ def submit_return(request: Request, order_id: str, reason: str = Form(...)):
 def admin_dashboard(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
-    # Load all orders and buyer profiles in bulk to reduce queries
     all_orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
-    # Collect unique buyer IDs
     buyer_ids = list(set(o['buyer_id'] for o in all_orders))
-    # Fetch all those buyers at once
     buyers_map = {}
     if buyer_ids:
         buyers = service_supabase.table("profiles").select("id, full_name, phone").in_("id", buyer_ids).execute().data or []
-        for b in buyers:
-            buyers_map[b['id']] = b
-    # Pre-load all order items (inefficient loop but okay)
+        for b in buyers: buyers_map[b['id']] = b
     all_items = service_supabase.table("order_items").select("*, products(name, cost_price)").execute().data or []
     items_by_order = {}
-    for it in all_items:
-        items_by_order.setdefault(it['order_id'], []).append(it)
+    for it in all_items: items_by_order.setdefault(it['order_id'], []).append(it)
 
     total_sales = sum(o['total_amount'] for o in all_orders)
     total_orders = len(all_orders)
@@ -932,7 +987,6 @@ def admin_dashboard(request: Request):
         buyer = buyers_map.get(order['buyer_id'], {"full_name": "Unknown", "phone": "N/A"})
         order['buyer_name'] = buyer.get('full_name','Unknown')
         order['buyer_phone'] = buyer.get('phone','N/A')
-        # Get items for this order
         items_data = items_by_order.get(order['id'], [])
         order['items_list'] = "".join(f"<li>{it['products']['name']} x {it['quantity']} @ KSh {it['unit_price']} (Cost KSh {it['products'].get('cost_price',0)})</li>" for it in items_data)
         order['profit'] = sum((it['unit_price'] - (it['products']['cost_price'] if it['products'] else 0)) * it['quantity'] for it in items_data)
@@ -963,7 +1017,6 @@ def admin_payment_review(request: Request, order_id: str):
     order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
     if not order.data: return HTMLResponse("<div class='alert alert-danger'>Order not found.</div>")
     order_data = order.data
-    # get buyer info
     try:
         buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", order_data["buyer_id"]).single().execute()
         order_data['buyer_name'] = buyer.data['full_name'] if buyer.data else "Unknown"
@@ -995,13 +1048,12 @@ def admin_deny_payment(request: Request, order_id: str):
     notify_admins(f"Payment denied for order #{order_id[:8]}")
     return RedirectResponse("/admin", 303)
 
-# ---------- Return Management ----------
+# ---------- Returns Management ----------
 @app.get("/admin/returns", response_class=HTMLResponse)
 def admin_returns(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
     returns = service_supabase.table("returns").select("*").order("created_at", desc=True).execute().data or []
-    # get buyer names
     buyer_ids = [ret['buyer_id'] for ret in returns]
     buyers = {}
     if buyer_ids:
