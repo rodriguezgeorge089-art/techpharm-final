@@ -1,4 +1,4 @@
-import os, io, csv
+import os, io, csv, urllib.parse
 from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -380,10 +380,8 @@ def prescription_page(products, current_filters, sort_by, page, total_pages):
         img = f'<img src="{pr.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if pr.get("image_url") else ""
         name = pr.get("name", "")
         price = pr.get("price", 0)
-        # WhatsApp link
         whatsapp_msg = f"Hi, I am interested in {name} (KSh {price}). Is it available?"
-        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={requests.utils.quote(whatsapp_msg)}"
-        # Buy Now: add to cart and redirect to checkout
+        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={urllib.parse.quote(whatsapp_msg)}"
         add_to_cart_url = f"/cart/add/{pr['id']}?quantity=1"
         cards_html += f"""<div class="col-md-4 mb-4"><div class="card product-card h-100 p-3">
             {img}
@@ -405,7 +403,6 @@ def prescription_page(products, current_filters, sort_by, page, total_pages):
         pagination = '<nav><ul class="pagination justify-content-center">'
         for p in range(1, total_pages+1):
             active = "active" if p == page else ""
-            # preserve filters
             filter_params = f"&min_price={min_price}&max_price={max_price}&in_stock={in_stock}&sort={sort_by}"
             pagination += f'<li class="page-item {active}"><a class="page-link" href="/prescription?page={p}{filter_params}">{p}</a></li>'
         pagination += '</ul></nav>'
@@ -446,7 +443,6 @@ def prescription_page(products, current_filters, sort_by, page, total_pages):
                     <select name="sort" class="form-select me-2" style="width:auto;">
                         {sort_sel}
                     </select>
-                    <!-- preserve filters -->
                     <input type="hidden" name="min_price" value="{min_price}">
                     <input type="hidden" name="max_price" value="{max_price}">
                     <input type="hidden" name="in_stock" value="{in_stock}">
@@ -510,10 +506,7 @@ def blog():
 <footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
 </body></html>""")
 
-# ---------- Admin Panel (unchanged) ----------
-# (Admin routes remain identical to the previous code, just with brand name changed where appropriate.)
-# I'll include the admin routes from the previous Belea version but replace "Belea" with APP_NAME.
-
+# ---------- Admin Panel ----------
 @app.get("/login", response_class=HTMLResponse)
 def admin_login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
