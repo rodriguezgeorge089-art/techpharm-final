@@ -50,26 +50,22 @@ CUSTOM_CSS = f"""
   .hero h1 {{ font-size: 3rem; font-weight: bold; margin-bottom: 1rem; }}
   .hero p {{ font-size: 1.2rem; opacity: 0.9; max-width: 600px; margin: 0 auto 2rem; }}
   .feature-card {{
-    transition: transform 0.3s ease;
-    border-radius: 10px;
-    background: white;
-    padding: 2rem;
-    text-align: center;
+    transition: transform 0.3s ease; border-radius: 10px; background: white; padding: 2rem; text-align: center;
   }}
   .feature-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }}
   .top-category-card {{
-    background: white;
-    border-radius: 10px;
-    padding: 1.5rem;
-    text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
+    background: white; border-radius: 10px; padding: 1.5rem; text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s ease;
   }}
   .top-category-card:hover {{ box-shadow: 0 5px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }}
   .footer {{ background: #f8f9fa; padding: 3rem 0; margin-top: 3rem; border-top: 1px solid #dee2e6; }}
   .top-bar {{ background-color: {PRIMARY_COLOR}; color: white; font-size: 0.9rem; }}
   .filter-sidebar {{ background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
-  .product-card .btn {{ margin-bottom: 5px; }}
+  .admin-sidebar {{ background-color: #1e293b; color: white; min-height: 100vh; }}
+  .admin-sidebar a {{ color: #cbd5e1; padding: 10px; display: block; text-decoration: none; border-radius: 6px; }}
+  .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
+  .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
+  .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
 </style>
 """
 
@@ -351,168 +347,74 @@ def order_confirmation(order_id: str):
     <a href="/shop" class="btn btn-primary">Continue Shopping</a>
 </div></body></html>""")
 
-# ---------- Prescription Page (Belea‑style product listing) ----------
+# ---------- Prescription Page ----------
 def prescription_page(products, current_filters, sort_by, page, total_pages):
-    # Build sidebar price inputs
     min_price = current_filters.get("min_price", "")
     max_price = current_filters.get("max_price", "")
     in_stock = current_filters.get("in_stock", "")
     checked = "checked" if in_stock == "1" else ""
-
-    # Sort options
-    sort_options = {
-        "default": "Default",
-        "price_asc": "Price: Low to High",
-        "price_desc": "Price: High to Low"
-    }
-    sort_sel = ""
-    for val, label in sort_options.items():
-        sel = "selected" if sort_by == val else ""
-        sort_sel += f"<option value='{val}' {sel}>{label}</option>"
-
-    # Product cards
+    sort_options = {"default": "Default", "price_asc": "Price: Low to High", "price_desc": "Price: High to Low"}
+    sort_sel = "".join(f"<option value='{v}' {'selected' if sort_by==v else ''}>{l}</option>" for v,l in sort_options.items())
     cards_html = ""
     for pr in products:
         img = f'<img src="{pr.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if pr.get("image_url") else ""
         name = pr.get("name", "")
         price = pr.get("price", 0)
-        whatsapp_msg = f"Hi, I am interested in {name} (KSh {price}). Is it available?"
-        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={urllib.parse.quote(whatsapp_msg)}"
+        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={urllib.parse.quote(f'Hi, I am interested in {name} (KSh {price})')}"
         add_to_cart_url = f"/cart/add/{pr['id']}?quantity=1"
-        cards_html += f"""<div class="col-md-4 mb-4"><div class="card product-card h-100 p-3">
-            {img}
-            <div class="card-body">
-                <h5 class="card-title">{name}</h5>
-                <h4 class="text-success">KSh {price}</h4>
-                <div class="d-grid gap-1 mt-2">
-                    <a href="{add_to_cart_url}" class="btn btn-primary btn-sm">Add to Cart</a>
-                    <a href="{add_to_cart_url}" class="btn btn-success btn-sm">Buy Now</a>
-                    <a href="{whatsapp_url}" target="_blank" class="btn btn-outline-success btn-sm">WhatsApp</a>
-                </div>
-            </div>
-        </div></div>"""
+        cards_html += f"""<div class="col-md-4 mb-4"><div class="card product-card h-100 p-3">{img}<div class="card-body"><h5 class="card-title">{name}</h5><h4 class="text-success">KSh {price}</h4>
+            <div class="d-grid gap-1 mt-2"><a href="{add_to_cart_url}" class="btn btn-primary btn-sm">Add to Cart</a><a href="{add_to_cart_url}" class="btn btn-success btn-sm">Buy Now</a><a href="{whatsapp_url}" target="_blank" class="btn btn-outline-success btn-sm">WhatsApp</a></div></div></div>"""
     if not cards_html: cards_html = "<p>No products found.</p>"
-
-    # Pagination
     pagination = ""
     if total_pages > 1:
-        pagination = '<nav><ul class="pagination justify-content-center">'
-        for p in range(1, total_pages+1):
-            active = "active" if p == page else ""
-            filter_params = f"&min_price={min_price}&max_price={max_price}&in_stock={in_stock}&sort={sort_by}"
-            pagination += f'<li class="page-item {active}"><a class="page-link" href="/prescription?page={p}{filter_params}">{p}</a></li>'
-        pagination += '</ul></nav>'
-
-    # Full page
-    return f"""<!DOCTYPE html><html><head><title>Prescriptions · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}
-<div class="container mt-4">
-    <div class="row">
-        <!-- Sidebar Filters -->
-        <div class="col-md-3">
-            <div class="filter-sidebar">
-                <h5>Filter</h5>
-                <form method="get" action="/prescription">
-                    <div class="mb-3">
-                        <label class="form-label">Price (KSh)</label>
-                        <div class="d-flex">
-                            <input type="number" name="min_price" class="form-control me-1" placeholder="Min" value="{min_price}">
-                            <input type="number" name="max_price" class="form-control ms-1" placeholder="Max" value="{max_price}">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="in_stock" value="1" id="inStock" {checked}>
-                            <label class="form-check-label" for="inStock">In Stock</label>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
-                    <a href="/prescription" class="btn btn-outline-secondary btn-sm w-100 mt-2">Clear</a>
-                </form>
-            </div>
-        </div>
-        <!-- Product Grid -->
-        <div class="col-md-9">
-            <div class="d-flex justify-content-between mb-3">
-                <h2>Prescriptions</h2>
-                <form method="get" action="/prescription" class="d-flex">
-                    <select name="sort" class="form-select me-2" style="width:auto;">
-                        {sort_sel}
-                    </select>
-                    <input type="hidden" name="min_price" value="{min_price}">
-                    <input type="hidden" name="max_price" value="{max_price}">
-                    <input type="hidden" name="in_stock" value="{in_stock}">
-                    <button type="submit" class="btn btn-outline-primary btn-sm">Sort</button>
-                </form>
-            </div>
-            <div class="row">{cards_html}</div>
-            {pagination}
-        </div>
-    </div>
-</div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
-</body></html>"""
+        filter_params = f"&min_price={min_price}&max_price={max_price}&in_stock={in_stock}&sort={sort_by}"
+        pagination = '<nav><ul class="pagination justify-content-center">' + "".join(
+            f'<li class="page-item {"active" if p==page else ""}"><a class="page-link" href="/prescription?page={p}{filter_params}">{p}</a></li>' for p in range(1,total_pages+1)
+        ) + '</ul></nav>'
+    return f"""<!DOCTYPE html><html><head><title>Prescriptions</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{public_navbar()}<div class="container mt-4"><div class="row">
+<div class="col-md-3"><div class="filter-sidebar"><h5>Filter</h5>
+<form method="get" action="/prescription">
+    <div class="mb-3"><label class="form-label">Price (KSh)</label><div class="d-flex"><input type="number" name="min_price" class="form-control me-1" placeholder="Min" value="{min_price}"><input type="number" name="max_price" class="form-control ms-1" placeholder="Max" value="{max_price}"></div></div>
+    <div class="mb-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="in_stock" value="1" id="inStock" {checked}><label class="form-check-label" for="inStock">In Stock</label></div></div>
+    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button><a href="/prescription" class="btn btn-outline-secondary btn-sm w-100 mt-2">Clear</a>
+</form></div></div>
+<div class="col-md-9"><div class="d-flex justify-content-between mb-3"><h2>Prescriptions</h2>
+<form method="get" action="/prescription" class="d-flex"><select name="sort" class="form-select me-2" style="width:auto;">{sort_sel}</select><input type="hidden" name="min_price" value="{min_price}"><input type="hidden" name="max_price" value="{max_price}"><input type="hidden" name="in_stock" value="{in_stock}"><button type="submit" class="btn btn-outline-primary btn-sm">Sort</button></form></div>
+<div class="row">{cards_html}</div>{pagination}</div>
+</div></div><footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer></body></html>"""
 
 @app.get("/prescription", response_class=HTMLResponse)
 def prescription_list(request: Request):
-    # filters
-    min_price = request.query_params.get("min_price", "")
-    max_price = request.query_params.get("max_price", "")
-    in_stock = request.query_params.get("in_stock", "")
-    sort = request.query_params.get("sort", "default")
-    page = int(request.query_params.get("page", 1))
-    per_page = 9
-
-    # Build query
+    min_price = request.query_params.get("min_price",""); max_price = request.query_params.get("max_price",""); in_stock = request.query_params.get("in_stock",""); sort = request.query_params.get("sort","default"); page = int(request.query_params.get("page",1)); per_page = 9
     query = service_supabase.table("products").select("*", count="exact").eq("active", True)
-
-    # Price filter
-    if min_price:
-        query = query.gte("price", float(min_price))
-    if max_price:
-        query = query.lte("price", float(max_price))
-    # In stock
-    if in_stock == "1":
-        query = query.gt("stock", 0)
-
-    # Sorting
-    if sort == "price_asc":
-        query = query.order("price", desc=False)
-    elif sort == "price_desc":
-        query = query.order("price", desc=True)
-    else:
-        query = query.order("name")
-
+    if min_price: query = query.gte("price", float(min_price))
+    if max_price: query = query.lte("price", float(max_price))
+    if in_stock == "1": query = query.gt("stock", 0)
+    if sort == "price_asc": query = query.order("price", desc=False)
+    elif sort == "price_desc": query = query.order("price", desc=True)
+    else: query = query.order("name")
     total = query.execute().count or 0
     offset = (page-1)*per_page
     result = query.range(offset, offset+per_page-1).execute()
     products = result.data or []
     total_pages = max(1, (total + per_page - 1)//per_page)
-
-    current_filters = {"min_price": min_price, "max_price": max_price, "in_stock": in_stock}
-
-    return HTMLResponse(prescription_page(products, current_filters, sort, page, total_pages))
+    filters = {"min_price": min_price, "max_price": max_price, "in_stock": in_stock}
+    return HTMLResponse(prescription_page(products, filters, sort, page, total_pages))
 
 # ---------- Blog (Placeholder) ----------
 @app.get("/blog", response_class=HTMLResponse)
 def blog():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Blog</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}
-<div class="container mt-4"><h2>Blog</h2><p>Coming soon! Stay tuned for health tips and product updates.</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
-</body></html>""")
+{public_navbar()}<div class="container mt-4"><h2>Blog</h2><p>Coming soon!</p></div></body></html>""")
 
-# ---------- Admin Panel ----------
+# ---------- Admin Panel (Full Backend) ----------
 @app.get("/login", response_class=HTMLResponse)
 def admin_login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Admin Login</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}
-<div class="container mt-5" style="max-width:400px;"><div class="card p-4"><h3>Admin Login</h3>{alert}
-<form method="post" action="/login"><input class="form-control mb-2" name="email" placeholder="Email" required>
-<input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-<button class="btn btn-primary w-100 mt-2">Log In</button></form>
-</div></div></body></html>""")
+{public_navbar()}<div class="container mt-5" style="max-width:400px;"><div class="card p-4"><h3>Admin Login</h3>{alert}
+<form method="post" action="/login"><input class="form-control mb-2" name="email" placeholder="Email" required><input class="form-control mb-2" type="password" name="password" placeholder="Password" required><button class="btn btn-primary w-100 mt-2">Log In</button></form></div></div></body></html>""")
 
 @app.post("/login")
 def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
@@ -525,17 +427,52 @@ def admin_login(request: Request, email: str = Form(...), password: str = Form(.
     except:
         return admin_login_page("Invalid credentials")
 
+def admin_dashboard_page(metrics, orders_html):
+    return f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3">
+    <h5><i class="fas fa-shield-alt"></i> Admin Panel</h5>
+    <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a href="/admin/orders"><i class="fas fa-shopping-cart"></i> Orders</a>
+    <a href="/admin/products"><i class="fas fa-pills"></i> Products</a>
+    <a href="/admin/customers"><i class="fas fa-users"></i> Customers</a>
+    <a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
+    <a href="/">View Site</a>
+</div>
+<div class="col-md-10 p-4">
+    <h2>Dashboard</h2>
+    <div class="row mt-4">
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_sales']}</h3><p>Total Sales (KSh)</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_orders']}</h3><p>Total Orders</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_products']}</h3><p>Products</p></div></div>
+        <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_customers']}</h3><p>Customers</p></div></div>
+    </div>
+    <hr><h4>Recent Orders</h4>{orders_html}
+</div></div></div></body></html>"""
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
+    orders = service_supabase.table("orders").select("*").order("created_at", desc=True).limit(10).execute().data or []
+    orders_html = "".join(f"""<div class="card mb-2 p-2"><strong>#{o['id'][:8]}</strong> - {o['status']} | KSh {o['total_amount']} | {o.get('customer_name','')} | {o['created_at'][:10]}</div>""" for o in orders)
+    total_sales = sum(o['total_amount'] for o in orders) if orders else 0
+    total_orders = service_supabase.table("orders").select("count", count="exact").execute().count or 0
+    total_products = service_supabase.table("products").select("count", count="exact").execute().count or 0
+    # count unique customers by email
+    cust_emails = set(o.get('customer_email','') for o in service_supabase.table("orders").select("customer_email").execute().data or [])
+    metrics = {"total_sales": f"{total_sales:,.2f}", "total_orders": total_orders, "total_products": total_products, "total_customers": len(cust_emails)}
+    return HTMLResponse(admin_dashboard_page(metrics, orders_html))
+
+@app.get("/admin/orders", response_class=HTMLResponse)
+def admin_orders(request: Request):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
     orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
-    products = service_supabase.table("products").select("*").order("name").execute().data or []
-    orders_html = ""
+    html = ""
     for o in orders:
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", o["id"]).execute().data or []
         il = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in items)
-        orders_html += f"""<div class="card mb-3 p-3">
-        <h5>Order #{o['id'][:8]} - {o['status']}</h5>
+        html += f"""<div class="card mb-3 p-3"><h5>Order #{o['id'][:8]} - {o['status']}</h5>
         <p><strong>Customer:</strong> {o.get('customer_name','')} ({o.get('customer_phone','')}) | <strong>Total:</strong> KSh {o['total_amount']} | <strong>Date:</strong> {o['created_at'][:10]}</p>
         <ul>{il}</ul>
         <form method="post" action="/admin/update-order/{o['id']}" class="d-flex align-items-center">
@@ -546,37 +483,32 @@ def admin_dashboard(request: Request):
                 <option value="delivered" {'selected' if o['status']=='delivered' else ''}>Delivered</option>
             </select>
             <button class="btn btn-sm btn-primary">Update</button>
-        </form>
-        </div>"""
-    products_html = ""
-    for p in products:
-        products_html += f"""<tr>
-            <td>{p['name']}</td><td>{p['category']}</td><td>{p['price']}</td><td>{p['stock']}</td>
-            <td><a href="/admin/edit-product/{p['id']}" class="btn btn-sm btn-warning">Edit</a> <a href="/admin/delete-product/{p['id']}" class="btn btn-sm btn-danger">Delete</a></td>
-        </tr>"""
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+        </form></div>"""
+    if not html: html = "<p>No orders yet.</p>"
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Orders · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
-<div class="container mt-4">
-    <h2>Admin Dashboard</h2>
-    <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#orders">Orders</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#products">Products</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/add-product">+ Add Product</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/export-orders">Export CSV</a></li>
-    </ul>
-    <div class="tab-content mt-3">
-        <div class="tab-pane active" id="orders">{orders_html}</div>
-        <div class="tab-pane" id="products"><table class="table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead><tbody>{products_html}</tbody></table></div>
-    </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body></html>""")
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4"><h2>All Orders</h2>{html}</div></div></div></body></html>""")
 
 @app.post("/admin/update-order/{order_id}")
 def admin_update_order(request: Request, order_id: str, status: str = Form(...)):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     service_supabase.table("orders").update({"status": status}).eq("id", order_id).execute()
-    return RedirectResponse("/admin", 303)
+    return RedirectResponse("/admin/orders", 303)
+
+@app.get("/admin/products", response_class=HTMLResponse)
+def admin_products(request: Request):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
+    products = service_supabase.table("products").select("*").order("name").execute().data or []
+    rows = "".join(f"""<tr><td>{p['name']}</td><td>{p['category']}</td><td>{p['price']}</td><td>{p['stock']}</td>
+        <td><a href="/admin/edit-product/{p['id']}" class="btn btn-sm btn-warning">Edit</a> <a href="/admin/delete-product/{p['id']}" class="btn btn-sm btn-danger">Delete</a></td></tr>""" for p in products)
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Products · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4"><h2>Products</h2><a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a>
+<table class="table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
 
 @app.get("/admin/add-product", response_class=HTMLResponse)
 def admin_add_product_form(request: Request):
@@ -603,17 +535,15 @@ async def admin_add_product(request: Request, name: str = Form(...), description
         fname = f"{int(os.urandom(4).hex(),16)}_{image.filename}"
         service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": image.content_type})
         img_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
-    service_supabase.table("products").insert({
-        "name": name, "description": description, "category": category, "price": price, "stock": stock, "image_url": img_url
-    }).execute()
-    return RedirectResponse("/admin", 303)
+    service_supabase.table("products").insert({"name": name, "description": description, "category": category, "price": price, "stock": stock, "image_url": img_url}).execute()
+    return RedirectResponse("/admin/products", 303)
 
 @app.get("/admin/edit-product/{product_id}", response_class=HTMLResponse)
 def admin_edit_product_form(request: Request, product_id: str):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     p = service_supabase.table("products").select("*").eq("id", product_id).single().execute().data
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a></div></nav>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a></div></nav>
 <div class="container mt-4" style="max-width:500px;"><h2>Edit Product</h2>
 <form method="post" action="/admin/edit-product/{product_id}" enctype="multipart/form-data">
     <input class="form-control mb-2" name="name" value="{p['name']}" required>
@@ -635,20 +565,35 @@ async def admin_edit_product(request: Request, product_id: str, name: str = Form
         service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": image.content_type})
         upd["image_url"] = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
     service_supabase.table("products").update(upd).eq("id", product_id).execute()
-    return RedirectResponse("/admin", 303)
+    return RedirectResponse("/admin/products", 303)
 
 @app.get("/admin/delete-product/{product_id}")
 def admin_delete_product(request: Request, product_id: str):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     service_supabase.table("products").delete().eq("id", product_id).execute()
-    return RedirectResponse("/admin", 303)
+    return RedirectResponse("/admin/products", 303)
+
+@app.get("/admin/customers", response_class=HTMLResponse)
+def admin_customers(request: Request):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
+    orders = service_supabase.table("orders").select("customer_name, customer_email, customer_phone").execute().data or []
+    # deduplicate by email
+    seen = set(); customers = []
+    for o in orders:
+        if o['customer_email'] not in seen and o['customer_email']:
+            seen.add(o['customer_email']); customers.append(o)
+    rows = "".join(f"<tr><td>{c['customer_name']}</td><td>{c['customer_email']}</td><td>{c['customer_phone']}</td></tr>" for c in customers)
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Customers · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4"><h2>Customers</h2><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
 
 @app.get("/admin/export-orders")
 def export_orders(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
-    output = io.StringIO()
-    w = csv.writer(output)
+    output = io.StringIO(); w = csv.writer(output)
     w.writerow(["Order ID","Date","Customer","Email","Phone","Total","Status","Payment"])
     for o in orders:
         w.writerow([o['id'][:8], o['created_at'][:10], o.get('customer_name',''), o.get('customer_email',''), o.get('customer_phone',''), o['total_amount'], o['status'], o.get('payment_method','')])
@@ -672,10 +617,8 @@ def about():
 @app.get("/contact", response_class=HTMLResponse)
 def contact():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}
-<div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
-</body></html>""")
+{public_navbar()}<div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer></body></html>""")
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
