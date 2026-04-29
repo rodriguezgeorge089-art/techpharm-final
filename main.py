@@ -15,7 +15,7 @@ APP_TAGLINE = "Medicine At Your Convenience!!"
 PRIMARY_COLOR = "#0d6efd"
 PHARMACY_PHONE = "+254 792 524 333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
-PHARMACY_ADDRESS = "Taji Mall, Mombasa Road, Nairobi"
+PHARMACY_ADDRESS = "Mombasa Road, Taji Mall, Nairobi"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -49,14 +49,9 @@ CUSTOM_CSS = f"""
   }}
   .hero h1 {{ font-size: 3rem; font-weight: bold; margin-bottom: 1rem; }}
   .hero p {{ font-size: 1.2rem; opacity: 0.9; max-width: 600px; margin: 0 auto 2rem; }}
-  .feature-card {{
-    transition: transform 0.3s ease; border-radius: 10px; background: white; padding: 2rem; text-align: center;
-  }}
+  .feature-card {{ transition: transform 0.3s ease; border-radius: 10px; background: white; padding: 2rem; text-align: center; }}
   .feature-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }}
-  .top-category-card {{
-    background: white; border-radius: 10px; padding: 1.5rem; text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s ease;
-  }}
+  .top-category-card {{ background: white; border-radius: 10px; padding: 1.5rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s ease; }}
   .top-category-card:hover {{ box-shadow: 0 5px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }}
   .footer {{ background: #f8f9fa; padding: 3rem 0; margin-top: 3rem; border-top: 1px solid #dee2e6; }}
   .top-bar {{ background-color: {PRIMARY_COLOR}; color: white; font-size: 0.9rem; }}
@@ -66,6 +61,7 @@ CUSTOM_CSS = f"""
   .admin-sidebar a:hover {{ background-color: #334155; color: white; }}
   .metric-card {{ background: white; border-radius: 12px; padding: 20px; }}
   .metric-card h3 {{ font-size: 2rem; font-weight: bold; }}
+  .dropdown-mega {{ min-width: 300px; }}
 </style>
 """
 
@@ -94,9 +90,15 @@ def public_navbar():
             <li class="nav-item"><a class="nav-link" href="/contact">Contact</a></li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">All Departments</a>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu dropdown-mega p-3">
                 <li class="dropdown-header fw-bold">Shop by Category</li>
-                <li><a class="dropdown-item" href="/shop">See All Products</a></li>
+                <li><a class="dropdown-item" href="/shop?category=Supplements">Supplements</a></li>
+                <li><a class="dropdown-item" href="/shop?category=Baby+Care">Baby Care</a></li>
+                <li><a class="dropdown-item" href="/shop?category=Probiotics">Probiotics</a></li>
+                <li><a class="dropdown-item" href="/shop?category=Prescription">Prescription</a></li>
+                <li><a class="dropdown-item" href="/shop?category=Colds+and+Flu">Colds and Flu</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-primary" href="/shop"><strong>See All Products</strong></a></li>
               </ul>
             </li>
             <li class="nav-item"><a class="nav-link" href="/prescription">Prescriptions</a></li>
@@ -141,7 +143,6 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
     <div class="col-md-4"><h5>Quick Links</h5><ul class="list-unstyled"><li><a href="/shop">Shop</a></li><li><a href="/about">About Us</a></li><li><a href="/contact">Contact</a></li><li><a href="/prescription">Upload Prescription</a></li><li><a href="/blog">Blog</a></li></ul></div>
     <div class="col-md-4"><h5>Working Hours</h5><p class="text-muted">Mon - Fri: 8AM - 6PM<br>Sat: 8AM - 1PM<br>Sun: Closed</p></div>
 </div><hr><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved. Terms & Conditions Apply.</p></div></footer>
-<!-- Cookie Consent -->
 <div class="position-fixed bottom-0 start-0 w-100 bg-dark text-white p-3 d-flex justify-content-between align-items-center" id="cookieConsent">
   <span>We use cookies and other similar technologies to improve your browsing experience and the functionality of our site. <a href="/privacy" class="text-info">Privacy Policy</a>.</span>
   <button onclick="document.getElementById('cookieConsent').style.display='none'" class="btn btn-outline-light btn-sm">Accept All</button>
@@ -459,7 +460,6 @@ def admin_dashboard(request: Request):
     total_sales = sum(o['total_amount'] for o in orders) if orders else 0
     total_orders = service_supabase.table("orders").select("count", count="exact").execute().count or 0
     total_products = service_supabase.table("products").select("count", count="exact").execute().count or 0
-    # count unique customers by email
     cust_emails = set(o.get('customer_email','') for o in service_supabase.table("orders").select("customer_email").execute().data or [])
     metrics = {"total_sales": f"{total_sales:,.2f}", "total_orders": total_orders, "total_products": total_products, "total_customers": len(cust_emails)}
     return HTMLResponse(admin_dashboard_page(metrics, orders_html))
@@ -577,7 +577,6 @@ def admin_delete_product(request: Request, product_id: str):
 def admin_customers(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     orders = service_supabase.table("orders").select("customer_name, customer_email, customer_phone").execute().data or []
-    # deduplicate by email
     seen = set(); customers = []
     for o in orders:
         if o['customer_email'] not in seen and o['customer_email']:
@@ -618,7 +617,8 @@ def about():
 def contact():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}<div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer></body></html>""")
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+</body></html>""")
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
