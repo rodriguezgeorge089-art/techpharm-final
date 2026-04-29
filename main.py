@@ -1408,10 +1408,12 @@ def admin_inquiries(request: Request):
     return HTMLResponse(inquiries_page(inq))
 
 @app.get("/admin/export-orders")
+@app.get("/admin/export-orders")
 def export_orders(request: Request):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
-    orders = service_supabase.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name, email)").order("created_at", desc=True).execute().data or []
+    # Fetch orders with buyer full_name (no email to avoid missing column error)
+    orders = service_supabase.table("orders").select("*, profiles!orders_buyer_id_fkey(full_name)").order("created_at", desc=True).execute().data or []
     output = io.StringIO()
     w = csv.writer(output)
     w.writerow(["Order ID","Date","Buyer","Total","Status","Payment Method","Payment Status"])
@@ -1420,7 +1422,6 @@ def export_orders(request: Request):
         w.writerow([o['id'][:8], o['created_at'][:10], buyer.get("full_name",""), o['total_amount'], o['status'], o.get('payment_method',''), o.get('payment_status','')])
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=orders.csv"})
-
 @app.get("/notifications", response_class=HTMLResponse)
 def view_notifications(request: Request):
     profile = get_current_user(request)
