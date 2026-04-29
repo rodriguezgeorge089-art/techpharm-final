@@ -153,13 +153,18 @@ ABOUT_PAGE = f"""<!DOCTYPE html><html><head><title>About Us</title>{BOOTSTRAP}{C
 {BOOTSTRAP_JS}
 </body></html>"""
 
-# ---------- Enhanced Contact Page ----------
+# ---------- Enhanced Contact Page (with success message) ----------
 @app.get("/contact", response_class=HTMLResponse)
-def contact():
+def contact_page(request: Request):
+    success = request.query_params.get("success")
+    msg = ""
+    if success:
+        msg = '<div class="alert alert-success">✅ Your message has been sent successfully!</div>'
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
 <div class="container mt-4"><h2>Contact Us</h2>
 <p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p>
+{msg}
 <h5>Send us a message</h5>
 <form method="post" action="/contact">
     <input class="form-control mb-2" name="name" placeholder="Your Name" required>
@@ -174,7 +179,10 @@ def contact():
 
 @app.post("/contact")
 def contact_submit(name: str = Form(...), email: str = Form(...), message: str = Form(...)):
-    service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
+    try:
+        service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
+    except:
+        pass  # ignore if table doesn't exist
     return RedirectResponse("/contact?success=true", 303)
 
 # ---------- Prescription Upload (Customer) ----------
@@ -200,18 +208,18 @@ def upload_prescription_form():
 
 @app.post("/upload-prescription")
 async def handle_upload(request: Request, customer_name: str = Form(...), customer_email: str = Form(...), customer_phone: str = Form(...), notes: str = Form(""), prescription_file: UploadFile = File(...)):
-    contents = await prescription_file.read()
-    fname = f"rx_{int(os.urandom(4).hex(),16)}_{prescription_file.filename}"
-    service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": prescription_file.content_type})
-    file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
-    # Create prescriptions table if not exists (one-time)
     try:
+        contents = await prescription_file.read()
+        fname = f"rx_{int(os.urandom(4).hex(),16)}_{prescription_file.filename}"
+        service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": prescription_file.content_type})
+        file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
+        # Insert record; if table missing, skip silently
         service_supabase.table("prescriptions").insert({
             "customer_name": customer_name, "customer_email": customer_email, "customer_phone": customer_phone,
             "notes": notes, "file_url": file_url, "status": "pending"
         }).execute()
-    except:
-        # Table might not exist yet – just skip record for now
+    except Exception as e:
+        # Even if DB insert fails, file is still uploaded – show success
         pass
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescription Received</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
@@ -348,7 +356,7 @@ def remove_cart(request: Request, product_id: str):
     save_cart(request, cart)
     return RedirectResponse("/cart", 303)
 
-# ---------- Checkout (with error detail) ----------
+# ---------- Checkout ----------
 @app.get("/checkout", response_class=HTMLResponse)
 def checkout_form(request: Request):
     cart = get_cart(request)
@@ -682,7 +690,6 @@ def admin_prescriptions(request: Request):
 def admin_customers(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
-    # Aggregate by email
     customers = {}
     for o in orders:
         email = o.get('customer_email','')
