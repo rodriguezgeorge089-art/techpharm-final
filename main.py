@@ -985,15 +985,20 @@ def payment_success(request: Request, order_id: str):
         return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
     return HTMLResponse(payment_success_page(order.data))
 
+# Receipt – now also allows admins to view any receipt
 @app.get("/receipt/{order_id}", response_class=HTMLResponse)
 def view_receipt(request: Request, order_id: str):
     profile = get_current_user(request)
     if not profile: return RedirectResponse("/login")
     try:
         order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
-        if not order.data or order.data["buyer_id"] != profile["id"]:
+        if not order.data:
+            return HTMLResponse("<div class='alert alert-danger'>Receipt not found.</div>")
+        # Allow if buyer matches or if user is admin
+        if order.data["buyer_id"] != profile["id"] and profile.get("role") != "admin":
             return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-        buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", profile["id"]).single().execute()
+        # Fetch buyer details for the receipt (use the order's buyer)
+        buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", order.data["buyer_id"]).single().execute()
         buyer_data = buyer.data if buyer.data else {}
         return HTMLResponse(receipt_page(order.data, buyer_data))
     except Exception as e:
@@ -1050,6 +1055,7 @@ def submit_return(request: Request, order_id: str, reason: str = Form(...)):
         "status": "pending"
     }).execute()
     notify_admins(f"New return request for order #{order_id[:8]}.")
+    create_notification(profile["id"], f"Your return request for order #{order_id[:8]} has been submitted.")
     return RedirectResponse("/orders", 303)
 
 # ---------- Admin ----------
@@ -1217,6 +1223,7 @@ def admin_approve_return(request: Request, return_id: str):
     ret = service_supabase.table("returns").select("buyer_id").eq("id", return_id).single().execute()
     if ret.data:
         create_notification(ret.data["buyer_id"], f"Your return request #{return_id[:8]} has been approved.")
+        # also add a success message for the buyer to see when they view their returns
     return RedirectResponse("/admin/returns", 303)
 
 @app.get("/admin/return/deny/{return_id}")
@@ -1286,7 +1293,7 @@ def contact_submit(name: str = Form(...), email: str = Form(...), message: str =
     service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
     return RedirectResponse("/contact?success=true", 303)
 
-# Catch-all to prevent "Not Found"
+# Catch-all
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
     return RedirectResponse("/login", status_code=303)
