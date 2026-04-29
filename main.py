@@ -13,9 +13,9 @@ app.add_middleware(SessionMiddleware, secret_key="dawalink-pharmacy-secret")
 APP_NAME = "DawaLink"
 APP_TAGLINE = "Medicine At Your Convenience!!"
 PRIMARY_COLOR = "#0d6efd"
-PHARMACY_PHONE = "+254 792 524 333"
+PHARMACY_PHONE = "+254792524333"          # No spaces, correct number
 PHARMACY_EMAIL = "info@dawalink.co.ke"
-PHARMACY_ADDRESS = "Mombasa Road, Taji Mall, Nairobi"
+PHARMACY_ADDRESS = " Mombasa Road, Taji Mall, Nairobi"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -34,6 +34,7 @@ def save_cart(request: Request, cart):
 # ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
 FONTAWESOME = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">'
+BOOTSTRAP_JS = '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>'
 CUSTOM_CSS = f"""
 <style>
   body {{ background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; }}
@@ -41,12 +42,7 @@ CUSTOM_CSS = f"""
   .card {{ border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }}
   .card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }}
   .btn-primary {{ background-color: {PRIMARY_COLOR}; border-color: {PRIMARY_COLOR}; }}
-  .hero {{
-    background: linear-gradient(135deg, {PRIMARY_COLOR}, #004085);
-    color: white;
-    padding: 5rem 0;
-    text-align: center;
-  }}
+  .hero {{ background: linear-gradient(135deg, {PRIMARY_COLOR}, #004085); color: white; padding: 5rem 0; text-align: center; }}
   .hero h1 {{ font-size: 3rem; font-weight: bold; margin-bottom: 1rem; }}
   .hero p {{ font-size: 1.2rem; opacity: 0.9; max-width: 600px; margin: 0 auto 2rem; }}
   .feature-card {{ transition: transform 0.3s ease; border-radius: 10px; background: white; padding: 2rem; text-align: center; }}
@@ -117,7 +113,7 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
     <h1>{APP_TAGLINE}</h1>
     <p>Your trusted source for quality OTC medicines, supplements, and personal care products — delivered to your doorstep.</p>
     <a href="/shop" class="btn btn-light btn-lg mt-3">Shop Now</a>
-    <a href="/prescription" class="btn btn-outline-light btn-lg mt-3 ms-2">Click to Upload Prescription<br><small>Get a quote immediately</small></a>
+    <a href="/upload-prescription" class="btn btn-outline-light btn-lg mt-3 ms-2">Click to Upload Prescription<br><small>Get a quote immediately</small></a>
 </div></section>
 <section class="container my-5">
     <h2 class="text-center mb-4">Why Choose {APP_NAME}?</h2>
@@ -140,20 +136,65 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
 </section>
 <footer class="footer"><div class="container"><div class="row">
     <div class="col-md-4"><h5><i class="fas fa-pills"></i> {APP_NAME}<br><small>Online Pharmacy</small></h5><p class="text-muted">{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
-    <div class="col-md-4"><h5>Quick Links</h5><ul class="list-unstyled"><li><a href="/shop">Shop</a></li><li><a href="/about">About Us</a></li><li><a href="/contact">Contact</a></li><li><a href="/prescription">Upload Prescription</a></li><li><a href="/blog">Blog</a></li></ul></div>
+    <div class="col-md-4"><h5>Quick Links</h5><ul class="list-unstyled"><li><a href="/shop">Shop</a></li><li><a href="/about">About Us</a></li><li><a href="/contact">Contact</a></li><li><a href="/upload-prescription">Upload Prescription</a></li><li><a href="/blog">Blog</a></li></ul></div>
     <div class="col-md-4"><h5>Working Hours</h5><p class="text-muted">Mon - Fri: 8AM - 6PM<br>Sat: 8AM - 1PM<br>Sun: Closed</p></div>
 </div><hr><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved. Terms & Conditions Apply.</p></div></footer>
 <div class="position-fixed bottom-0 start-0 w-100 bg-dark text-white p-3 d-flex justify-content-between align-items-center" id="cookieConsent">
   <span>We use cookies and other similar technologies to improve your browsing experience and the functionality of our site. <a href="/privacy" class="text-info">Privacy Policy</a>.</span>
   <button onclick="document.getElementById('cookieConsent').style.display='none'" class="btn btn-outline-light btn-sm">Accept All</button>
 </div>
+{BOOTSTRAP_JS}
 </body></html>"""
 
 ABOUT_PAGE = f"""<!DOCTYPE html><html><head><title>About Us</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
 <div class="container mt-4"><h2>About {APP_NAME} Online Pharmacy</h2><p>{APP_NAME} is your trusted online pharmacy, providing quality OTC medicines and health products since 2026. We partner with licensed pharmacies to ensure you receive genuine products at competitive prices. Our mission is to make healthcare accessible and affordable for every Kenyan, one click at a time.</p></div>
 <footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+{BOOTSTRAP_JS}
 </body></html>"""
+
+# ---------- Prescription Upload (Customer) ----------
+@app.get("/upload-prescription", response_class=HTMLResponse)
+def upload_prescription_form():
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Upload Prescription</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{public_navbar()}
+<div class="container mt-4" style="max-width:600px;">
+  <h2>Upload Prescription</h2>
+  <p>Fill in your details and upload your prescription. Our pharmacist will get back to you with a quote.</p>
+  <form method="post" action="/upload-prescription" enctype="multipart/form-data">
+    <input type="text" class="form-control mb-2" name="customer_name" placeholder="Your Name" required>
+    <input type="email" class="form-control mb-2" name="customer_email" placeholder="Your Email" required>
+    <input type="text" class="form-control mb-2" name="customer_phone" placeholder="Phone Number" required>
+    <textarea class="form-control mb-2" name="notes" placeholder="Additional notes"></textarea>
+    <label class="form-label">Upload Prescription (image/PDF)</label>
+    <input type="file" class="form-control mb-2" name="prescription_file" accept="image/*,.pdf" required>
+    <button class="btn btn-primary w-100">Submit</button>
+  </form>
+</div>
+{BOOTSTRAP_JS}
+</body></html>""")
+
+@app.post("/upload-prescription")
+async def handle_upload(request: Request, customer_name: str = Form(...), customer_email: str = Form(...), customer_phone: str = Form(...), notes: str = Form(""), prescription_file: UploadFile = File(...)):
+    # Save file to Supabase Storage
+    contents = await prescription_file.read()
+    fname = f"rx_{int(os.urandom(4).hex(),16)}_{prescription_file.filename}"
+    service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": prescription_file.content_type})
+    file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
+    # Insert a record into a 'prescriptions' table (create if not existed)
+    service_supabase.table("prescriptions").insert({
+        "customer_name": customer_name, "customer_email": customer_email, "customer_phone": customer_phone,
+        "notes": notes, "file_url": file_url, "status": "pending"
+    }).execute()
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescription Received</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{public_navbar()}
+<div class="container mt-5 text-center">
+  <h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2>
+  <p>We received your prescription. Our pharmacist will contact you shortly with a quote.</p>
+  <a href="/" class="btn btn-primary">Back to Home</a>
+</div>
+{BOOTSTRAP_JS}
+</body></html>""")
 
 # ---------- Shop Page (public) ----------
 @app.get("/shop", response_class=HTMLResponse)
@@ -214,6 +255,7 @@ def shop(request: Request, search: str = "", category: str = "", page: int = 1):
 {pagination}
 </div>
 <footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+{BOOTSTRAP_JS}
 </body></html>""")
 
 # ---------- Cart ----------
@@ -222,7 +264,7 @@ def view_cart(request: Request):
     cart = get_cart(request)
     if not cart:
         return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Cart</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}<div class="container mt-4"><h2>Your Cart</h2><p>Your cart is empty.</p><a href="/shop" class="btn btn-primary">Continue Shopping</a></div></body></html>""")
+{public_navbar()}<div class="container mt-4"><h2>Your Cart</h2><p>Your cart is empty.</p><a href="/shop" class="btn btn-primary">Continue Shopping</a></div>{BOOTSTRAP_JS}</body></html>""")
     ids = [item["product_id"] for item in cart]
     prods = service_supabase.table("products").select("*").in_("id", ids).execute().data or []
     pmap = {p["id"]: p for p in prods}
@@ -247,7 +289,7 @@ def view_cart(request: Request):
 {public_navbar()}
 <div class="container mt-4"><h2>Your Cart</h2>{items_html}<hr><h4>Total: KSh {total:.2f}</h4>
 <a href="/checkout" class="btn btn-success">Proceed to Checkout</a> <a href="/shop" class="btn btn-outline-secondary">Continue Shopping</a>
-</div></body></html>""")
+</div>{BOOTSTRAP_JS}</body></html>""")
 
 @app.get("/cart/add/{product_id}")
 def add_to_cart(request: Request, product_id: str, quantity: int = 1):
@@ -299,7 +341,9 @@ def checkout_form(request: Request):
         <option value="mobile_money">M-Pesa</option>
     </select>
     <button class="btn btn-success w-100 mt-3">Place Order</button>
-</form></div></body></html>""")
+</form></div>
+{BOOTSTRAP_JS}
+</body></html>""")
 
 @app.post("/checkout")
 def place_order(request: Request, customer_name: str = Form(...), customer_email: str = Form(...), customer_phone: str = Form(...), customer_address: str = Form(""), payment_method: str = Form("cash_on_delivery")):
@@ -346,9 +390,11 @@ def order_confirmation(order_id: str):
     <h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2>
     <p>Your order <strong>#{order_id[:8]}</strong> has been placed successfully. We will contact you shortly.</p>
     <a href="/shop" class="btn btn-primary">Continue Shopping</a>
-</div></body></html>""")
+</div>
+{BOOTSTRAP_JS}
+</body></html>""")
 
-# ---------- Prescription Page ----------
+# ---------- Prescription Product Listing ----------
 def prescription_page(products, current_filters, sort_by, page, total_pages):
     min_price = current_filters.get("min_price", "")
     max_price = current_filters.get("max_price", "")
@@ -361,7 +407,7 @@ def prescription_page(products, current_filters, sort_by, page, total_pages):
         img = f'<img src="{pr.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if pr.get("image_url") else ""
         name = pr.get("name", "")
         price = pr.get("price", 0)
-        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={urllib.parse.quote(f'Hi, I am interested in {name} (KSh {price})')}"
+        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE}?text={urllib.parse.quote(f'Hi, I am interested in {name} (KSh {price})')}"
         add_to_cart_url = f"/cart/add/{pr['id']}?quantity=1"
         cards_html += f"""<div class="col-md-4 mb-4"><div class="card product-card h-100 p-3">{img}<div class="card-body"><h5 class="card-title">{name}</h5><h4 class="text-success">KSh {price}</h4>
             <div class="d-grid gap-1 mt-2"><a href="{add_to_cart_url}" class="btn btn-primary btn-sm">Add to Cart</a><a href="{add_to_cart_url}" class="btn btn-success btn-sm">Buy Now</a><a href="{whatsapp_url}" target="_blank" class="btn btn-outline-success btn-sm">WhatsApp</a></div></div></div>"""
@@ -383,7 +429,7 @@ def prescription_page(products, current_filters, sort_by, page, total_pages):
 <div class="col-md-9"><div class="d-flex justify-content-between mb-3"><h2>Prescriptions</h2>
 <form method="get" action="/prescription" class="d-flex"><select name="sort" class="form-select me-2" style="width:auto;">{sort_sel}</select><input type="hidden" name="min_price" value="{min_price}"><input type="hidden" name="max_price" value="{max_price}"><input type="hidden" name="in_stock" value="{in_stock}"><button type="submit" class="btn btn-outline-primary btn-sm">Sort</button></form></div>
 <div class="row">{cards_html}</div>{pagination}</div>
-</div></div><footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer></body></html>"""
+</div></div><footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>{BOOTSTRAP_JS}</body></html>"""
 
 @app.get("/prescription", response_class=HTMLResponse)
 def prescription_list(request: Request):
@@ -415,7 +461,7 @@ def admin_login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Admin Login</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}<div class="container mt-5" style="max-width:400px;"><div class="card p-4"><h3>Admin Login</h3>{alert}
-<form method="post" action="/login"><input class="form-control mb-2" name="email" placeholder="Email" required><input class="form-control mb-2" type="password" name="password" placeholder="Password" required><button class="btn btn-primary w-100 mt-2">Log In</button></form></div></div></body></html>""")
+<form method="post" action="/login"><input class="form-control mb-2" name="email" placeholder="Email" required><input class="form-control mb-2" type="password" name="password" placeholder="Password" required><button class="btn btn-primary w-100 mt-2">Log In</button></form></div></div>{BOOTSTRAP_JS}</body></html>""")
 
 @app.post("/login")
 def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
@@ -437,7 +483,9 @@ def admin_dashboard_page(metrics, orders_html):
     <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
     <a href="/admin/orders"><i class="fas fa-shopping-cart"></i> Orders</a>
     <a href="/admin/products"><i class="fas fa-pills"></i> Products</a>
+    <a href="/admin/prescriptions"><i class="fas fa-file-prescription"></i> Prescriptions</a>
     <a href="/admin/customers"><i class="fas fa-users"></i> Customers</a>
+    <a href="/admin/settings"><i class="fas fa-cog"></i> Settings</a>
     <a href="/admin/export-orders"><i class="fas fa-download"></i> Export CSV</a>
     <a href="/">View Site</a>
 </div>
@@ -450,7 +498,7 @@ def admin_dashboard_page(metrics, orders_html):
         <div class="col-md-3"><div class="metric-card text-center"><h3>{metrics['total_customers']}</h3><p>Customers</p></div></div>
     </div>
     <hr><h4>Recent Orders</h4>{orders_html}
-</div></div></div></body></html>"""
+</div></div></div>{BOOTSTRAP_JS}</body></html>"""
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
@@ -488,8 +536,8 @@ def admin_orders(request: Request):
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Orders · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
 <div class="container-fluid"><div class="row">
-<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
-<div class="col-md-10 p-4"><h2>All Orders</h2>{html}</div></div></div></body></html>""")
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4"><h2>All Orders</h2>{html}</div></div></div>{BOOTSTRAP_JS}</body></html>""")
 
 @app.post("/admin/update-order/{order_id}")
 def admin_update_order(request: Request, order_id: str, status: str = Form(...)):
@@ -506,9 +554,9 @@ def admin_products(request: Request):
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Products · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
 <div class="container-fluid"><div class="row">
-<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
 <div class="col-md-10 p-4"><h2>Products</h2><a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a>
-<table class="table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
+<table class="table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div></div></div>{BOOTSTRAP_JS}</body></html>""")
 
 @app.get("/admin/add-product", response_class=HTMLResponse)
 def admin_add_product_form(request: Request):
@@ -573,6 +621,26 @@ def admin_delete_product(request: Request, product_id: str):
     service_supabase.table("products").delete().eq("id", product_id).execute()
     return RedirectResponse("/admin/products", 303)
 
+# ---------- Admin Prescriptions Management ----------
+@app.get("/admin/prescriptions", response_class=HTMLResponse)
+def admin_prescriptions(request: Request):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
+    rx = service_supabase.table("prescriptions").select("*").order("created_at", desc=True).execute().data or []
+    html = ""
+    for r in rx:
+        html += f"""<div class="card mb-3 p-3">
+        <h5>Prescription from {r['customer_name']}</h5>
+        <p><strong>Email:</strong> {r['customer_email']} | <strong>Phone:</strong> {r['customer_phone']}</p>
+        <p><strong>Notes:</strong> {r.get('notes','')}</p>
+        <a href="{r['file_url']}" target="_blank" class="btn btn-sm btn-primary">View File</a>
+        </div>"""
+    if not html: html = "<p>No prescriptions uploaded yet.</p>"
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescriptions · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4"><h2>Uploaded Prescriptions</h2>{html}</div></div></div>{BOOTSTRAP_JS}</body></html>""")
+
 @app.get("/admin/customers", response_class=HTMLResponse)
 def admin_customers(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
@@ -585,8 +653,35 @@ def admin_customers(request: Request):
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Customers · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
 <div class="container-fluid"><div class="row">
-<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/customers">Customers</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
 <div class="col-md-10 p-4"><h2>Customers</h2><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
+
+# ---------- Admin Settings (Edit Credentials) ----------
+@app.get("/admin/settings", response_class=HTMLResponse)
+def admin_settings(request: Request):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Settings · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
+<div class="col-md-10 p-4">
+    <h2>Settings</h2>
+    <h4>Change Admin Password</h4>
+    <form method="post" action="/admin/settings" style="max-width:400px;">
+        <input class="form-control mb-2" name="new_password" type="password" placeholder="New Password" required>
+        <button class="btn btn-primary">Update Password</button>
+    </form>
+</div></div></div></body></html>""")
+
+@app.post("/admin/settings")
+def admin_update_password(request: Request, new_password: str = Form(...)):
+    if not request.session.get("user_id"): return RedirectResponse("/login")
+    # Update password via Supabase Auth Admin API (service_role required)
+    service_supabase.auth.admin.update_user_by_id(
+        request.session["user_id"],
+        {"password": new_password}
+    )
+    return RedirectResponse("/admin/settings?success=1", 303)
 
 @app.get("/admin/export-orders")
 def export_orders(request: Request):
@@ -618,6 +713,7 @@ def contact():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}<div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
 <footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+{BOOTSTRAP_JS}
 </body></html>""")
 
 @app.get("/terms", response_class=HTMLResponse)
