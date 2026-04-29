@@ -8,13 +8,13 @@ from supabase import create_client, Client
 load_dotenv()
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="belea-pharmacy-secret")
+app.add_middleware(SessionMiddleware, secret_key="dawalink-pharmacy-secret")
 
-APP_NAME = "Belea Online Pharmacy"
+APP_NAME = "DawaLink"
 APP_TAGLINE = "Medicine At Your Convenience!!"
 PRIMARY_COLOR = "#0d6efd"
 PHARMACY_PHONE = "+254 748 681 432"
-PHARMACY_EMAIL = "info@belea.co.ke"
+PHARMACY_EMAIL = "info@dawalink.co.ke"
 PHARMACY_ADDRESS = "Airport North Road, Embakasi, Nairobi"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -68,6 +68,8 @@ CUSTOM_CSS = f"""
   .category-card:hover {{ box-shadow: 0 5px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }}
   .footer {{ background: #f8f9fa; padding: 3rem 0; margin-top: 3rem; border-top: 1px solid #dee2e6; }}
   .top-bar {{ background-color: {PRIMARY_COLOR}; color: white; font-size: 0.9rem; }}
+  .filter-sidebar {{ background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+  .product-card .btn {{ margin-bottom: 5px; }}
 </style>
 """
 
@@ -85,7 +87,7 @@ def public_navbar():
     {top_bar()}
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
       <div class="container">
-        <a class="navbar-brand fw-bold text-primary" href="/"><i class="fas fa-pills"></i> Belea<br><small class="text-muted" style="font-size:0.7rem;">Online Pharmacy</small></a>
+        <a class="navbar-brand fw-bold text-primary" href="/"><i class="fas fa-pills"></i> {APP_NAME}<br><small class="text-muted" style="font-size:0.7rem;">Online Pharmacy</small></a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navPublic">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -105,7 +107,7 @@ def public_navbar():
                 <li><a class="dropdown-item" href="/shop">View All Products</a></li>
               </ul>
             </li>
-            <li class="nav-item"><a class="nav-link" href="/prescription">Upload Prescription</a></li>
+            <li class="nav-item"><a class="nav-link" href="/prescription">Prescriptions</a></li>
             <li class="nav-item"><a class="nav-link" href="/blog">Blog</a></li>
             <li class="nav-item"><a class="nav-link" href="/cart"><i class="fas fa-shopping-cart"></i> Cart</a></li>
             <li class="nav-item"><a class="btn btn-primary ms-3" href="/login">Admin Login</a></li>
@@ -124,7 +126,7 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
     <a href="/prescription" class="btn btn-outline-light btn-lg mt-3 ms-2">Click to Upload Prescription<br><small>Get a quote immediately</small></a>
 </div></section>
 <section class="container my-5">
-    <h2 class="text-center mb-4">Why Choose Belea?</h2>
+    <h2 class="text-center mb-4">Why Choose {APP_NAME}?</h2>
     <div class="row g-4">
         <div class="col-md-4"><div class="feature-card"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>All medicines sourced from licensed pharmacies.</p></div></div>
         <div class="col-md-4"><div class="feature-card"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier services across Kenya.</p></div></div>
@@ -143,10 +145,10 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
     </div>
 </section>
 <footer class="footer"><div class="container"><div class="row">
-    <div class="col-md-4"><h5><i class="fas fa-pills"></i> Belea<br><small>Online Pharmacy</small></h5><p class="text-muted">{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
+    <div class="col-md-4"><h5><i class="fas fa-pills"></i> {APP_NAME}<br><small>Online Pharmacy</small></h5><p class="text-muted">{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
     <div class="col-md-4"><h5>Quick Links</h5><ul class="list-unstyled"><li><a href="/shop">Shop</a></li><li><a href="/about">About Us</a></li><li><a href="/contact">Contact</a></li><li><a href="/prescription">Upload Prescription</a></li><li><a href="/blog">Blog</a></li></ul></div>
     <div class="col-md-4"><h5>Working Hours</h5><p class="text-muted">Mon - Fri: 8AM - 6PM<br>Sat: 8AM - 1PM<br>Sun: Closed</p></div>
-</div><hr><p class="text-center text-muted">&copy; 2026 Belea Online Pharmacy. All rights reserved. Terms & Conditions Apply.</p></div></footer>
+</div><hr><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved. Terms & Conditions Apply.</p></div></footer>
 <!-- Cookie Consent -->
 <div class="position-fixed bottom-0 start-0 w-100 bg-dark text-white p-3 d-flex justify-content-between align-items-center" id="cookieConsent">
   <span>We use cookies and other similar technologies to improve your browsing experience and the functionality of our site. <a href="/privacy" class="text-info">Privacy Policy</a>.</span>
@@ -156,11 +158,11 @@ PUBLIC_HOME = f"""<!DOCTYPE html><html><head><title>{APP_NAME}</title>{BOOTSTRAP
 
 ABOUT_PAGE = f"""<!DOCTYPE html><html><head><title>About Us</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
-<div class="container mt-4"><h2>About Belea Online Pharmacy</h2><p>Belea is your trusted online pharmacy, providing quality OTC medicines and health products since 2026. We partner with licensed pharmacies to ensure you receive genuine products at competitive prices. Our mission is to make healthcare accessible and affordable for every Kenyan, one click at a time.</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 Belea. All rights reserved.</p></div></footer>
+<div class="container mt-4"><h2>About {APP_NAME} Online Pharmacy</h2><p>{APP_NAME} is your trusted online pharmacy, providing quality OTC medicines and health products since 2026. We partner with licensed pharmacies to ensure you receive genuine products at competitive prices. Our mission is to make healthcare accessible and affordable for every Kenyan, one click at a time.</p></div>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
 </body></html>"""
 
-# ---------- Shop Page (public, no login required) ----------
+# ---------- Shop Page (public) ----------
 @app.get("/shop", response_class=HTMLResponse)
 def shop(request: Request, search: str = "", category: str = "", page: int = 1):
     per_page = 6; offset = (page-1)*per_page
@@ -218,7 +220,7 @@ def shop(request: Request, search: str = "", category: str = "", page: int = 1):
 <div class="row">{cards_html}</div>
 {pagination}
 </div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 Belea. All rights reserved.</p></div></footer>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
 </body></html>""")
 
 # ---------- Cart ----------
@@ -353,36 +355,151 @@ def order_confirmation(order_id: str):
     <a href="/shop" class="btn btn-primary">Continue Shopping</a>
 </div></body></html>""")
 
-# ---------- Prescription Upload ----------
-@app.get("/prescription", response_class=HTMLResponse)
-def upload_prescription_form():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Upload Prescription</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}
-<div class="container mt-4" style="max-width:600px;">
-  <h2>Upload Prescription</h2>
-  <p>Fill in your details and upload your prescription. Our pharmacist will get back to you with a quote.</p>
-  <form method="post" action="/prescription" enctype="multipart/form-data">
-    <input type="text" class="form-control mb-2" name="customer_name" placeholder="Your Name" required>
-    <input type="email" class="form-control mb-2" name="customer_email" placeholder="Your Email" required>
-    <input type="text" class="form-control mb-2" name="customer_phone" placeholder="Phone Number" required>
-    <textarea class="form-control mb-2" name="notes" placeholder="Additional notes"></textarea>
-    <label class="form-label">Upload Prescription (image/PDF)</label>
-    <input type="file" class="form-control mb-2" name="prescription_file" accept="image/*,.pdf" required>
-    <button class="btn btn-primary w-100">Submit</button>
-  </form>
-</div></body></html>""")
+# ---------- Prescription Page (Belea‑style product listing) ----------
+def prescription_page(products, current_filters, sort_by, page, total_pages):
+    # Build sidebar price inputs
+    min_price = current_filters.get("min_price", "")
+    max_price = current_filters.get("max_price", "")
+    in_stock = current_filters.get("in_stock", "")
+    checked = "checked" if in_stock == "1" else ""
 
-@app.post("/prescription")
-async def handle_prescription(request: Request, customer_name: str = Form(...), customer_email: str = Form(...), customer_phone: str = Form(...), notes: str = Form(""), prescription_file: UploadFile = File(...)):
-    # In production, you'd upload the file to Supabase Storage.
-    # For now, we just show a confirmation.
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescription Received</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+    # Sort options
+    sort_options = {
+        "default": "Default",
+        "price_asc": "Price: Low to High",
+        "price_desc": "Price: High to Low"
+    }
+    sort_sel = ""
+    for val, label in sort_options.items():
+        sel = "selected" if sort_by == val else ""
+        sort_sel += f"<option value='{val}' {sel}>{label}</option>"
+
+    # Product cards
+    cards_html = ""
+    for pr in products:
+        img = f'<img src="{pr.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if pr.get("image_url") else ""
+        name = pr.get("name", "")
+        price = pr.get("price", 0)
+        # WhatsApp link
+        whatsapp_msg = f"Hi, I am interested in {name} (KSh {price}). Is it available?"
+        whatsapp_url = f"https://wa.me/{PHARMACY_PHONE.replace('+', '')}?text={requests.utils.quote(whatsapp_msg)}"
+        # Buy Now: add to cart and redirect to checkout
+        add_to_cart_url = f"/cart/add/{pr['id']}?quantity=1"
+        cards_html += f"""<div class="col-md-4 mb-4"><div class="card product-card h-100 p-3">
+            {img}
+            <div class="card-body">
+                <h5 class="card-title">{name}</h5>
+                <h4 class="text-success">KSh {price}</h4>
+                <div class="d-grid gap-1 mt-2">
+                    <a href="{add_to_cart_url}" class="btn btn-primary btn-sm">Add to Cart</a>
+                    <a href="{add_to_cart_url}" class="btn btn-success btn-sm">Buy Now</a>
+                    <a href="{whatsapp_url}" target="_blank" class="btn btn-outline-success btn-sm">WhatsApp</a>
+                </div>
+            </div>
+        </div></div>"""
+    if not cards_html: cards_html = "<p>No products found.</p>"
+
+    # Pagination
+    pagination = ""
+    if total_pages > 1:
+        pagination = '<nav><ul class="pagination justify-content-center">'
+        for p in range(1, total_pages+1):
+            active = "active" if p == page else ""
+            # preserve filters
+            filter_params = f"&min_price={min_price}&max_price={max_price}&in_stock={in_stock}&sort={sort_by}"
+            pagination += f'<li class="page-item {active}"><a class="page-link" href="/prescription?page={p}{filter_params}">{p}</a></li>'
+        pagination += '</ul></nav>'
+
+    # Full page
+    return f"""<!DOCTYPE html><html><head><title>Prescriptions · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
-<div class="container mt-5 text-center">
-  <h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2>
-  <p>We received your prescription. Our pharmacist will contact you shortly with a quote.</p>
-  <a href="/" class="btn btn-primary">Back to Home</a>
-</div></body></html>""")
+<div class="container mt-4">
+    <div class="row">
+        <!-- Sidebar Filters -->
+        <div class="col-md-3">
+            <div class="filter-sidebar">
+                <h5>Filter</h5>
+                <form method="get" action="/prescription">
+                    <div class="mb-3">
+                        <label class="form-label">Price (KSh)</label>
+                        <div class="d-flex">
+                            <input type="number" name="min_price" class="form-control me-1" placeholder="Min" value="{min_price}">
+                            <input type="number" name="max_price" class="form-control ms-1" placeholder="Max" value="{max_price}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="in_stock" value="1" id="inStock" {checked}>
+                            <label class="form-check-label" for="inStock">In Stock</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
+                    <a href="/prescription" class="btn btn-outline-secondary btn-sm w-100 mt-2">Clear</a>
+                </form>
+            </div>
+        </div>
+        <!-- Product Grid -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between mb-3">
+                <h2>Prescriptions</h2>
+                <form method="get" action="/prescription" class="d-flex">
+                    <select name="sort" class="form-select me-2" style="width:auto;">
+                        {sort_sel}
+                    </select>
+                    <!-- preserve filters -->
+                    <input type="hidden" name="min_price" value="{min_price}">
+                    <input type="hidden" name="max_price" value="{max_price}">
+                    <input type="hidden" name="in_stock" value="{in_stock}">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Sort</button>
+                </form>
+            </div>
+            <div class="row">{cards_html}</div>
+            {pagination}
+        </div>
+    </div>
+</div>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+</body></html>"""
+
+@app.get("/prescription", response_class=HTMLResponse)
+def prescription_list(request: Request):
+    # filters
+    min_price = request.query_params.get("min_price", "")
+    max_price = request.query_params.get("max_price", "")
+    in_stock = request.query_params.get("in_stock", "")
+    sort = request.query_params.get("sort", "default")
+    page = int(request.query_params.get("page", 1))
+    per_page = 9
+
+    # Build query
+    query = service_supabase.table("products").select("*", count="exact").eq("active", True)
+
+    # Price filter
+    if min_price:
+        query = query.gte("price", float(min_price))
+    if max_price:
+        query = query.lte("price", float(max_price))
+    # In stock
+    if in_stock == "1":
+        query = query.gt("stock", 0)
+
+    # Sorting
+    if sort == "price_asc":
+        query = query.order("price", desc=False)
+    elif sort == "price_desc":
+        query = query.order("price", desc=True)
+    else:
+        query = query.order("name")
+
+    total = query.execute().count or 0
+    offset = (page-1)*per_page
+    result = query.range(offset, offset+per_page-1).execute()
+    products = result.data or []
+    total_pages = max(1, (total + per_page - 1)//per_page)
+
+    current_filters = {"min_price": min_price, "max_price": max_price, "in_stock": in_stock}
+
+    return HTMLResponse(prescription_page(products, current_filters, sort, page, total_pages))
 
 # ---------- Blog (Placeholder) ----------
 @app.get("/blog", response_class=HTMLResponse)
@@ -390,10 +507,13 @@ def blog():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Blog</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
 <div class="container mt-4"><h2>Blog</h2><p>Coming soon! Stay tuned for health tips and product updates.</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 Belea. All rights reserved.</p></div></footer>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
 </body></html>""")
 
-# ---------- Admin Panel (Login required) ----------
+# ---------- Admin Panel (unchanged) ----------
+# (Admin routes remain identical to the previous code, just with brand name changed where appropriate.)
+# I'll include the admin routes from the previous Belea version but replace "Belea" with APP_NAME.
+
 @app.get("/login", response_class=HTMLResponse)
 def admin_login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
@@ -445,8 +565,8 @@ def admin_dashboard(request: Request):
             <td>{p['name']}</td><td>{p['category']}</td><td>{p['price']}</td><td>{p['stock']}</td>
             <td><a href="/admin/edit-product/{p['id']}" class="btn btn-sm btn-warning">Edit</a> <a href="/admin/delete-product/{p['id']}" class="btn btn-sm btn-danger">Delete</a></td>
         </tr>"""
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Belea Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Admin · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
 <div class="container mt-4">
     <h2>Admin Dashboard</h2>
     <ul class="nav nav-tabs">
@@ -473,7 +593,7 @@ def admin_update_order(request: Request, order_id: str, status: str = Form(...))
 def admin_add_product_form(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Add Product</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a></div></nav>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a></div></nav>
 <div class="container mt-4" style="max-width:500px;"><h2>Add Product</h2>
 <form method="post" action="/admin/add-product" enctype="multipart/form-data">
     <input class="form-control mb-2" name="name" placeholder="Product Name" required>
@@ -504,7 +624,7 @@ def admin_edit_product_form(request: Request, product_id: str):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     p = service_supabase.table("products").select("*").eq("id", product_id).single().execute().data
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Edit Product</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a></div></nav>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a></div></nav>
 <div class="container mt-4" style="max-width:500px;"><h2>Edit Product</h2>
 <form method="post" action="/admin/edit-product/{product_id}" enctype="multipart/form-data">
     <input class="form-control mb-2" name="name" value="{p['name']}" required>
@@ -565,7 +685,7 @@ def contact():
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
 <div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 Belea. All rights reserved.</p></div></footer>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
 </body></html>""")
 
 @app.get("/terms", response_class=HTMLResponse)
