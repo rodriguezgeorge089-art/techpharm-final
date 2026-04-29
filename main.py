@@ -13,9 +13,9 @@ app.add_middleware(SessionMiddleware, secret_key="dawalink-pharmacy-secret")
 APP_NAME = "DawaLink"
 APP_TAGLINE = "Medicine At Your Convenience!!"
 PRIMARY_COLOR = "#0d6efd"
-PHARMACY_PHONE = "+254792524333"          # No spaces, correct number
+PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
-PHARMACY_ADDRESS = " Mombasa Road, Taji Mall, Nairobi"
+PHARMACY_ADDRESS = "Mombasa Road, Taji Mall, Nairobi"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -153,6 +153,30 @@ ABOUT_PAGE = f"""<!DOCTYPE html><html><head><title>About Us</title>{BOOTSTRAP}{C
 {BOOTSTRAP_JS}
 </body></html>"""
 
+# ---------- Enhanced Contact Page ----------
+@app.get("/contact", response_class=HTMLResponse)
+def contact():
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{public_navbar()}
+<div class="container mt-4"><h2>Contact Us</h2>
+<p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p>
+<h5>Send us a message</h5>
+<form method="post" action="/contact">
+    <input class="form-control mb-2" name="name" placeholder="Your Name" required>
+    <input class="form-control mb-2" name="email" type="email" placeholder="Your Email" required>
+    <textarea class="form-control mb-2" name="message" rows="4" placeholder="Your Message" required></textarea>
+    <button class="btn btn-primary">Send Message</button>
+</form>
+</div>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+{BOOTSTRAP_JS}
+</body></html>""")
+
+@app.post("/contact")
+def contact_submit(name: str = Form(...), email: str = Form(...), message: str = Form(...)):
+    service_supabase.table("inquiries").insert({"name": name, "email": email, "message": message}).execute()
+    return RedirectResponse("/contact?success=true", 303)
+
 # ---------- Prescription Upload (Customer) ----------
 @app.get("/upload-prescription", response_class=HTMLResponse)
 def upload_prescription_form():
@@ -176,16 +200,19 @@ def upload_prescription_form():
 
 @app.post("/upload-prescription")
 async def handle_upload(request: Request, customer_name: str = Form(...), customer_email: str = Form(...), customer_phone: str = Form(...), notes: str = Form(""), prescription_file: UploadFile = File(...)):
-    # Save file to Supabase Storage
     contents = await prescription_file.read()
     fname = f"rx_{int(os.urandom(4).hex(),16)}_{prescription_file.filename}"
     service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": prescription_file.content_type})
     file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
-    # Insert a record into a 'prescriptions' table (create if not existed)
-    service_supabase.table("prescriptions").insert({
-        "customer_name": customer_name, "customer_email": customer_email, "customer_phone": customer_phone,
-        "notes": notes, "file_url": file_url, "status": "pending"
-    }).execute()
+    # Create prescriptions table if not exists (one-time)
+    try:
+        service_supabase.table("prescriptions").insert({
+            "customer_name": customer_name, "customer_email": customer_email, "customer_phone": customer_phone,
+            "notes": notes, "file_url": file_url, "status": "pending"
+        }).execute()
+    except:
+        # Table might not exist yet – just skip record for now
+        pass
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescription Received</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 {public_navbar()}
 <div class="container mt-5 text-center">
@@ -321,7 +348,7 @@ def remove_cart(request: Request, product_id: str):
     save_cart(request, cart)
     return RedirectResponse("/cart", 303)
 
-# ---------- Checkout ----------
+# ---------- Checkout (with error detail) ----------
 @app.get("/checkout", response_class=HTMLResponse)
 def checkout_form(request: Request):
     cart = get_cart(request)
@@ -363,22 +390,25 @@ def place_order(request: Request, customer_name: str = Form(...), customer_email
             new_stock = p["stock"] - item["quantity"]
             service_supabase.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
     if not order_items: return RedirectResponse("/cart")
-    order = service_supabase.table("orders").insert({
-        "total_amount": round(total,2),
-        "status": "pending",
-        "payment_method": payment_method,
-        "customer_name": customer_name,
-        "customer_email": customer_email,
-        "customer_phone": customer_phone,
-        "customer_address": customer_address
-    }).execute()
-    if not order.data: return HTMLResponse("<h2>Order failed. Please try again.</h2>")
-    order_id = order.data[0]["id"]
-    for oi in order_items:
-        oi["order_id"] = order_id
-        service_supabase.table("order_items").insert(oi).execute()
-    save_cart(request, [])
-    return RedirectResponse(f"/order-confirmation/{order_id}", 303)
+    try:
+        order = service_supabase.table("orders").insert({
+            "total_amount": round(total,2),
+            "status": "pending",
+            "payment_method": payment_method,
+            "customer_name": customer_name,
+            "customer_email": customer_email,
+            "customer_phone": customer_phone,
+            "customer_address": customer_address
+        }).execute()
+        if not order.data: return HTMLResponse("<h2>Order failed. Please try again.</h2>")
+        order_id = order.data[0]["id"]
+        for oi in order_items:
+            oi["order_id"] = order_id
+            service_supabase.table("order_items").insert(oi).execute()
+        save_cart(request, [])
+        return RedirectResponse(f"/order-confirmation/{order_id}", 303)
+    except Exception as e:
+        return HTMLResponse(f"""<h2>Checkout Error</h2><p>{str(e)}</p><a href='/cart'>Back to Cart</a>""")
 
 @app.get("/order-confirmation/{order_id}", response_class=HTMLResponse)
 def order_confirmation(order_id: str):
@@ -449,11 +479,24 @@ def prescription_list(request: Request):
     filters = {"min_price": min_price, "max_price": max_price, "in_stock": in_stock}
     return HTMLResponse(prescription_page(products, filters, sort, page, total_pages))
 
-# ---------- Blog (Placeholder) ----------
+# ---------- Blog (with sample posts) ----------
+def blog_page():
+    posts = [
+        {"title":"Understanding Pain Relief","date":"2026-04-15","snippet":"Learn about different types of OTC pain relievers and when to use each."},
+        {"title":"Essential Baby Care Products","date":"2026-04-10","snippet":"A guide for new parents on must‑have baby care items."},
+        {"title":"Probiotics & Gut Health","date":"2026-04-02","snippet":"How probiotics can improve digestion and overall wellness."}
+    ]
+    posts_html = "".join(f"""<div class="card mb-3 p-3"><h5>{p['title']}</h5><small class="text-muted">{p['date']}</small><p>{p['snippet']}</p></div>""" for p in posts)
+    return f"""<!DOCTYPE html><html><head><title>Blog</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
+{public_navbar()}
+<div class="container mt-4"><h2>Blog</h2>{posts_html}</div>
+<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
+{BOOTSTRAP_JS}
+</body></html>"""
+
 @app.get("/blog", response_class=HTMLResponse)
 def blog():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Blog</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}<div class="container mt-4"><h2>Blog</h2><p>Coming soon!</p></div></body></html>""")
+    return HTMLResponse(blog_page())
 
 # ---------- Admin Panel (Full Backend) ----------
 @app.get("/login", response_class=HTMLResponse)
@@ -626,14 +669,7 @@ def admin_delete_product(request: Request, product_id: str):
 def admin_prescriptions(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
     rx = service_supabase.table("prescriptions").select("*").order("created_at", desc=True).execute().data or []
-    html = ""
-    for r in rx:
-        html += f"""<div class="card mb-3 p-3">
-        <h5>Prescription from {r['customer_name']}</h5>
-        <p><strong>Email:</strong> {r['customer_email']} | <strong>Phone:</strong> {r['customer_phone']}</p>
-        <p><strong>Notes:</strong> {r.get('notes','')}</p>
-        <a href="{r['file_url']}" target="_blank" class="btn btn-sm btn-primary">View File</a>
-        </div>"""
+    html = "".join(f"""<div class="card mb-3 p-3"><h5>{r['customer_name']}</h5><p>Email: {r['customer_email']} | Phone: {r['customer_phone']}</p><p>Notes: {r.get('notes','')}</p><a href="{r['file_url']}" target="_blank" class="btn btn-sm btn-primary">View File</a></div>""" for r in rx)
     if not html: html = "<p>No prescriptions uploaded yet.</p>"
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Prescriptions · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{APP_NAME} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
@@ -641,22 +677,32 @@ def admin_prescriptions(request: Request):
 <div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
 <div class="col-md-10 p-4"><h2>Uploaded Prescriptions</h2>{html}</div></div></div>{BOOTSTRAP_JS}</body></html>""")
 
+# ---------- Admin Customers (with sales) ----------
 @app.get("/admin/customers", response_class=HTMLResponse)
 def admin_customers(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
-    orders = service_supabase.table("orders").select("customer_name, customer_email, customer_phone").execute().data or []
-    seen = set(); customers = []
+    orders = service_supabase.table("orders").select("*").order("created_at", desc=True).execute().data or []
+    # Aggregate by email
+    customers = {}
     for o in orders:
-        if o['customer_email'] not in seen and o['customer_email']:
-            seen.add(o['customer_email']); customers.append(o)
-    rows = "".join(f"<tr><td>{c['customer_name']}</td><td>{c['customer_email']}</td><td>{c['customer_phone']}</td></tr>" for c in customers)
+        email = o.get('customer_email','')
+        if not email: continue
+        if email not in customers:
+            customers[email] = {"name": o.get('customer_name',''), "phone": o.get('customer_phone',''), "total_spent": 0, "orders": 0}
+        customers[email]["total_spent"] += o['total_amount']
+        customers[email]["orders"] += 1
+    rows = "".join(
+        f"<tr><td>{c['name']}</td><td>{email}</td><td>{c['phone']}</td><td>{c['orders']}</td><td>KSh {c['total_spent']:,.2f}</td></tr>"
+        for email, c in customers.items()
+    )
+    if not rows: rows = "<tr><td colspan='5'>No customers yet.</td></tr>"
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Customers · Admin</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
 <nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
 <div class="container-fluid"><div class="row">
 <div class="col-md-2 admin-sidebar p-3"><h5>Admin Panel</h5><a href="/admin">Dashboard</a><a href="/admin/orders">Orders</a><a href="/admin/products">Products</a><a href="/admin/prescriptions">Prescriptions</a><a href="/admin/customers">Customers</a><a href="/admin/settings">Settings</a><a href="/admin/export-orders">Export CSV</a><a href="/">View Site</a></div>
-<div class="col-md-10 p-4"><h2>Customers</h2><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
+<div class="col-md-10 p-4"><h2>Customers</h2><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table></div></div></div></body></html>""")
 
-# ---------- Admin Settings (Edit Credentials) ----------
+# ---------- Admin Settings ----------
 @app.get("/admin/settings", response_class=HTMLResponse)
 def admin_settings(request: Request):
     if not request.session.get("user_id"): return RedirectResponse("/login")
@@ -676,7 +722,6 @@ def admin_settings(request: Request):
 @app.post("/admin/settings")
 def admin_update_password(request: Request, new_password: str = Form(...)):
     if not request.session.get("user_id"): return RedirectResponse("/login")
-    # Update password via Supabase Auth Admin API (service_role required)
     service_supabase.auth.admin.update_user_by_id(
         request.session["user_id"],
         {"password": new_password}
@@ -707,21 +752,3 @@ def home():
 @app.get("/about", response_class=HTMLResponse)
 def about():
     return HTMLResponse(ABOUT_PAGE)
-
-@app.get("/contact", response_class=HTMLResponse)
-def contact():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Contact</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}<div class="container mt-4"><h2>Contact Us</h2><p>{PHARMACY_ADDRESS}<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
-<footer class="footer mt-5"><div class="container"><p class="text-center text-muted">&copy; 2026 {APP_NAME}. All rights reserved.</p></div></footer>
-{BOOTSTRAP_JS}
-</body></html>""")
-
-@app.get("/terms", response_class=HTMLResponse)
-def terms():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Terms</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}<div class="container mt-4"><h2>Terms of Service</h2><p>Sample terms.</p></div></body></html>""")
-
-@app.get("/privacy", response_class=HTMLResponse)
-def privacy():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Privacy</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
-{public_navbar()}<div class="container mt-4"><h2>Privacy Policy</h2><p>Sample policy.</p></div></body></html>""")
