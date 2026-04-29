@@ -13,9 +13,9 @@ app.add_middleware(SessionMiddleware, secret_key="dawalink-pharmacy-secret")
 APP_NAME = "DawaLink"
 APP_TAGLINE = "Medicine At Your Convenience!!"
 PRIMARY_COLOR = "#0d6efd"
-PHARMACY_PHONE = "+254 748 681 432"
+PHARMACY_PHONE = "+254 792 524 333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
-PHARMACY_ADDRESS = "Airport North Road, Embakasi, Nairobi"
+PHARMACY_ADDRESS = "Taji Mall, Mombasa Road, Nairobi"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
