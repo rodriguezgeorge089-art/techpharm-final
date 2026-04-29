@@ -349,7 +349,7 @@ def products_page(cards, profile, page, total_pages, search=""):
 <div class="row">{cards}</div>{pagination}</div></body></html>"""
 
 def product_card(product, is_buyer, buyer_type="retail"):
-    retail_price = product['price']
+    retail_price = product.get('price', 0)
     wholesale_price = product.get('wholesale_price')
     cost_price = product.get('cost_price', 0)
 
@@ -374,16 +374,17 @@ def product_card(product, is_buyer, buyer_type="retail"):
 
     add_to_cart = ""
     if is_buyer:
+        stock = product.get('stock', 0)
         add_to_cart = f"""<form action="/cart/add/{product['id']}" method="get" class="d-flex align-items-center mt-3">
-        <input type="number" name="quantity" value="1" min="1" max="{product['stock']}" class="form-control me-2" style="width:80px;">
+        <input type="number" name="quantity" value="1" min="1" max="{stock}" class="form-control me-2" style="width:80px;">
         <button type="submit" class="btn btn-primary">Add to Cart</button></form>"""
 
     img_html = f'<img src="{product.get("image_url")}" class="card-img-top" style="height:200px; object-fit:cover;">' if product.get("image_url") else ""
 
     return f"""<div class="col-md-4 mb-4"><div class="card h-100 p-3">{img_html}<div class="card-body">
-<h5 class="card-title fw-bold">{product['name']}</h5>
-<p class="card-text">{product['description']}</p>
-<p><strong>Category:</strong> {product['category']} | <strong>Stock:</strong> {product['stock']}</p>
+<h5 class="card-title fw-bold">{product.get('name', '')}</h5>
+<p class="card-text">{product.get('description', '')}</p>
+<p><strong>Category:</strong> {product.get('category', '')} | <strong>Stock:</strong> {product.get('stock', 0)}</p>
 <div class="price-box">{price_html}</div>
 {add_to_cart}
 </div></div></div>"""
