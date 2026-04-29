@@ -25,7 +25,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 service_supabase = create_client(SUPABASE_URL, SERVICE_ROLE_KEY) if SERVICE_ROLE_KEY else supabase
 
-# ---------- Safe user fetching ----------
+# ---------- Helpers ----------
 def get_current_user(request: Request):
     user_id = request.session.get("user_id")
     if not user_id:
@@ -57,6 +57,37 @@ def get_unread_count(user_id: str):
         return res.count if res.count else 0
     except:
         return 0
+
+def get_cart(request: Request):
+    return request.session.get("cart", [])
+
+def save_cart(request: Request, cart):
+    request.session["cart"] = cart
+
+def get_progress_classes(status):
+    m = {
+        "pending": ("active", "", "", "", ""),
+        "confirmed": ("completed", "active", "", "", ""),
+        "shipped": ("completed", "completed", "active", "", ""),
+        "in_transit": ("completed", "completed", "completed", "active", ""),
+        "delivered": ("completed", "completed", "completed", "completed", "active"),
+        "returned": ("", "", "", "", "")   # no steps active for returned
+    }
+    return m.get(status, ("", "", "", "", ""))
+
+def product_image_html(url):
+    return f'<img src="{url}" class="card-img-top" style="height:200px; object-fit:cover;">' if url else ""
+
+def upload_image(file: UploadFile):
+    if not file or not file.filename or not service_supabase:
+        return None
+    try:
+        contents = file.file.read()
+        fname = f"{int(os.urandom(4).hex(),16)}_{file.filename}"
+        service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": file.content_type})
+        return f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
+    except:
+        return None
 
 # ---------- HTML Components ----------
 BOOTSTRAP = '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
@@ -144,6 +175,7 @@ NAV_GUEST = f"""
   </div>
 </nav>"""
 
+# ---------- Page Templates ----------
 def login_page(error=""):
     alert = f'<div class="alert alert-danger">{error}</div>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Login · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>
@@ -514,7 +546,7 @@ def admin_dashboard_page(metrics, orders_html, profile):
 </div></body></html>"""
 
 def admin_order_item(order):
-    status_opts = ["pending","confirmed","shipped","in_transit","delivered"]
+    status_opts = ["pending","confirmed","shipped","in_transit","delivered","returned"]
     status_options = "".join([f"<option value='{s}' {'selected' if s == order['status'] else ''}>{s.replace('_',' ').title()}</option>" for s in status_opts])
     payment_status = order.get('payment_status','pending')
     if payment_status == 'pending':
@@ -701,37 +733,6 @@ def notifications_page(notifications):
 
 TERMS_PAGE = f"""<!DOCTYPE html><html><head><title>Terms · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>{NAV_GUEST}<div class="container mt-4"><h2>Terms of Service</h2><p>Sample terms.</p></div></body></html>"""
 PRIVACY_PAGE = f"""<!DOCTYPE html><html><head><title>Privacy · {APP_NAME}</title>{BOOTSTRAP}{CUSTOM_CSS}</head><body>{NAV_GUEST}<div class="container mt-4"><h2>Privacy Policy</h2><p>Sample policy.</p></div></body></html>"""
-
-# ---------- Helpers ----------
-def get_cart(request: Request):
-    return request.session.get("cart", [])
-
-def save_cart(request: Request, cart):
-    request.session["cart"] = cart
-
-def get_progress_classes(status):
-    m = {
-        "pending": ("active", "", "", "", ""),
-        "confirmed": ("completed", "active", "", "", ""),
-        "shipped": ("completed", "completed", "active", "", ""),
-        "in_transit": ("completed", "completed", "completed", "active", ""),
-        "delivered": ("completed", "completed", "completed", "completed", "active"),
-    }
-    return m.get(status, ("", "", "", "", ""))
-
-def product_image_html(url):
-    return f'<img src="{url}" class="card-img-top" style="height:200px; object-fit:cover;">' if url else ""
-
-def upload_image(file: UploadFile):
-    if not file or not file.filename or not service_supabase:
-        return None
-    try:
-        contents = file.file.read()
-        fname = f"{int(os.urandom(4).hex(),16)}_{file.filename}"
-        service_supabase.storage.from_("product-images").upload(fname, contents, {"content-type": file.content_type})
-        return f"{SUPABASE_URL}/storage/v1/object/public/product-images/{fname}"
-    except:
-        return None
 
 # ---------- Routes ----------
 @app.get("/")
@@ -985,7 +986,7 @@ def payment_success(request: Request, order_id: str):
         return HTMLResponse("<div class='alert alert-danger'>Order not found or access denied.</div>")
     return HTMLResponse(payment_success_page(order.data))
 
-# Receipt – now also allows admins to view any receipt
+# Receipt – admins can view any receipt, buyers only their own
 @app.get("/receipt/{order_id}", response_class=HTMLResponse)
 def view_receipt(request: Request, order_id: str):
     profile = get_current_user(request)
@@ -994,10 +995,8 @@ def view_receipt(request: Request, order_id: str):
         order = service_supabase.table("orders").select("*").eq("id", order_id).single().execute()
         if not order.data:
             return HTMLResponse("<div class='alert alert-danger'>Receipt not found.</div>")
-        # Allow if buyer matches or if user is admin
         if order.data["buyer_id"] != profile["id"] and profile.get("role") != "admin":
             return HTMLResponse("<div class='alert alert-danger'>Receipt not found or access denied.</div>")
-        # Fetch buyer details for the receipt (use the order's buyer)
         buyer = service_supabase.table("profiles").select("full_name, phone").eq("id", order.data["buyer_id"]).single().execute()
         buyer_data = buyer.data if buyer.data else {}
         return HTMLResponse(receipt_page(order.data, buyer_data))
@@ -1015,7 +1014,7 @@ def orders(request: Request):
     for o in res.data:
         items = service_supabase.table("order_items").select("*, products(name)").eq("order_id", o["id"]).execute()
         pl = "".join(f"<li>{i['products']['name']} x {i['quantity']} @ KSh {i['unit_price']}</li>" for i in (items.data or []))
-        sc = {"pending":"warning","confirmed":"info","shipped":"primary","in_transit":"info","delivered":"success"}.get(o["status"],"secondary")
+        sc = {"pending":"warning","confirmed":"info","shipped":"primary","in_transit":"info","delivered":"success","returned":"danger"}.get(o["status"],"secondary")
         pcls = get_progress_classes(o["status"])
         html += ORDER_ITEM_HTML.format(order_id_short=o["id"][:8], order_id=o["id"], status=o["status"],
                                        status_color=sc, total=o["total_amount"],
@@ -1073,11 +1072,16 @@ def admin_dashboard(request: Request):
     items_by_order = {}
     for it in all_items: items_by_order.setdefault(it['order_id'], []).append(it)
 
-    total_sales = sum(o['total_amount'] for o in all_orders)
-    total_orders = len(all_orders)
+    # Exclude returned orders from sales metrics
+    active_orders = [o for o in all_orders if o['status'] != 'returned']
+    total_sales = sum(o['total_amount'] for o in active_orders)
+    total_orders = len(active_orders)
     total_users = service_supabase.table("profiles").select("count", count="exact").execute().count or 0
     profit = 0
+    returned_order_ids = {o['id'] for o in all_orders if o['status'] == 'returned'}
     for it in all_items:
+        if it['order_id'] in returned_order_ids:
+            continue
         cost = it['products']['cost_price'] if it['products'] else 0
         profit += (it['unit_price'] - cost) * it['quantity']
 
@@ -1107,7 +1111,7 @@ def admin_dashboard(request: Request):
 def admin_update_order(request: Request, order_id: str, status: str = Form(...)):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
-    allowed = ["pending","confirmed","shipped","in_transit","delivered"]
+    allowed = ["pending","confirmed","shipped","in_transit","delivered","returned"]
     if status not in allowed: return RedirectResponse("/admin", 303)
     service_supabase.table("orders").update({"status": status}).eq("id", order_id).execute()
     order = service_supabase.table("orders").select("buyer_id").eq("id", order_id).single().execute()
@@ -1200,7 +1204,7 @@ def admin_transactions(request: Request):
         o['buyer_name'] = buyers_map.get(o['buyer_id'], 'Unknown')
     return HTMLResponse(admin_transactions_page(all_orders))
 
-# ---------- Returns Management ----------
+# ---------- Returns Management (with sale reversal) ----------
 @app.get("/admin/returns", response_class=HTMLResponse)
 def admin_returns(request: Request):
     profile = get_current_user(request)
@@ -1219,11 +1223,30 @@ def admin_returns(request: Request):
 def admin_approve_return(request: Request, return_id: str):
     profile = get_current_user(request)
     if not profile or profile.get("role") != "admin": return RedirectResponse("/login")
+    # Fetch return request
+    ret = service_supabase.table("returns").select("*").eq("id", return_id).single().execute()
+    if not ret.data:
+        return RedirectResponse("/admin/returns", 303)
+    order_id = ret.data["order_id"]
+    buyer_id = ret.data["buyer_id"]
+    # Restore stock for each item in the order
+    order_items = service_supabase.table("order_items").select("product_id, quantity").eq("order_id", order_id).execute().data or []
+    for item in order_items:
+        product = service_supabase.table("products").select("stock, seller_id").eq("id", item["product_id"]).single().execute()
+        if product.data:
+            new_stock = product.data["stock"] + item["quantity"]
+            service_supabase.table("products").update({"stock": new_stock}).eq("id", item["product_id"]).execute()
+            # Notify seller
+            seller_id = product.data["seller_id"]
+            if seller_id:
+                create_notification(seller_id, f"Return approved for product #{item['product_id']} in order #{order_id[:8]}. Stock restored.")
+    # Mark order as returned
+    service_supabase.table("orders").update({"status": "returned"}).eq("id", order_id).execute()
+    # Update return request status
     service_supabase.table("returns").update({"status": "approved"}).eq("id", return_id).execute()
-    ret = service_supabase.table("returns").select("buyer_id").eq("id", return_id).single().execute()
-    if ret.data:
-        create_notification(ret.data["buyer_id"], f"Your return request #{return_id[:8]} has been approved.")
-        # also add a success message for the buyer to see when they view their returns
+    # Notify buyer
+    create_notification(buyer_id, f"Your return request #{return_id[:8]} has been approved. Stock restored, sale reversed.")
+    notify_admins(f"Return #{return_id[:8]} approved, order #{order_id[:8]} marked returned.")
     return RedirectResponse("/admin/returns", 303)
 
 @app.get("/admin/return/deny/{return_id}")
