@@ -1,25 +1,42 @@
 <!DOCTYPE html>
 <html>
+<head><title>Orders – Admin</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
 <body>
-    <h1>Order #{{ order.id }}</h1>
-    <p>Customer: {{ order.user_id and 'Registered' or order.guest_email }}</p>
-    <p>Status: {{ order.order_status }}</p>
-    <form action="/admin/order/{{ order.id }}/status" method="POST">
-        <select name="status">
-            {% for s in ['pending','processing','shipped','delivered','cancelled'] %}
-                <option {% if order.order_status == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-        </select>
-        <button>Update</button>
-    </form>
-    <h2>Items</h2>
-    <ul>
-    {% for i in items %}
-        <li>{{ i.product_name }} × {{ i.quantity }} = OKES {{ i.total_price }}</li>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">{{ pharmacy_name }} Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 bg-dark text-white p-3" style="min-height:100vh;">
+    <h5>Admin Panel</h5>
+    <a href="/admin">Dashboard</a><br>
+    <a href="/admin/orders">Orders</a><br>
+    <a href="/admin/products">Products</a><br>
+    <a href="/admin/prescriptions">Prescriptions</a><br>
+    <a href="/admin/customers">Customers</a><br>
+    <a href="/admin/settings">Settings</a><br>
+    <a href="/admin/export-orders">Export CSV</a><br>
+    <a href="/">View Site</a>
+</div>
+<div class="col-md-10 p-4">
+    <h2>All Orders</h2>
+    {% for o in orders %}
+    <div class="card mb-3 p-3">
+        <h5>Order #{{ o.id[:8] }} – {{ o.order_status }}</h5>
+        <p><strong>Customer:</strong> {{ o.shipping_name or o.guest_email }} | <strong>Total:</strong> KSh {{ o.total_amount }} | <strong>Date:</strong> {{ o.created_at[:10] }}</p>
+        <form method="post" action="/admin/order/{{ o.id }}/status" class="d-flex align-items-center">
+            <select name="status" class="form-select me-2" style="width:auto;">
+                <option {% if o.order_status=='pending' %}selected{% endif %}>pending</option>
+                <option {% if o.order_status=='confirmed' %}selected{% endif %}>confirmed</option>
+                <option {% if o.order_status=='shipped' %}selected{% endif %}>shipped</option>
+                <option {% if o.order_status=='delivered' %}selected{% endif %}>delivered</option>
+            </select>
+            <button class="btn btn-sm btn-primary">Update</button>
+        </form>
+    </div>
+    {% else %}
+    <p>No orders yet.</p>
     {% endfor %}
-    </ul>
-    <h3>Total: OKES {{ order.total_amount }}</h3>
-    <a href="/admin/order/{{ order.id }}/invoice" target="_blank">🖨️ Print Invoice</a>
-    <br><a href="/admin/dashboard">Back</a>
+</div></div></div>
 </body>
 </html>
