@@ -60,7 +60,7 @@ def utility_processor():
                 wishlist_count=wishlist_count, compare_count=compare_count,
                 pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL)
 
-# ---------- Public Pages ----------
+# ---------- Public pages ----------
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -120,7 +120,7 @@ def shop():
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
 
-# ---------- Prescription Upload ----------
+# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET', 'POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -254,7 +254,7 @@ def compare_page():
     products = supabase.table('products').select('*').in_('id', ids).execute().data
     return render_template('compare.html', products=products)
 
-# ---------- Checkout ----------
+# ---------- Checkout with discount codes ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
@@ -271,6 +271,7 @@ def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
+    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -288,14 +289,41 @@ def place_order():
         cart_items = guest_cart
 
     total = sum(it['price'] * it['qty'] for it in cart_items)
+
+    # ---- Discount code logic ----
+    discount_applied = 0
+    discount_code = request.form.get('discount_code', '').strip().upper()
+    if discount_code:
+        try:
+            code_res = supabase.table('discount_codes').select('*').eq('code', discount_code).eq('active', True).single().execute()
+            if code_res.data:
+                code = code_res.data
+                # Check usage limit
+                if code.get('usage_limit') is None or code.get('used_count', 0) < code['usage_limit']:
+                    # Check minimum order amount
+                    if not code.get('min_order_amount') or total >= code['min_order_amount']:
+                        if code.get('discount_percent'):
+                            discount_applied = total * code['discount_percent'] / 100
+                        elif code.get('discount_amount'):
+                            discount_applied = code['discount_amount']
+                        total -= discount_applied
+                        # Increment used count
+                        supabase.table('discount_codes').update({'used_count': code['used_count'] + 1}).eq('id', code['id']).execute()
+                        session['discount_applied'] = discount_applied
+        except:
+            pass  # Ignore any discount code errors
+
     order_data = {**shipping, 'total_amount': total}
     if user_id:
         order_data['user_id'] = user_id
     else:
         order_data['guest_email'] = guest_email
 
+    # Insert order
     order_res = supabase.table('orders').insert(order_data).execute()
     order_id = order_res.data[0]['id']
+
+    # Insert order items
     for item in cart_items:
         supabase.table('order_items').insert({
             'order_id': order_id,
@@ -305,21 +333,25 @@ def place_order():
             'unit_price': item['price'],
             'total_price': item['price'] * item['qty']
         }).execute()
+
+    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
         session.pop('cart', None)
+
     session['last_order_id'] = order_id
     return redirect('/order-confirmation')
 
 @app.route('/order-confirmation')
 def order_confirmation():
     order_id = session.pop('last_order_id', None)
+    discount = session.pop('discount_applied', 0)
     if not order_id:
         return redirect('/')
     order = supabase.table('orders').select('*').eq('id', order_id).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
-    return render_template('order_confirmation.html', order=order, items=items)
+    return render_template('order_confirmation.html', order=order, items=items, discount=discount)
 
 # ---------- Authentication ----------
 @app.route('/login', methods=['GET', 'POST'])
@@ -329,10 +361,10 @@ def login():
         password = request.form['password']
         user_res = supabase.table('users').select('*').eq('email', email).execute()
         if not user_res.data:
-            return 'Invalid credentials'
+            return render_template('login.html', error='Invalid credentials')
         user = user_res.data[0]
         if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-            return 'Invalid credentials'
+            return render_template('login.html', error='Invalid credentials')
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
         session['is_admin'] = user.get('is_admin', False)
@@ -361,7 +393,7 @@ def register():
                 'password_hash': hashed
             }).execute()
         except:
-            return 'Email already exists.'
+            return render_template('register.html', error='Email already exists.')
         return redirect('/login')
     return render_template('register.html')
 
@@ -379,7 +411,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------- Admin Dashboard (FIXED) ----------
+# ---------- Admin Dashboard ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -394,7 +426,6 @@ def admin_dashboard():
             if e: customers.add(e)
     total_customers = len(customers)
 
-    # **FIX**: Convert order id to string before slicing
     recent_orders_html = ''
     for o in (orders_list.data or []):
         order_id_str = str(o['id'])
@@ -420,6 +451,14 @@ def update_order_status(order_id):
     new_status = request.form['status']
     supabase.table('orders').update({'order_status': new_status}).eq('id', order_id).execute()
     return redirect('/admin/orders')
+
+# ---------- Invoice route ----------
+@app.route('/admin/order/<int:order_id>/invoice')
+@admin_required
+def admin_invoice(order_id):
+    order = supabase.table('orders').select('*').eq('id', order_id).single().execute().data
+    items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
+    return render_template('invoice.html', order=order, items=items)
 
 # ---------- Admin Products ----------
 @app.route('/admin/products')
