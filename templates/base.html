@@ -337,8 +337,8 @@
                         </a>
                     </li>
                     {% if user %}
+                        <li class="nav-item"><a class="nav-link" href="/my-account">My Orders</a></li>
                         {% if user.is_admin %}
-                            <!-- *** FIXED LINK: changed from /admin/dashboard to /admin *** -->
                             <li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold); font-weight:700;">🔧 Admin Panel</a></li>
                         {% endif %}
                         <li class="nav-item"><a class="nav-link" href="/logout">{{ user.full_name }} (Logout)</a></li>
