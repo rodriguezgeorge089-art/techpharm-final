@@ -52,7 +52,8 @@ def utility_processor():
     user = None
     if user_id:
         try:
-            user_res = supabase.table('users').select('full_name, email').eq('id', user_id).single().execute()
+            # *** FIXED: now includes is_admin ***
+            user_res = supabase.table('users').select('full_name, email, is_admin').eq('id', user_id).single().execute()
             user = user_res.data
         except:
             pass
@@ -101,7 +102,6 @@ def shop():
     per_page = 6
     offset = (page - 1) * per_page
 
-    # Base query – only active products
     query = supabase.table('products').select('*', count='exact').eq('active', True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
@@ -140,9 +140,8 @@ def prescription_upload():
                 supabase.storage.from_("product-images").upload(unique_name, file_bytes, {"content-type": file.content_type})
                 file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{unique_name}"
             except:
-                pass  # skip if upload fails
+                pass
 
-        # Insert record into prescriptions table
         try:
             supabase.table('prescriptions').insert({
                 'customer_name': name,
@@ -527,7 +526,7 @@ def export_orders():
     from flask import Response
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ---------- Admin Settings (change password) ----------
+# ---------- Admin Settings ----------
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @admin_required
 def admin_settings():
