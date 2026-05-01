@@ -1,30 +1,108 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="hero">
-    <div class="container">
-        <h1>Medicine At Your Convenience</h1>
-        <p>Quality OTC medicines, supplements, and personal care products – delivered to your doorstep.</p>
-        <a href="/shop" class="btn btn-light btn-lg mt-3">Shop Now</a>
-        <a href="/prescription" class="btn btn-outline-light btn-lg mt-3 ms-2">Upload Prescription</a>
+
+<!-- Hero Section -->
+<section class="hero text-center">
+    <div class="container position-relative" style="z-index:2;">
+        <h1>Medicine At Your<br>Convenience</h1>
+        <p>Quality OTC medicines, supplements & personal care products delivered fast across Kenya.</p>
+        <a href="/shop" class="btn btn-light btn-lg me-2 mb-3">Shop Now</a>
+        <a href="/prescription" class="btn btn-outline-light btn-lg mb-3">Upload Prescription</a>
+    </div>
+    <!-- Floating pill graphics -->
+    <div style="position:absolute; top:20%; left:10%; opacity:0.15; z-index:1;">
+        <i class="fas fa-pills" style="font-size:8rem; color:white;"></i>
+    </div>
+    <div style="position:absolute; bottom:10%; right:5%; opacity:0.15; z-index:1;">
+        <i class="fas fa-capsules" style="font-size:7rem; color:white;"></i>
+    </div>
+    <div style="position:absolute; top:30%; right:15%; opacity:0.1; z-index:1;">
+        <i class="fas fa-prescription-bottle-alt" style="font-size:6rem; color:white;"></i>
     </div>
 </section>
-<section class="container my-5">
-    <h2 class="text-center mb-4">Why Choose {{ pharmacy_name }}?</h2>
+
+<!-- Why Choose Us -->
+<section class="container my-5 py-5">
+    <h2 class="text-center mb-5 fw-bold" style="color:var(--primary-dark);">Why Choose {{ pharmacy_name }}?</h2>
     <div class="row g-4">
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>Sourced from licensed pharmacies.</p></div></div>
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier across Kenya.</p></div></div>
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-headset fa-3x text-primary mb-3"></i><h5>Expert Support</h5><p>Pharmacist-led customer care.</p></div></div>
-    </div>
-</section>
-<section class="bg-light py-5">
-    <div class="container">
-        <h2 class="text-center mb-4">Top Categories</h2>
-        <div class="row g-4">
-            <div class="col-md-3"><a href="/shop?category=Supplements" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-flask fa-2x text-success mb-2"></i><h5>Supplements</h5></div></a></div>
-            <div class="col-md-3"><a href="/shop?category=Pain+Relief" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-heart fa-2x text-danger mb-2"></i><h5>Pain Relief</h5></div></a></div>
-            <div class="col-md-3"><a href="/shop?category=Baby+Care" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-baby fa-2x text-info mb-2"></i><h5>Baby Care</h5></div></a></div>
-            <div class="col-md-3"><a href="/shop?category=Women+Health" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-female fa-2x text-pink mb-2"></i><h5>Women Health</h5></div></a></div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <i class="fas fa-certificate"></i>
+                <h5>Genuine Products</h5>
+                <p>All medicines sourced directly from licensed pharmacies. Quality guaranteed.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <i class="fas fa-truck-fast"></i>
+                <h5>Fast Delivery</h5>
+                <p>Reliable courier services delivering to your doorstep within Nairobi and beyond.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <i class="fas fa-headset"></i>
+                <h5>Expert Support</h5>
+                <p>Our pharmacist‑led customer care team is just a call or WhatsApp away.</p>
+            </div>
         </div>
     </div>
 </section>
+
+<!-- Top Categories -->
+<section class="bg-white py-5">
+    <div class="container">
+        <h2 class="text-center mb-5 fw-bold" style="color:var(--primary-dark);">Shop by Category</h2>
+        <div class="row g-4">
+            <div class="col-md-3">
+                <a href="/shop?category=Supplements" class="text-decoration-none">
+                    <div class="category-card">
+                        <i class="fas fa-flask" style="color:#28a745;"></i>
+                        <h5>Supplements</h5>
+                        <p class="text-muted mb-0">Vitamins & minerals</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="/shop?category=Pain+Relief" class="text-decoration-none">
+                    <div class="category-card">
+                        <i class="fas fa-heart" style="color:#dc3545;"></i>
+                        <h5>Pain Relief</h5>
+                        <p class="text-muted mb-0">Headaches, body aches</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="/shop?category=Baby+Care" class="text-decoration-none">
+                    <div class="category-card">
+                        <i class="fas fa-baby" style="color:#17a2b8;"></i>
+                        <h5>Baby Care</h5>
+                        <p class="text-muted mb-0">For your little ones</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="/shop?category=Women+Health" class="text-decoration-none">
+                    <div class="category-card">
+                        <i class="fas fa-female" style="color:#e83e8c;"></i>
+                        <h5>Women Health</h5>
+                        <p class="text-muted mb-0">Wellness & care</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Trusted Pharmacy Section -->
+<section class="container my-5 py-4 text-center">
+    <h2 class="fw-bold" style="color:var(--primary-dark);">Your Health, Our Priority</h2>
+    <p class="lead text-muted">Over 10,000+ satisfied customers across Kenya – rated 4.8 ★ on Google</p>
+    <div class="row mt-4">
+        <div class="col-4"><h3 class="fw-bold text-primary">10k+</h3><small>Happy Customers</small></div>
+        <div class="col-4"><h3 class="fw-bold text-primary">500+</h3><small>Products</small></div>
+        <div class="col-4"><h3 class="fw-bold text-primary">24/7</h3><small>Support</small></div>
+    </div>
+</section>
+
 {% endblock %}
