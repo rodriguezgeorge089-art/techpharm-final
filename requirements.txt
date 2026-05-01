@@ -1,7 +1,5 @@
-fastapi
-uvicorn
+flask
 supabase
-starlette
 python-dotenv
-itsdangerous
-python-multipart
+bcrypt
+gunicorn
