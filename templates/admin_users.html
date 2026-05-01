@@ -1,0 +1,58 @@
+{% extends "admin_base.html" %}
+{% block title %}Users – {{ pharmacy_name }}{% endblock %}
+{% block admin_content %}
+
+<div class="top-bar">
+    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-users-cog me-2"></i>User Management</h4>
+    <span class="text-muted">{{ users|length }} user(s)</span>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 p-4">
+    <div class="table-responsive">
+        <table class="table align-middle user-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Admin</th>
+                    <th>Approved</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.full_name }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        {% if u.is_admin %}
+                        <span class="badge bg-danger rounded-pill">Admin</span>
+                        {% else %}
+                        <span class="badge bg-secondary rounded-pill">Customer</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.approved %}
+                        <span class="badge bg-success rounded-pill">Approved</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark rounded-pill">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.approved %}
+                        <a href="/admin/disable-user/{{ u.id }}" class="btn btn-sm btn-outline-danger rounded-pill">Disable</a>
+                        {% else %}
+                        <a href="/admin/approve-user/{{ u.id }}" class="btn btn-sm btn-outline-success rounded-pill">Approve</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .user-table th { background: #0A3D62; color: white; font-weight: 600; border: none; }
+</style>
+{% endblock %}
