@@ -1,33 +1,60 @@
-<!DOCTYPE html>
-<html>
-<head><title>Prescriptions – Admin</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
-<body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
-<div class="container-fluid"><div class="row">
-<div class="col-md-2 bg-dark text-white p-3 vh-100">
-    <h5>Admin Panel</h5>
-    <a href="/admin">Dashboard</a><br>
-    <a href="/admin/orders">Orders</a><br>
-    <a href="/admin/products">Products</a><br>
-    <a href="/admin/prescriptions">Prescriptions</a><br>
-    <a href="/admin/customers">Customers</a><br>
-    <a href="/admin/settings">Settings</a><br>
-    <a href="/admin/export-orders">Export CSV</a><br>
-    <a href="/">View Site</a>
+{% extends "admin_base.html" %}
+{% block title %}Prescriptions – {{ pharmacy_name }}{% endblock %}
+{% block admin_content %}
+
+<div class="top-bar">
+    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">
+        <i class="fas fa-file-prescription me-2"></i>Uploaded Prescriptions
+    </h4>
+    <span class="text-muted">{{ prescriptions|length }} prescription(s)</span>
 </div>
-<div class="col-md-10 p-4">
-    <h2>Uploaded Prescriptions</h2>
-    {% for rx in prescriptions %}
-    <div class="card mb-3 p-3">
-        <h5>{{ rx.customer_name }}</h5>
-        <p>Email: {{ rx.customer_email }} | Phone: {{ rx.customer_phone }}</p>
-        <p>Notes: {{ rx.notes }}</p>
-        {% if rx.file_url %}<a href="{{ rx.file_url }}" target="_blank" class="btn btn-sm btn-primary">View File</a>{% endif %}
+
+<div class="row">
+    {% if prescriptions|length == 0 %}
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+            <i class="fas fa-prescription-bottle-alt fa-4x text-muted mb-3"></i>
+            <h5>No prescriptions yet</h5>
+            <p class="text-muted">When customers upload prescriptions, they will appear here.</p>
+        </div>
     </div>
     {% else %}
-    <p>No prescriptions uploaded yet.</p>
+    {% for rx in prescriptions %}
+    <div class="col-md-6 mb-4">
+        <div class="card border-0 shadow-sm rounded-4 p-4 prescription-card h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">
+                    {{ rx.customer_name[:1].upper() }}
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0">{{ rx.customer_name }}</h5>
+                    <small class="text-muted">{{ rx.created_at[:10] }}</small>
+                </div>
+                <span class="badge bg-info text-white rounded-pill ms-auto">{{ rx.status }}</span>
+            </div>
+            <p class="mb-1"><i class="fas fa-envelope me-2 text-muted"></i> {{ rx.customer_email }}</p>
+            <p class="mb-1"><i class="fas fa-phone me-2 text-muted"></i> {{ rx.customer_phone }}</p>
+            {% if rx.notes %}
+            <p class="mb-2"><strong>Notes:</strong> {{ rx.notes }}</p>
+            {% endif %}
+            {% if rx.file_url %}
+            <a href="{{ rx.file_url }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill mt-2">
+                <i class="fas fa-eye me-1"></i> View File
+            </a>
+            {% endif %}
+        </div>
+    </div>
     {% endfor %}
-</div></div></div>
-</body>
-</html>
+    {% endif %}
+</div>
+
+<style>
+    .prescription-card {
+        transition: transform 0.2s;
+    }
+    .prescription-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
