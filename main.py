@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor (includes is_admin for admin link) ----------
+# ---------- Context processor ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -51,8 +51,7 @@ def utility_processor():
     user = None
     if user_id:
         try:
-            # Fetch is_admin so the navbar shows Admin Panel link
-            user_res = supabase.table('users').select('full_name, email, is_admin').eq('id', user_id).single().execute()
+            user_res = supabase.table('users').select('full_name, email, is_admin, approved').eq('id', user_id).single().execute()
             user = user_res.data
         except:
             pass
@@ -306,7 +305,6 @@ def place_order():
                         elif code.get('discount_amount'):
                             discount_applied = code['discount_amount']
                         total -= discount_applied
-                        # Increment used count
                         supabase.table('discount_codes').update({'used_count': code['used_count'] + 1}).eq('id', code['id']).execute()
                         session['discount_applied'] = discount_applied
         except:
@@ -364,6 +362,9 @@ def login():
         user = user_res.data[0]
         if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             return render_template('login.html', error='Invalid credentials')
+        # Check if approved (only if column exists)
+        if not user.get('approved', True):
+            return render_template('login.html', error='Your account is pending approval. Please try again later or contact support.')
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
         session['is_admin'] = user.get('is_admin', False)
@@ -393,13 +394,25 @@ def register():
             }).execute()
         except:
             return render_template('register.html', error='Email already exists.')
-        return redirect('/login')
+        # New registrations require approval
+        return render_template('register_success.html')
     return render_template('register.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
+
+# ---------- Customer Orders ----------
+@app.route('/my-account')
+def my_account():
+    if not session.get('user_id'):
+        return redirect('/login')
+    user_id = session['user_id']
+    orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
+    for order in orders:
+        order['items'] = supabase.table('order_items').select('*').eq('order_id', order['id']).execute().data or []
+    return render_template('my_orders.html', orders=orders)
 
 # ---------- Admin Decorator ----------
 def admin_required(f):
@@ -410,7 +423,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------- Admin Dashboard (now outputs table rows for new admin panel) ----------
+# ---------- Admin Dashboard ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -425,12 +438,10 @@ def admin_dashboard():
             if e: customers.add(e)
     total_customers = len(customers)
 
-    # Build HTML table rows for the new admin_dashboard.html
     recent_orders_html = ''
     for o in (orders_list.data or []):
         order_id_str = str(o['id'])
         status = o.get('order_status', 'pending')
-        # Choose a Bootstrap badge colour based on status
         status_color = {
             'pending': 'bg-warning text-dark',
             'confirmed': 'bg-info text-white',
@@ -554,6 +565,25 @@ def admin_customers():
         customers[email]["total_spent"] += o['total_amount']
         customers[email]["orders"] += 1
     return render_template('admin_customers.html', customers=customers)
+
+# ---------- Admin User Management (Approve/Disable) ----------
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    users = supabase.table('users').select('*').order('created_at', desc=True).execute().data or []
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/approve-user/<user_id>')
+@admin_required
+def approve_user(user_id):
+    supabase.table('users').update({'approved': True}).eq('id', user_id).execute()
+    return redirect('/admin/users')
+
+@app.route('/admin/disable-user/<user_id>')
+@admin_required
+def disable_user(user_id):
+    supabase.table('users').update({'approved': False}).eq('id', user_id).execute()
+    return redirect('/admin/users')
 
 # ---------- Admin CSV Export ----------
 @app.route('/admin/export-orders')
