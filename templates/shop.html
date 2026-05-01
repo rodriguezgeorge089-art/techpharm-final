@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Products</h2>
+    <form class="mb-4" method="get" action="/shop">
+        <div class="row g-3">
+            <div class="col-md-8"><input class="form-control" name="search" value="{{ search }}" placeholder="Search products..."></div>
+            <div class="col-md-3">
+                <select class="form-control" name="category">
+                    <option value="">All Categories</option>
+                    <option value="Supplements" {% if category=='Supplements' %}selected{% endif %}>Supplements</option>
+                    <option value="Pain Relief" {% if category=='Pain Relief' %}selected{% endif %}>Pain Relief</option>
+                    <option value="Baby Care" {% if category=='Baby Care' %}selected{% endif %}>Baby Care</option>
+                    <option value="Women Health" {% if category=='Women Health' %}selected{% endif %}>Women Health</option>
+                </select>
+            </div>
+            <div class="col-md-1"><button class="btn btn-primary w-100">Search</button></div>
+        </div>
+    </form>
+    <div class="row">
+        {% for p in products %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 p-3">
+                {% if p.image_url %}
+                <img src="{{ p.image_url }}" class="card-img-top" style="height:200px; object-fit:cover;">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ p.name }}</h5>
+                    <p class="text-muted">{{ p.category }}</p>
+                    <h4 class="text-success">KSh {{ p.price }}</h4>
+                    <form action="/cart/add" method="POST" class="d-flex mt-3">
+                        <input type="hidden" name="productId" value="{{ p.id }}">
+                        <input type="number" name="quantity" value="1" min="1" max="{{ p.stock or 10 }}" class="form-control me-2" style="width:80px;">
+                        <button type="submit" class="btn btn-primary">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if total_pages > 1 %}
+    <nav><ul class="pagination justify-content-center">
+        {% for p in range(1, total_pages+1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="/shop?page={{ p }}&search={{ search }}&category={{ category }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+    </ul></nav>
+    {% endif %}
+</div>
+{% endblock %}
