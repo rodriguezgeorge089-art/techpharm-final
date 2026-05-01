@@ -20,24 +20,28 @@
 </div>
 <div class="col-md-10 p-4">
     <h2>All Orders</h2>
+    {% if orders|length == 0 %}
+    <p>No orders yet.</p>
+    {% else %}
     {% for o in orders %}
     <div class="card mb-3 p-3">
-        <!-- FIX: convert id to string before slicing -->
-        <h5>Order #{{ (o.id|string)[:8] }} – {{ o.order_status }}</h5>
-        <p><strong>Customer:</strong> {{ o.shipping_name or o.guest_email }} | <strong>Total:</strong> KSh {{ o.total_amount }} | <strong>Date:</strong> {{ o.created_at[:10] }}</p>
-        <form method="post" action="/admin/order/{{ o.id }}/status" class="d-flex align-items-center">
-            <select name="status" class="form-select me-2" style="width:auto;">
-                <option {% if o.order_status=='pending' %}selected{% endif %}>pending</option>
-                <option {% if o.order_status=='confirmed' %}selected{% endif %}>confirmed</option>
-                <option {% if o.order_status=='shipped' %}selected{% endif %}>shipped</option>
-                <option {% if o.order_status=='delivered' %}selected{% endif %}>delivered</option>
-            </select>
-            <button class="btn btn-sm btn-primary">Update</button>
-        </form>
+        <h5>Order #{{ (o.id|string)[:8] }} – {{ o.get('order_status', 'pending') }}</h5>
+        <p><strong>Customer:</strong> {{ o.get('shipping_name') or o.get('guest_email', 'Guest') }} | <strong>Total:</strong> KSh {{ o.get('total_amount', 0) }} | <strong>Date:</strong> {{ o.get('created_at', '')[:10] }}</p>
+        <div class="d-flex align-items-center">
+            <form method="post" action="/admin/order/{{ o.id }}/status" class="d-flex me-3">
+                <select name="status" class="form-select me-2" style="width:auto;">
+                    <option {% if o.get('order_status') == 'pending' %}selected{% endif %}>pending</option>
+                    <option {% if o.get('order_status') == 'confirmed' %}selected{% endif %}>confirmed</option>
+                    <option {% if o.get('order_status') == 'shipped' %}selected{% endif %}>shipped</option>
+                    <option {% if o.get('order_status') == 'delivered' %}selected{% endif %}>delivered</option>
+                </select>
+                <button class="btn btn-sm btn-primary">Update</button>
+            </form>
+            <a href="/admin/order/{{ o.id }}/invoice" class="btn btn-sm btn-outline-primary" target="_blank">🖨️ Invoice</a>
+        </div>
     </div>
-    {% else %}
-    <p>No orders yet.</p>
     {% endfor %}
+    {% endif %}
 </div></div></div>
 </body>
 </html>
