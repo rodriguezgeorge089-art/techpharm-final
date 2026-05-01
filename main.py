@@ -1,9 +1,10 @@
+import os
 import sys
 
 try:
-    print("Starting test script...", flush=True)
+    print(">>> Starting test script...", flush=True, file=sys.stderr)
     from flask import Flask
-    print("Flask imported OK", flush=True)
+    print(">>> Flask imported OK", flush=True, file=sys.stderr)
 
     app = Flask(__name__)
 
@@ -11,11 +12,12 @@ try:
     def home():
         return "Test OK - Flask is working!"
 
-    print("About to run app...", flush=True)
-    app.run(host="0.0.0.0", port=8080)
+    port = int(os.environ.get("PORT", 8080))
+    print(f">>> Running on port {port}...", flush=True, file=sys.stderr)
+    app.run(host="0.0.0.0", port=port)
 
 except Exception as e:
-    print("FATAL ERROR:", str(e), file=sys.stderr, flush=True)
+    print(f">>> FATAL ERROR: {e}", file=sys.stderr, flush=True)
     import traceback
     traceback.print_exc(file=sys.stderr)
     sys.exit(1)
