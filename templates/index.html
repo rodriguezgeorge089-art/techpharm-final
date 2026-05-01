@@ -1,21 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Products</h1>
-{% for p in products %}
-<div style="border:1px solid #ccc; margin:10px; padding:10px;">
-    <h3>{{ p.name }}</h3>
-    <p>OKES {{ p.price }}</p>
-    <form action="/cart/add" method="POST" style="display:inline;">
-        <input type="hidden" name="productId" value="{{ p.id }}">
-        <button>Add to Cart</button>
-    </form>
-    {% if user %}
-    <form action="/wishlist/toggle" method="POST" style="display:inline;">
-        <input type="hidden" name="productId" value="{{ p.id }}">
-        <button>Wishlist</button>
-    </form>
-    {% endif %}
-    <a href="/compare/toggle/{{ p.id }}">Compare</a>
-</div>
-{% endfor %}
+<section class="hero">
+    <div class="container">
+        <h1>Medicine At Your Convenience</h1>
+        <p>Quality OTC medicines, supplements, and personal care products – delivered to your doorstep.</p>
+        <a href="/shop" class="btn btn-light btn-lg mt-3">Shop Now</a>
+        <a href="/prescription" class="btn btn-outline-light btn-lg mt-3 ms-2">Upload Prescription</a>
+    </div>
+</section>
+<section class="container my-5">
+    <h2 class="text-center mb-4">Why Choose {{ pharmacy_name }}?</h2>
+    <div class="row g-4">
+        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>Sourced from licensed pharmacies.</p></div></div>
+        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier across Kenya.</p></div></div>
+        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-headset fa-3x text-primary mb-3"></i><h5>Expert Support</h5><p>Pharmacist-led customer care.</p></div></div>
+    </div>
+</section>
+<section class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center mb-4">Top Categories</h2>
+        <div class="row g-4">
+            <div class="col-md-3"><a href="/shop?category=Supplements" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-flask fa-2x text-success mb-2"></i><h5>Supplements</h5></div></a></div>
+            <div class="col-md-3"><a href="/shop?category=Pain+Relief" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-heart fa-2x text-danger mb-2"></i><h5>Pain Relief</h5></div></a></div>
+            <div class="col-md-3"><a href="/shop?category=Baby+Care" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-baby fa-2x text-info mb-2"></i><h5>Baby Care</h5></div></a></div>
+            <div class="col-md-3"><a href="/shop?category=Women+Health" class="text-decoration-none"><div class="card p-3 text-center"><i class="fas fa-female fa-2x text-pink mb-2"></i><h5>Women Health</h5></div></a></div>
+        </div>
+    </div>
+</section>
 {% endblock %}
