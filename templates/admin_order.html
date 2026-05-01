@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Order #{{ order.id }}</h1>
+    <p>Customer: {{ order.user_id and 'Registered' or order.guest_email }}</p>
+    <p>Status: {{ order.order_status }}</p>
+    <form action="/admin/order/{{ order.id }}/status" method="POST">
+        <select name="status">
+            {% for s in ['pending','processing','shipped','delivered','cancelled'] %}
+                <option {% if order.order_status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+        <button>Update</button>
+    </form>
+    <h2>Items</h2>
+    <ul>
+    {% for i in items %}
+        <li>{{ i.product_name }} × {{ i.quantity }} = OKES {{ i.total_price }}</li>
+    {% endfor %}
+    </ul>
+    <h3>Total: OKES {{ order.total_amount }}</h3>
+    <a href="/admin/order/{{ order.id }}/invoice" target="_blank">🖨️ Print Invoice</a>
+    <br><a href="/admin/dashboard">Back</a>
+</body>
+</html>
