@@ -4,10 +4,3 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
-    envVars:
-      - key: SUPABASE_URL
-        value: https://wbvqcijsdsfrcxllnnii.supabase.co
-      - key: SUPABASE_KEY
-        value: sb_publishable_kZqfjGTu1F_UKWqXWFXNcw_FAs8llY9
-      - key: SECRET_KEY
-        value: a-random-secret
