@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin – {{ pharmacy_name }}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --deep-blue: #0A3D62;
+            --gold: #F4A261;
+            --gold-light: #F7CDA2;
+            --cream: #F9F6F1;
+            --text: #1E293B;
+            --sidebar-bg: #0A3D62;
+            --sidebar-hover: #0F4C7A;
+            --sidebar-active: #F4A261;
+            --card-bg: #ffffff;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #F1F5F9;
+            margin: 0;
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, #0A3D62 0%, #0F4C7A 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+            transition: all 0.3s;
+        }
+        .sidebar .brand {
+            padding: 2rem 1.5rem;
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar .brand i {
+            background: var(--gold);
+            color: white;
+            border-radius: 12px;
+            padding: 8px 12px;
+            margin-right: 10px;
+        }
+        .sidebar nav {
+            flex: 1;
+            padding: 1.5rem 0;
+        }
+        .sidebar nav a {
+            display: flex;
+            align-items: center;
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 0.9rem 1.5rem;
+            margin: 0.2rem 1rem;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .sidebar nav a i {
+            width: 24px;
+            text-align: center;
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+        .sidebar nav a:hover {
+            background: var(--sidebar-hover);
+            color: white;
+        }
+        .sidebar nav a.active {
+            background: var(--gold);
+            color: #0A3D62;
+            font-weight: 700;
+        }
+        .sidebar .user-section {
+            padding: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #0A3D62;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        /* Top bar */
+        .top-bar {
+            background: white;
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .search-input {
+            border: 2px solid #E2E8F0;
+            border-radius: 40px;
+            padding: 0.5rem 1.2rem;
+            width: 300px;
+            transition: 0.3s;
+        }
+        .search-input:focus {
+            border-color: var(--gold);
+            outline: none;
+        }
+
+        /* Stat cards */
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 35px rgba(10,61,98,0.1);
+        }
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+        .stat-details h3 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0;
+        }
+        .stat-details p {
+            color: #64748B;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        /* Mini chart (CSS only) */
+        .mini-chart {
+            display: flex;
+            align-items: end;
+            gap: 6px;
+            height: 40px;
+            margin-top: 1rem;
+        }
+        .bar {
+            width: 12px;
+            background: var(--gold);
+            border-radius: 6px 6px 0 0;
+            animation: grow 1.2s ease-out;
+        }
+        @keyframes grow {
+            from { height: 0; }
+        }
+
+        /* Recent orders table */
+        .order-table th {
+            background: #0A3D62;
+            color: white;
+            font-weight: 600;
+        }
+        .order-table td {
+            vertical-align: middle;
+        }
+        .badge-status {
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 80px;
+            }
+            .sidebar .brand span,
+            .sidebar nav a span,
+            .user-section span {
+                display: none;
+            }
+            .sidebar nav a i {
+                margin-right: 0;
+            }
+            .main-content {
+                margin-left: 80px;
+            }
+            .search-input {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <i class="fas fa-pills"></i> <span>DawaLink</span>
+        </div>
+        <nav>
+            <a href="/admin" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="/admin/orders"><i class="fas fa-shopping-cart"></i> <span>Orders</span></a>
+            <a href="/admin/products"><i class="fas fa-pills"></i> <span>Products</span></a>
+            <a href="/admin/prescriptions"><i class="fas fa-file-prescription"></i> <span>Prescriptions</span></a>
+            <a href="/admin/customers"><i class="fas fa-users"></i> <span>Customers</span></a>
+            <a href="/admin/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+            <a href="/admin/export-orders"><i class="fas fa-download"></i> <span>Export CSV</span></a>
+        </nav>
+        <div class="user-section">
+            <div class="avatar">A</div>
+            <span style="color:white; font-weight:600;">{{ session.user_name or 'Admin' }}</span>
+            <a href="/logout" class="ms-auto btn btn-sm btn-outline-light rounded-pill"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block admin_content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
