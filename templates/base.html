@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shop</title>
+</head>
+<body>
+    <header style="display:flex; justify-content:space-between; background:#f5f5f5; padding:10px;">
+        <div>
+            {% if user %}
+                Hi, <strong>{{ user.full_name }}</strong> |
+                <a href="/logout">Logout</a>
+            {% else %}
+                <a href="/login">Login</a> |
+                <a href="/register">Register</a>
+            {% endif %}
+        </div>
+        <div>
+            <a href="#">❤️ Wishlist ({{ wishlist_count }})</a> |
+            <a href="/compare">⇆ Compare ({{ compare_count }})</a> |
+            <a href="/cart">🛒 Cart <strong>OKES {{ "%.2f"|format(cart_total) }}</strong></a>
+        </div>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
