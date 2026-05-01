@@ -1,5 +1,5 @@
 import os, json, bcrypt
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, Response
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -11,12 +11,11 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# DawaLink constants
 PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor: provides data to all templates (header) ----------
+# ---------- Context processor ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -52,7 +51,6 @@ def utility_processor():
     user = None
     if user_id:
         try:
-            # *** FIXED: now includes is_admin ***
             user_res = supabase.table('users').select('full_name, email, is_admin').eq('id', user_id).single().execute()
             user = user_res.data
         except:
@@ -93,7 +91,7 @@ def blog():
     ]
     return render_template('blog.html', posts=posts)
 
-# ---------- Shop with search, filter, pagination ----------
+# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search', '')
@@ -141,7 +139,6 @@ def prescription_upload():
                 file_url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{unique_name}"
             except:
                 pass
-
         try:
             supabase.table('prescriptions').insert({
                 'customer_name': name,
@@ -156,7 +153,7 @@ def prescription_upload():
         return render_template('prescription_success.html')
     return render_template('prescription_upload.html')
 
-# ---------- Cart (guest session + logged-in DB) ----------
+# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     product_id = request.form['productId']
@@ -223,7 +220,7 @@ def remove_from_cart(product_id):
         session['cart'] = cart
     return redirect('/cart')
 
-# Wishlist toggle (logged-in only)
+# Wishlist & Compare (unchanged)
 @app.route('/wishlist/toggle', methods=['POST'])
 def wishlist_toggle():
     if 'user_id' not in session:
@@ -237,7 +234,6 @@ def wishlist_toggle():
         supabase.table('wishlist').insert({'user_id': user_id, 'product_id': product_id}).execute()
     return redirect(request.referrer or '/')
 
-# Compare (cookie-based)
 @app.route('/compare/toggle/<product_id>')
 def compare_toggle(product_id):
     compare = json.loads(request.cookies.get('compare', '[]'))
@@ -275,7 +271,6 @@ def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
-    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -299,11 +294,8 @@ def place_order():
     else:
         order_data['guest_email'] = guest_email
 
-    # Insert order
     order_res = supabase.table('orders').insert(order_data).execute()
     order_id = order_res.data[0]['id']
-
-    # Insert order items
     for item in cart_items:
         supabase.table('order_items').insert({
             'order_id': order_id,
@@ -313,13 +305,10 @@ def place_order():
             'unit_price': item['price'],
             'total_price': item['price'] * item['qty']
         }).execute()
-
-    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
         session.pop('cart', None)
-
     session['last_order_id'] = order_id
     return redirect('/order-confirmation')
 
@@ -347,7 +336,6 @@ def login():
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
         session['is_admin'] = user.get('is_admin', False)
-        # Merge guest cart into DB cart
         if 'cart' in session:
             for item in session['cart']:
                 existing = supabase.table('cart').select('id').eq('user_id', user['id']).eq('product_id', item['productId']).execute()
@@ -391,11 +379,10 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------- Admin Dashboard ----------
+# ---------- Admin Dashboard (FIXED) ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    # Metrics
     orders_list = supabase.table('orders').select('*').order('created_at', desc=True).limit(10).execute()
     total_sales = sum(o['total_amount'] for o in orders_list.data) if orders_list.data else 0
     total_orders = supabase.table('orders').select('count', count='exact').execute().count or 0
@@ -407,9 +394,11 @@ def admin_dashboard():
             if e: customers.add(e)
     total_customers = len(customers)
 
+    # **FIX**: Convert order id to string before slicing
     recent_orders_html = ''
     for o in (orders_list.data or []):
-        recent_orders_html += f"<div class='card mb-2 p-2'><strong>#{o['id'][:8]}</strong> - {o.get('order_status','pending')} | KSh {o['total_amount']} | {o.get('shipping_name','')} | {o['created_at'][:10]}</div>"
+        order_id_str = str(o['id'])
+        recent_orders_html += f"<div class='card mb-2 p-2'><strong>#{order_id_str[:8]}</strong> - {o.get('order_status','pending')} | KSh {o['total_amount']} | {o.get('shipping_name','')} | {o['created_at'][:10]}</div>"
 
     return render_template('admin_dashboard.html',
                            total_sales=f"{total_sales:,.2f}",
@@ -521,9 +510,8 @@ def export_orders():
     w = csv.writer(output)
     w.writerow(["Order ID","Date","Customer","Email","Phone","Total","Status","Payment"])
     for o in orders:
-        w.writerow([o['id'][:8], o['created_at'][:10], o.get('customer_name','') or o.get('shipping_name',''), o.get('customer_email','') or o.get('guest_email',''), o.get('customer_phone','') or o.get('shipping_phone',''), o['total_amount'], o.get('order_status','pending'), o.get('payment_method','')])
+        w.writerow([str(o['id'])[:8], o['created_at'][:10], o.get('customer_name','') or o.get('shipping_name',''), o.get('customer_email','') or o.get('guest_email',''), o.get('customer_phone','') or o.get('shipping_phone',''), o['total_amount'], o.get('order_status','pending'), o.get('payment_method','')])
     output.seek(0)
-    from flask import Response
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
 # ---------- Admin Settings ----------
