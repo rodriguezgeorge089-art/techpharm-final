@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><title>Prescriptions – Admin</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+<body>
+<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
+<div class="container-fluid"><div class="row">
+<div class="col-md-2 bg-dark text-white p-3 vh-100">
+    <h5>Admin Panel</h5>
+    <a href="/admin">Dashboard</a><br>
+    <a href="/admin/orders">Orders</a><br>
+    <a href="/admin/products">Products</a><br>
+    <a href="/admin/prescriptions">Prescriptions</a><br>
+    <a href="/admin/customers">Customers</a><br>
+    <a href="/admin/settings">Settings</a><br>
+    <a href="/admin/export-orders">Export CSV</a><br>
+    <a href="/">View Site</a>
+</div>
+<div class="col-md-10 p-4">
+    <h2>Uploaded Prescriptions</h2>
+    {% for rx in prescriptions %}
+    <div class="card mb-3 p-3">
+        <h5>{{ rx.customer_name }}</h5>
+        <p>Email: {{ rx.customer_email }} | Phone: {{ rx.customer_phone }}</p>
+        <p>Notes: {{ rx.notes }}</p>
+        {% if rx.file_url %}<a href="{{ rx.file_url }}" target="_blank" class="btn btn-sm btn-primary">View File</a>{% endif %}
+    </div>
+    {% else %}
+    <p>No prescriptions uploaded yet.</p>
+    {% endfor %}
+</div></div></div>
+</body>
+</html>
