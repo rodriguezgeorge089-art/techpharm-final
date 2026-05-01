@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Admin Orders</h1>
+    <table border="1" cellpadding="5">
+        <tr><th>Order ID</th><th>Total</th><th>Status</th><th>Date</th><th>Action</th></tr>
+        {% for o in orders %}
+        <tr>
+            <td>#{{ o.id }}</td>
+            <td>OKES {{ o.total_amount }}</td>
+            <td>{{ o.order_status }}</td>
+            <td>{{ o.created_at[:10] }}</td>
+            <td><a href="/admin/order/{{ o.id }}">View</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
