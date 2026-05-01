@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor ----------
+# ---------- Context processor (includes is_admin for admin link) ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -51,6 +51,7 @@ def utility_processor():
     user = None
     if user_id:
         try:
+            # Fetch is_admin so the navbar shows Admin Panel link
             user_res = supabase.table('users').select('full_name, email, is_admin').eq('id', user_id).single().execute()
             user = user_res.data
         except:
@@ -298,9 +299,7 @@ def place_order():
             code_res = supabase.table('discount_codes').select('*').eq('code', discount_code).eq('active', True).single().execute()
             if code_res.data:
                 code = code_res.data
-                # Check usage limit
                 if code.get('usage_limit') is None or code.get('used_count', 0) < code['usage_limit']:
-                    # Check minimum order amount
                     if not code.get('min_order_amount') or total >= code['min_order_amount']:
                         if code.get('discount_percent'):
                             discount_applied = total * code['discount_percent'] / 100
@@ -311,7 +310,7 @@ def place_order():
                         supabase.table('discount_codes').update({'used_count': code['used_count'] + 1}).eq('id', code['id']).execute()
                         session['discount_applied'] = discount_applied
         except:
-            pass  # Ignore any discount code errors
+            pass
 
     order_data = {**shipping, 'total_amount': total}
     if user_id:
@@ -411,7 +410,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------- Admin Dashboard ----------
+# ---------- Admin Dashboard (now outputs table rows for new admin panel) ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -426,10 +425,27 @@ def admin_dashboard():
             if e: customers.add(e)
     total_customers = len(customers)
 
+    # Build HTML table rows for the new admin_dashboard.html
     recent_orders_html = ''
     for o in (orders_list.data or []):
         order_id_str = str(o['id'])
-        recent_orders_html += f"<div class='card mb-2 p-2'><strong>#{order_id_str[:8]}</strong> - {o.get('order_status','pending')} | KSh {o['total_amount']} | {o.get('shipping_name','')} | {o['created_at'][:10]}</div>"
+        status = o.get('order_status', 'pending')
+        # Choose a Bootstrap badge colour based on status
+        status_color = {
+            'pending': 'bg-warning text-dark',
+            'confirmed': 'bg-info text-white',
+            'shipped': 'bg-primary text-white',
+            'delivered': 'bg-success text-white'
+        }.get(status, 'bg-secondary text-white')
+        recent_orders_html += f"""
+        <tr>
+            <td><strong>#{order_id_str[:8]}</strong></td>
+            <td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td>
+            <td>KSh {o['total_amount']}</td>
+            <td><span class="badge badge-status {status_color} rounded-pill">{status}</span></td>
+            <td>{o['created_at'][:10]}</td>
+        </tr>
+        """
 
     return render_template('admin_dashboard.html',
                            total_sales=f"{total_sales:,.2f}",
