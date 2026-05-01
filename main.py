@@ -759,3 +759,12 @@ def home():
 @app.get("/about", response_class=HTMLResponse)
 def about():
     return HTMLResponse(ABOUT_PAGE)
+    import sys, traceback
+try:
+    # This will run the app as originally intended
+    if __name__ == '__main__':
+        app.run(debug=True)
+except Exception as e:
+    print("ERROR STARTING APP:", str(e), file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)
