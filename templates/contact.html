@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Contact Us</h2>
+    <p>Tel: {{ phone }}<br>Email: {{ email }}</p>
+    <h5>Send us a message</h5>
+    <form method="post">
+        <input class="form-control mb-2" name="name" placeholder="Your Name" required>
+        <input class="form-control mb-2" name="email" type="email" placeholder="Your Email" required>
+        <textarea class="form-control mb-2" name="message" rows="4" placeholder="Your Message" required></textarea>
+        <button class="btn btn-primary">Send Message</button>
+    </form>
+    {% if request.args.get('sent') %}
+        <div class="alert alert-success mt-3">Message sent successfully!</div>
+    {% endif %}
+</div>
+{% endblock %}
