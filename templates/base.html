@@ -256,7 +256,7 @@
             100% { transform: scale(1); }
         }
 
-        /* ---- Pill Visualiser (used on index) ---- */
+        /* ---- Pill Visualiser ---- */
         .pill-visualiser { perspective: 800px; }
         .pill-3d {
             width: 120px; height: 120px; margin: 0 auto;
@@ -338,7 +338,8 @@
                     </li>
                     {% if user %}
                         {% if user.is_admin %}
-                            <li class="nav-item"><a class="nav-link" href="/admin/dashboard" style="color:var(--gold); font-weight:700;">🔧 Admin Panel</a></li>
+                            <!-- *** FIXED LINK: changed from /admin/dashboard to /admin *** -->
+                            <li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold); font-weight:700;">🔧 Admin Panel</a></li>
                         {% endif %}
                         <li class="nav-item"><a class="nav-link" href="/logout">{{ user.full_name }} (Logout)</a></li>
                     {% else %}
