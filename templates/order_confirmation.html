@@ -1,15 +1,114 @@
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Thank You! Your order has been placed.</h1>
-    <p>Order ID: #{{ order.id }}</p>
-    <p>Total: OKES {{ order.total_amount }}</p>
-    <p>Status: {{ order.order_status }}</p>
-    <ul>
-    {% for i in items %}
-        <li>{{ i.product_name }} × {{ i.quantity }} = OKES {{ i.total_price }}</li>
-    {% endfor %}
-    </ul>
-    <a href="/">Continue Shopping</a>
-</body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Animated Success Card -->
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <!-- Header with gradient background -->
+                <div class="bg-success text-white text-center py-5 position-relative" style="background: linear-gradient(135deg, #2E8B57, #1E5F74);">
+                    <div class="mb-3">
+                        <i class="fas fa-check-circle fa-5x" style="animation: scaleIn 0.6s ease;"></i>
+                    </div>
+                    <h1 class="fw-bold display-5">Thank You!</h1>
+                    <p class="lead mb-0">Your order has been placed successfully.</p>
+                    <!-- Decorative waves -->
+                    <div style="position: absolute; bottom: -2px; left: 0; width: 100%;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 60"><path fill="#ffffff" d="M0,40 C480,10 960,60 1440,30 L1440,60 L0,60 Z"/></svg>
+                    </div>
+                </div>
+
+                <!-- Order Details -->
+                <div class="card-body p-4 p-md-5">
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <small class="text-muted text-uppercase fw-semibold">Order Number</small>
+                                <h3 class="fw-bold mb-0" style="color: var(--deep-blue);">#{{ order.id }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <small class="text-muted text-uppercase fw-semibold">Status</small>
+                                <h4 class="mb-0">
+                                    <span class="badge bg-warning text-dark rounded-pill fs-6">{{ order.order_status }}</span>
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Item List -->
+                    <h4 class="fw-bold mb-3" style="color: var(--deep-blue);">Items in Your Order</h4>
+                    <div class="table-responsive">
+                        <table class="table table-borderless align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in items %}
+                                <tr>
+                                    <td class="fw-semibold">{{ i.product_name }}</td>
+                                    <td class="text-center">{{ i.quantity }}</td>
+                                    <td class="text-end">KSh {{ i.unit_price }}</td>
+                                    <td class="text-end fw-bold">KSh {{ i.total_price }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Discount (if applied) -->
+                    {% if discount %}
+                    <div class="d-flex justify-content-between text-success mb-2">
+                        <span class="fw-semibold">Discount Applied</span>
+                        <span>- KSh {{ discount }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Total -->
+                    <div class="d-flex justify-content-between border-top pt-3 mt-3">
+                        <h4 class="fw-bold" style="color: var(--deep-blue);">Grand Total</h4>
+                        <h4 class="fw-bold" style="color: var(--deep-blue);">KSh {{ order.total_amount }}</h4>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="text-center mt-5">
+                        <a href="/shop" class="btn btn-primary btn-lg rounded-pill px-5 me-2 mb-2" style="background: var(--deep-blue); border-color: var(--deep-blue);">
+                            <i class="fas fa-shopping-bag me-2"></i> Continue Shopping
+                        </a>
+                        <button onclick="window.print()" class="btn btn-outline-primary btn-lg rounded-pill px-4 mb-2" style="border-color: var(--deep-blue); color: var(--deep-blue);">
+                            <i class="fas fa-print me-2"></i> Print Receipt
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Info -->
+            <p class="text-muted text-center mt-4">
+                <i class="far fa-envelope me-1"></i> A confirmation has been sent to your email.  
+                If you have any questions, please contact <strong>{{ phone }}</strong> or <strong>{{ email }}</strong>.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes scaleIn {
+        0% { transform: scale(0); opacity: 0; }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    @media print {
+        .navbar, .footer, .whatsapp-float, .btn { display: none; }
+        body { background: white; }
+        .card { box-shadow: none; border: none; }
+    }
+</style>
+
+{% endblock %}
