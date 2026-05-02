@@ -1,9 +1,9 @@
 {% extends "admin_base.html" %}
-{% block title %}Create User – {{ pharmacy_name }}{% endblock %}
+{% block title %}Add Customer Care Agent{% endblock %}
 {% block admin_content %}
 
 <div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-user-plus me-2"></i>Create New User</h4>
+    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-user-plus me-2"></i>Add Customer Care Agent</h4>
 </div>
 
 <div class="row justify-content-center">
@@ -19,18 +19,18 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Email</label>
-                    <input type="email" name="email" class="form-control" placeholder="newadmin@dawalink.com" required>
+                    <input type="email" name="email" class="form-control" placeholder="agent@dawalink.co.ke" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Password</label>
-                    <input type="password" name="password" id="newUserPassword" class="form-control" placeholder="At least 6 characters" required>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1 toggle-password" data-target="newUserPassword"><i class="far fa-eye"></i> Show</button>
+                    <input type="password" name="password" id="agentPassword" class="form-control" placeholder="At least 6 characters" required>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1 toggle-password" data-target="agentPassword"><i class="far fa-eye"></i> Show</button>
                 </div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" name="is_admin" id="isAdmin">
-                    <label class="form-check-label fw-semibold" for="isAdmin">Grant Admin Privileges</label>
+                    <label class="form-check-label fw-semibold" for="isAdmin">Grant Admin Privileges (makes them a full admin)</label>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 rounded-pill">Create User</button>
+                <button type="submit" class="btn btn-primary w-100 rounded-pill">Create Agent</button>
             </form>
         </div>
     </div>
