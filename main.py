@@ -360,7 +360,7 @@ def login():
         is_admin = user.get('is_admin', False)
         approved = user.get('approved', False)
 
-        # Super admin (rodriguezgeorge089@gmail.com) always approved
+        # Super admin always approved
         if email == 'rodriguezgeorge089@gmail.com':
             approved = True
             if not user.get('approved'):
@@ -430,7 +430,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------- Admin Dashboard ----------
+# ---------- SELF‑CONTAINED ADMIN DASHBOARD (NO TEMPLATE NEEDED) ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -442,35 +442,67 @@ def admin_dashboard():
     if orders_list.data:
         for o in orders_list.data:
             e = o.get('customer_email') or o.get('guest_email')
-            if e: customers.add(e)
+            if e:
+                customers.add(e)
     total_customers = len(customers)
 
-    recent_orders_html = ''
+    recent_rows = ''
     for o in (orders_list.data or []):
-        order_id_str = str(o['id'])
+        oid = str(o['id'])[:8]
         status = o.get('order_status', 'pending')
-        status_color = {
-            'pending': 'bg-warning text-dark',
-            'confirmed': 'bg-info text-white',
-            'shipped': 'bg-primary text-white',
-            'delivered': 'bg-success text-white'
-        }.get(status, 'bg-secondary text-white')
-        recent_orders_html += f"""
-        <tr>
-            <td><strong>#{order_id_str[:8]}</strong></td>
-            <td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td>
-            <td>KSh {o['total_amount']}</td>
-            <td><span class="badge badge-status {status_color} rounded-pill">{status}</span></td>
-            <td>{o['created_at'][:10]}</td>
-        </tr>
-        """
+        recent_rows += f'<tr><td>#{oid}</td><td>{o.get("shipping_name", "Guest")}</td><td>KSh {o["total_amount"]}</td><td>{status}</td></tr>'
 
-    return render_template('admin_dashboard.html',
-                           total_sales=f"{total_sales:,.2f}",
-                           total_orders=total_orders,
-                           total_products=total_products,
-                           total_customers=total_customers,
-                           recent_orders=recent_orders_html)
+    admin_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard – DawaLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body{{padding:2rem;background:#f4f6f9;}}</style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Admin Dashboard</h1>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body"><h5>Total Sales</h5><h2>KSh {total_sales:,.2f}</h2></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning mb-3">
+                    <div class="card-body"><h5>Orders</h5><h2>{total_orders}</h2></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body"><h5>Products</h5><h2>{total_products}</h2></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-danger mb-3">
+                    <div class="card-body"><h5>Customers</h5><h2>{total_customers}</h2></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="mt-4">Recent Orders</h3>
+        <table class="table table-striped">
+            <thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>{recent_rows}</tbody>
+        </table>
+
+        <hr>
+        <a href="/admin/orders" class="btn btn-outline-primary">Manage Orders</a>
+        <a href="/admin/products" class="btn btn-outline-success">Manage Products</a>
+        <a href="/admin/prescriptions" class="btn btn-outline-info">Prescriptions</a>
+        <a href="/admin/users" class="btn btn-outline-dark">User Management</a>
+        <a href="/admin/settings" class="btn btn-outline-secondary">Settings</a>
+        <a href="/logout" class="btn btn-outline-danger">Logout</a>
+    </div>
+</body>
+</html>"""
+
+    return admin_html
 
 # ---------- Admin Orders ----------
 @app.route('/admin/orders')
@@ -595,7 +627,6 @@ def disable_user(user_id):
 @app.route('/admin/create-user', methods=['GET', 'POST'])
 @admin_required
 def create_user():
-    # Only super admin can access
     current_user_email = supabase.table('users').select('email').eq('id', session['user_id']).single().execute().data['email']
     if current_user_email != 'rodriguezgeorge089@gmail.com':
         return "Unauthorized", 403
