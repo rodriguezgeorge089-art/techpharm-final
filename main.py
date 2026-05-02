@@ -430,19 +430,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== ALL ADMIN PAGES AS INLINE HTML ====================
-NAV = """
-<a href="/admin">Dashboard</a> | 
-<a href="/admin/orders">Orders</a> | 
-<a href="/admin/products">Products</a> | 
-<a href="/admin/prescriptions">Prescriptions</a> | 
-<a href="/admin/customers">Customers</a> | 
-<a href="/admin/users">Users</a> | 
-<a href="/admin/create-user">Create User</a> | 
-<a href="/admin/settings">Settings</a> | 
-<a href="/admin/export-orders">Export CSV</a> | 
-<a href="/logout">Logout</a>
-"""
+# ==================== ADMIN ROUTES (TEMPLATE‑BASED) ====================
 
 @app.route('/admin')
 @admin_required
@@ -458,41 +446,37 @@ def admin_dashboard():
             if e: customers.add(e)
     total_customers = len(customers)
 
-    rows = ''
+    recent_orders_html = ''
     for o in orders_list.data:
         oid = str(o['id'])[:8]
         status = o.get('order_status', 'pending')
-        rows += f'<tr><td>#{oid}</td><td>{o.get("shipping_name", "Guest")}</td><td>KSh {o["total_amount"]}</td><td>{status}</td></tr>'
-
-    return f"""<!DOCTYPE html><html><head><title>Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Admin Dashboard</h1><nav>{NAV}</nav><hr>
-    <div class="row">
-        <div class="col-md-3"><div class="card text-white bg-success mb-3"><div class="card-body"><h5>Total Sales</h5><h2>KSh {total_sales:,.2f}</h2></div></div></div>
-        <div class="col-md-3"><div class="card text-white bg-warning mb-3"><div class="card-body"><h5>Orders</h5><h2>{total_orders}</h2></div></div></div>
-        <div class="col-md-3"><div class="card text-white bg-primary mb-3"><div class="card-body"><h5>Products</h5><h2>{total_products}</h2></div></div></div>
-        <div class="col-md-3"><div class="card text-white bg-danger mb-3"><div class="card-body"><h5>Customers</h5><h2>{total_customers}</h2></div></div></div>
-    </div>
-    <h3>Recent Orders</h3>
-    <table class="table table-striped"><thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+        status_color = {
+            'pending': 'bg-warning text-dark',
+            'confirmed': 'bg-info text-white',
+            'shipped': 'bg-primary text-white',
+            'delivered': 'bg-success text-white'
+        }.get(status, 'bg-secondary text-white')
+        recent_orders_html += f'''
+        <tr>
+            <td><strong>#{oid}</strong></td>
+            <td>{o.get("shipping_name", o.get("guest_email", "Guest"))}</td>
+            <td>KSh {o["total_amount"]}</td>
+            <td><span class="badge {status_color} rounded-pill">{status}</span></td>
+            <td>{o["created_at"][:10]}</td>
+        </tr>
+        '''
+    return render_template('admin_dashboard.html',
+                           total_sales=f"{total_sales:,.2f}",
+                           total_orders=total_orders,
+                           total_products=total_products,
+                           total_customers=total_customers,
+                           recent_orders=recent_orders_html)
 
 @app.route('/admin/orders')
 @admin_required
 def admin_orders():
     orders = supabase.table('orders').select('*').order('created_at', desc=True).execute().data or []
-    rows = ''
-    for o in orders:
-        oid = str(o['id'])[:8]
-        status = o.get('order_status', 'pending')
-        rows += f'<tr><td>#{oid}</td><td>{o.get("shipping_name", "Guest")}</td><td>KSh {o["total_amount"]}</td><td>{status}</td><td><a href="/admin/order/{o["id"]}/invoice">Invoice</a></td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Orders</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Orders</h1><nav>{NAV}</nav><hr>
-    <table class="table"><thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Invoice</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+    return render_template('admin_orders.html', orders=orders)
 
 @app.route('/admin/order/<order_id>/status', methods=['POST'])
 @admin_required
@@ -506,33 +490,13 @@ def update_order_status(order_id):
 def admin_invoice(order_id):
     order = supabase.table('orders').select('*').eq('id', order_id).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data or []
-    item_rows = ''
-    for i in items:
-        item_rows += f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Invoice #{order_id}</title>
-    <style>@media print{{.no-print{{display:none;}}}}body{{font-family:Arial;padding:2rem;}}</style></head><body>
-    <button class="no-print" onclick="window.print()">Print</button>
-    <h2>{PHARMACY_NAME}</h2><p>Invoice #{order_id}</p>
-    <p>Customer: {order.get('shipping_name', order.get('guest_email',''))}</p>
-    <table border="1" cellpadding="5" style="width:100%">
-    <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{item_rows}</tbody></table>
-    <h3>Grand Total: KSh {order['total_amount']}</h3>
-    </body></html>"""
+    return render_template('invoice.html', order=order, items=items)
 
 @app.route('/admin/products')
 @admin_required
 def admin_products():
     products = supabase.table('products').select('*').order('name').execute().data or []
-    rows = ''
-    for p in products:
-        rows += f'<tr><td>{p["name"]}</td><td>{p["category"]}</td><td>KSh {p["price"]}</td><td>{p["stock"]}</td><td><a href="/admin/edit-product/{p["id"]}">Edit</a> | <a href="/admin/delete-product/{p["id"]}">Delete</a></td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Products</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Products</h1><nav>{NAV}</nav><hr>
-    <a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a>
-    <table class="table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+    return render_template('admin_products.html', products=products)
 
 @app.route('/admin/add-product', methods=['GET', 'POST'])
 @admin_required
@@ -555,18 +519,7 @@ def add_product():
             'price': price, 'stock': stock, 'image_url': image_url, 'active': True
         }).execute()
         return redirect('/admin/products')
-    return """<!DOCTYPE html><html><head><title>Add Product</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{padding:2rem;}</style></head><body><div class="container" style="max-width:500px">
-    <h2>Add Product</h2>
-    <form method="post" enctype="multipart/form-data">
-    <input class="form-control mb-2" name="name" placeholder="Name" required>
-    <textarea class="form-control mb-2" name="description" placeholder="Description"></textarea>
-    <input class="form-control mb-2" name="category" placeholder="Category" required>
-    <input class="form-control mb-2" type="number" step="0.01" name="price" placeholder="Price" required>
-    <input class="form-control mb-2" type="number" name="stock" placeholder="Stock" required>
-    <input class="form-control mb-2" type="file" name="image" accept="image/*">
-    <button class="btn btn-primary">Add</button></form></div></body></html>"""
+    return render_template('admin_add_product.html')
 
 @app.route('/admin/edit-product/<product_id>', methods=['GET', 'POST'])
 @admin_required
@@ -587,18 +540,7 @@ def edit_product(product_id):
         supabase.table('products').update(upd).eq('id', product_id).execute()
         return redirect('/admin/products')
     p = supabase.table('products').select('*').eq('id', product_id).single().execute().data
-    return f"""<!DOCTYPE html><html><head><title>Edit Product</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;}}</style></head><body><div class="container" style="max-width:500px">
-    <h2>Edit Product</h2>
-    <form method="post" enctype="multipart/form-data">
-    <input class="form-control mb-2" name="name" value="{p['name']}" required>
-    <textarea class="form-control mb-2" name="description">{p.get('description','')}</textarea>
-    <input class="form-control mb-2" name="category" value="{p['category']}" required>
-    <input class="form-control mb-2" type="number" step="0.01" name="price" value="{p['price']}" required>
-    <input class="form-control mb-2" type="number" name="stock" value="{p['stock']}" required>
-    <input class="form-control mb-2" type="file" name="image" accept="image/*">
-    <button class="btn btn-primary">Update</button></form></div></body></html>"""
+    return render_template('admin_edit_product.html', product=p)
 
 @app.route('/admin/delete-product/<product_id>')
 @admin_required
@@ -610,15 +552,7 @@ def delete_product(product_id):
 @admin_required
 def admin_prescriptions():
     rx = supabase.table('prescriptions').select('*').order('created_at', desc=True).execute().data or []
-    rows = ''
-    for r in rx:
-        rows += f'<tr><td>{r["customer_name"]}</td><td>{r["customer_email"]}</td><td>{r["customer_phone"]}</td><td>{r.get("notes","")}</td><td><a href="{r.get("file_url","#")}">View</a></td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Prescriptions</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Prescriptions</h1><nav>{NAV}</nav><hr>
-    <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Notes</th><th>File</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+    return render_template('admin_prescriptions.html', prescriptions=rx)
 
 @app.route('/admin/customers')
 @admin_required
@@ -632,30 +566,13 @@ def admin_customers():
             customers[email] = {"name": o.get('customer_name','') or o.get('shipping_name',''), "phone": o.get('customer_phone','') or o.get('shipping_phone',''), "total_spent": 0, "orders": 0}
         customers[email]["total_spent"] += o['total_amount']
         customers[email]["orders"] += 1
-    rows = ''
-    for e, c in customers.items():
-        rows += f'<tr><td>{c["name"]}</td><td>{e}</td><td>{c["phone"]}</td><td>{c["orders"]}</td><td>KSh {c["total_spent"]}</td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Customers</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Customers</h1><nav>{NAV}</nav><hr>
-    <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+    return render_template('admin_customers.html', customers=customers)
 
 @app.route('/admin/users')
 @admin_required
 def admin_users():
     users = supabase.table('users').select('*').order('created_at', desc=True).execute().data or []
-    rows = ''
-    for u in users:
-        approved = 'Yes' if u.get('approved') else 'No'
-        rows += f'<tr><td>{u["full_name"]}</td><td>{u["email"]}</td><td>{approved}</td><td><a href="/admin/approve-user/{u["id"]}">Approve</a> | <a href="/admin/disable-user/{u["id"]}">Disable</a></td></tr>'
-    return f"""<!DOCTYPE html><html><head><title>Users</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>User Management</h1><nav>{NAV}</nav><hr>
-    <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Approved</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table>
-    </div></body></html>"""
+    return render_template('admin_users.html', users=users)
 
 @app.route('/admin/approve-user/<user_id>')
 @admin_required
@@ -689,15 +606,7 @@ def create_user():
         except:
             return render_template('admin_create_user.html', error='Email already exists.')
         return redirect('/admin/users')
-    return """<!DOCTYPE html><html><head><title>Create User</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{padding:2rem;}</style></head><body><div class="container" style="max-width:500px">
-    <h2>Create User</h2><form method="post">
-    <input class="form-control mb-2" name="full_name" placeholder="Full Name" required>
-    <input class="form-control mb-2" name="email" placeholder="Email" required>
-    <input class="form-control mb-2" type="password" name="password" placeholder="Password" required>
-    <label class="form-check-label"><input type="checkbox" name="is_admin"> Admin</label>
-    <button class="btn btn-primary mt-2">Create</button></form></div></body></html>"""
+    return render_template('admin_create_user.html')
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @admin_required
@@ -707,15 +616,7 @@ def admin_settings():
         hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         supabase.table('users').update({'password_hash': hashed}).eq('id', session['user_id']).execute()
         return redirect('/admin/settings?success=1')
-    msg = request.args.get('success') and "Password updated!" or ""
-    return f"""<!DOCTYPE html><html><head><title>Settings</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{{padding:2rem;background:#f4f6f9;}}</style></head><body><div class="container">
-    <h1>Settings</h1><nav>{NAV}</nav><hr>
-    {f'<div class="alert alert-success">{msg}</div>' if msg else ''}
-    <form method="post" style="max-width:400px">
-    <input class="form-control mb-2" type="password" name="new_password" placeholder="New Password" required>
-    <button class="btn btn-primary">Update Password</button></form></div></body></html>"""
+    return render_template('admin_settings.html', success=request.args.get('success'))
 
 @app.route('/admin/export-orders')
 @admin_required
