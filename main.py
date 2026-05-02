@@ -253,23 +253,34 @@ def compare_page():
     products = supabase.table('products').select('*').in_('id', ids).execute().data
     return render_template('compare.html', products=products)
 
-# ---------- Checkout with discount codes ----------
+# ---------- Checkout with pickup & discount ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
 
 @app.route('/checkout', methods=['POST'])
 def place_order():
-    shipping = {
-        'shipping_name': request.form['shipping_name'],
-        'shipping_address': request.form['shipping_address'],
-        'shipping_city': request.form['shipping_city'],
-        'shipping_phone': request.form['shipping_phone'],
-        'payment_method': request.form['payment_method']
-    }
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
+    # Delivery method & pickup logic
+    delivery_method = request.form.get('delivery_method', 'delivery')
+    shipping = {}
+    if delivery_method == 'pickup':
+        pickup_location = request.form.get('pickup_location', '')
+        shipping['shipping_name'] = request.form.get('shipping_name', 'Pickup Customer')
+        shipping['shipping_address'] = pickup_location
+        shipping['shipping_city'] = ''
+        shipping['shipping_phone'] = request.form.get('shipping_phone', '')
+    else:
+        shipping['shipping_name'] = request.form['shipping_name']
+        shipping['shipping_address'] = request.form['shipping_address']
+        shipping['shipping_city'] = request.form['shipping_city']
+        shipping['shipping_phone'] = request.form['shipping_phone']
+
+    shipping['payment_method'] = request.form['payment_method']
+
+    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -288,6 +299,7 @@ def place_order():
 
     total = sum(it['price'] * it['qty'] for it in cart_items)
 
+    # Discount code
     discount_applied = 0
     discount_code = request.form.get('discount_code', '').strip().upper()
     if discount_code:
@@ -326,6 +338,7 @@ def place_order():
             'total_price': item['price'] * item['qty']
         }).execute()
 
+    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
@@ -430,7 +443,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== ADMIN ROUTES (TEMPLATE‑BASED) ====================
+# ==================== ADMIN ROUTES (template-based) ====================
 
 @app.route('/admin')
 @admin_required
@@ -459,10 +472,10 @@ def admin_dashboard():
         recent_orders_html += f'''
         <tr>
             <td><strong>#{oid}</strong></td>
-            <td>{o.get("shipping_name", o.get("guest_email", "Guest"))}</td>
-            <td>KSh {o["total_amount"]}</td>
+            <td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td>
+            <td>KSh {o['total_amount']}</td>
             <td><span class="badge {status_color} rounded-pill">{status}</span></td>
-            <td>{o["created_at"][:10]}</td>
+            <td>{o['created_at'][:10]}</td>
         </tr>
         '''
     return render_template('admin_dashboard.html',
