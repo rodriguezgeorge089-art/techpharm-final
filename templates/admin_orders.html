@@ -1,76 +1,30 @@
 {% extends "admin_base.html" %}
-{% block title %}Orders – {{ pharmacy_name }}{% endblock %}
+{% block title %}Orders{% endblock %}
 {% block admin_content %}
-
 <div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-shopping-cart me-2"></i>All Orders</h4>
-    <span class="text-muted">{{ orders|length }} order(s) found</span>
+    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">Orders ({{ orders|length }})</h4>
 </div>
-
-<div class="row">
-    {% for o in orders %}
-    <div class="col-12 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 p-4 order-card">
-            <div class="row align-items-center">
-                <div class="col-md-2">
-                    <h5 class="fw-bold mb-1">#{{ (o.id|string)[:8] }}</h5>
-                    <span class="badge badge-status rounded-pill
-                        {% if o.order_status == 'pending' %} bg-warning text-dark
-                        {% elif o.order_status == 'confirmed' %} bg-info text-white
-                        {% elif o.order_status == 'shipped' %} bg-primary text-white
-                        {% elif o.order_status == 'delivered' %} bg-success text-white
-                        {% endif %}">
-                        {{ o.order_status }}
-                    </span>
-                </div>
-                <div class="col-md-4">
-                    <h6 class="fw-semibold mb-1">{{ o.shipping_name or o.guest_email or 'Guest' }}</h6>
-                    <p class="text-muted mb-0 small">
-                        <i class="far fa-calendar-alt me-1"></i> {{ o.created_at[:10] }} &nbsp;
-                        <i class="fas fa-map-marker-alt me-1"></i> {{ o.shipping_city or 'N/A' }}
-                    </p>
-                    <p class="text-muted mb-0 small">
-                        <i class="fas fa-phone me-1"></i> {{ o.shipping_phone or 'N/A' }}
-                    </p>
-                </div>
-                <div class="col-md-2">
-                    <h5 class="fw-bold text-success mb-0">KSh {{ o.total_amount }}</h5>
-                    <small class="text-muted">{{ o.payment_method or 'Cash on Delivery' }}</small>
-                </div>
-                <div class="col-md-4 text-end">
-                    <form method="post" action="/admin/order/{{ o.id }}/status" class="d-inline-flex align-items-center me-2">
-                        <select name="status" class="form-select form-select-sm me-2" style="width: auto;">
-                            <option {% if o.order_status == 'pending' %}selected{% endif %}>pending</option>
-                            <option {% if o.order_status == 'confirmed' %}selected{% endif %}>confirmed</option>
-                            <option {% if o.order_status == 'shipped' %}selected{% endif %}>shipped</option>
-                            <option {% if o.order_status == 'delivered' %}selected{% endif %}>delivered</option>
-                        </select>
-                        <button class="btn btn-sm btn-primary rounded-pill"><i class="fas fa-sync-alt me-1"></i> Update</button>
-                    </form>
-                    <a href="/admin/order/{{ o.id }}/invoice" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank"><i class="fas fa-print me-1"></i> Invoice</a>
-                </div>
-            </div>
+{% for o in orders %}
+<div class="card border-0 shadow-sm rounded-4 p-4 mb-4 card-hover">
+    <div class="row align-items-center">
+        <div class="col-md-2"><h5 class="fw-bold">#{{ (o.id|string)[:8] }}</h5><span class="badge bg-{{ 'warning' if o.order_status == 'pending' else 'info' if o.order_status == 'confirmed' else 'primary' if o.order_status == 'shipped' else 'success' }} rounded-pill">{{ o.order_status }}</span></div>
+        <div class="col-md-4"><h6 class="fw-semibold">{{ o.shipping_name or o.guest_email or 'Guest' }}</h6><small class="text-muted">{{ o.created_at[:10] }} · {{ o.shipping_city or 'N/A' }}</small></div>
+        <div class="col-md-2"><h5 class="fw-bold text-success">KSh {{ o.total_amount }}</h5><small>{{ o.payment_method or 'COD' }}</small></div>
+        <div class="col-md-4 text-end">
+            <form method="post" action="/admin/order/{{ o.id }}/status" class="d-inline-flex me-2">
+                <select name="status" class="form-select form-select-sm me-2" style="width:auto;">
+                    <option {% if o.order_status == 'pending' %}selected{% endif %}>pending</option>
+                    <option {% if o.order_status == 'confirmed' %}selected{% endif %}>confirmed</option>
+                    <option {% if o.order_status == 'shipped' %}selected{% endif %}>shipped</option>
+                    <option {% if o.order_status == 'delivered' %}selected{% endif %}>delivered</option>
+                </select>
+                <button class="btn btn-sm btn-primary rounded-pill">Update</button>
+            </form>
+            <a href="/admin/order/{{ o.id }}/invoice" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank"><i class="fas fa-print"></i> Invoice</a>
         </div>
     </div>
-    {% else %}
-    <div class="col-12">
-        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-            <h5>No orders yet</h5>
-            <p class="text-muted">Once customers place orders, they will appear here.</p>
-        </div>
-    </div>
-    {% endfor %}
 </div>
-
-<style>
-    .order-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .order-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 30px rgba(0,0,0,0.1);
-    }
-</style>
-
+{% else %}
+<p class="text-muted">No orders yet.</p>
+{% endfor %}
 {% endblock %}
