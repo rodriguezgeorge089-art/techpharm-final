@@ -1,41 +1,107 @@
-<!DOCTYPE html>
-<html>
-<head><title>Products – Admin</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
-<body>
-<nav class="navbar navbar-dark bg-primary"><div class="container"><a class="navbar-brand" href="/admin">Admin</a><a class="btn btn-light" href="/logout">Logout</a></div></nav>
-<div class="container-fluid"><div class="row">
-<div class="col-md-2 bg-dark text-white p-3 vh-100">
-    <h5>Admin Panel</h5>
-    <a href="/admin">Dashboard</a><br>
-    <a href="/admin/orders">Orders</a><br>
-    <a href="/admin/products">Products</a><br>
-    <a href="/admin/prescriptions">Prescriptions</a><br>
-    <a href="/admin/customers">Customers</a><br>
-    <a href="/admin/settings">Settings</a><br>
-    <a href="/admin/export-orders">Export CSV</a><br>
-    <a href="/">View Site</a>
+{% extends "admin_base.html" %}
+{% block title %}Products – {{ pharmacy_name }}{% endblock %}
+{% block admin_content %}
+
+<div class="top-bar">
+    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-pills me-2"></i>Products</h4>
+    <a href="/admin/add-product" class="btn btn-primary rounded-pill">
+        <i class="fas fa-plus-circle me-2"></i> Add New Product
+    </a>
 </div>
-<div class="col-md-10 p-4">
-    <h2>Products</h2>
-    <a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a>
-    <table class="table">
-        <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead>
-        <tbody>
-        {% for p in products %}
-        <tr>
-            <td>{{ p.name }}</td>
-            <td>{{ p.category }}</td>
-            <td>KSh {{ p.price }}</td>
-            <td>{{ p.stock }}</td>
-            <td>
-                <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-warning">Edit</a>
-                <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete this product?')">Delete</a>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div></div></div>
-</body>
-</html>
+
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead style="background: linear-gradient(135deg, #0A3D62, #0F4C7A); color: white;">
+                <tr>
+                    <th class="ps-4">Product</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in products %}
+                <tr class="product-row">
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            {% if p.image_url %}
+                            <img src="{{ p.image_url }}" class="rounded-3 me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                            {% else %}
+                            <div class="rounded-3 me-3 bg-light d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <i class="fas fa-pills text-muted fs-5"></i>
+                            </div>
+                            {% endif %}
+                            <div>
+                                <h6 class="fw-bold mb-0">{{ p.name }}</h6>
+                                <small class="text-muted">SKU: #{{ p.id }}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} bg-opacity-10 text-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} rounded-pill px-3 py-1">
+                            {{ p.category }}
+                        </span>
+                    </td>
+                    <td class="fw-bold" style="color: var(--deep-blue);">KSh {{ p.price }}</td>
+                    <td>
+                        {% if p.stock > 10 %}
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1">In Stock ({{ p.stock }})</span>
+                        {% elif p.stock > 0 %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-1">Low Stock ({{ p.stock }})</span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1">Out of Stock</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1" title="Edit">
+                            <i class="fas fa-pen"></i>
+                        </a>
+                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" title="Delete" onclick="return confirm('Delete {{ p.name }}?')">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No products found</h5>
+                        <a href="/admin/add-product" class="btn btn-primary rounded-pill mt-3">Add Your First Product</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .product-row {
+        transition: background 0.2s, transform 0.2s;
+    }
+    .product-row:hover {
+        background: rgba(10,61,98,0.02);
+        transform: scale(1.005);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.03);
+    }
+    .btn-outline-warning {
+        border-color: #F4A261;
+        color: #F4A261;
+        transition: all 0.3s;
+    }
+    .btn-outline-warning:hover {
+        background: #F4A261;
+        color: white;
+    }
+    .btn-outline-danger {
+        transition: all 0.3s;
+    }
+    .btn-outline-danger:hover {
+        background: #dc3545;
+        color: white;
+    }
+</style>
+
+{% endblock %}
