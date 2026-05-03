@@ -1,12 +1,7 @@
 {% extends "admin_base.html" %}
 {% block title %}Customer Care Team{% endblock %}
+{% block page_title %}Customer Care Team <small class="text-muted fs-6">({{ users|length }})</small>{% endblock %}
 {% block admin_content %}
-
-<div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-headset me-2"></i>Customer Care Team</h4>
-    <span class="text-muted">{{ users|length }} agent(s)</span>
-</div>
-
 <div class="row">
     {% if users|length == 0 %}
     <div class="col-12">
@@ -48,10 +43,4 @@
     {% endfor %}
     {% endif %}
 </div>
-
-<style>
-    .team-card { transition: transform 0.2s, box-shadow 0.2s; }
-    .team-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
-</style>
-
 {% endblock %}
