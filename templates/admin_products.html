@@ -1,23 +1,15 @@
 {% extends "admin_base.html" %}
-{% block title %}Products – {{ pharmacy_name }}{% endblock %}
+{% block title %}Products{% endblock %}
 {% block page_title %}Products{% endblock %}
 {% block topbar_right %}
-    <a href="/admin/add-product" class="btn btn-primary rounded-pill">
-        <i class="fas fa-plus-circle me-2"></i> Add New Product
-    </a>
+    <a href="/admin/add-product" class="btn btn-primary rounded-pill"><i class="fas fa-plus-circle me-2"></i> Add New Product</a>
 {% endblock %}
 {% block admin_content %}
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead style="background: linear-gradient(135deg, #0A3D62, #0F4C7A); color: white;">
-                <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Stock</th>
-                    <th>Action</th>
-                </tr>
+                <tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Action</th></tr>
             </thead>
             <tbody>
                 {% for p in products %}
@@ -25,23 +17,14 @@
                     <td class="ps-4">
                         <div class="d-flex align-items-center">
                             {% if p.image_url %}
-                            <img src="{{ p.image_url }}" class="rounded-3 me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                            <img src="{{ p.image_url }}" class="rounded-3 me-3" style="width:48px;height:48px;object-fit:cover;">
                             {% else %}
-                            <div class="rounded-3 me-3 bg-light d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                                <i class="fas fa-pills text-muted fs-5"></i>
-                            </div>
+                            <div class="rounded-3 me-3 bg-light d-flex align-items-center justify-content-center" style="width:48px;height:48px;"><i class="fas fa-pills text-muted fs-5"></i></div>
                             {% endif %}
-                            <div>
-                                <h6 class="fw-bold mb-0">{{ p.name }}</h6>
-                                <small class="text-muted">SKU: #{{ p.id }}</small>
-                            </div>
+                            <div><h6 class="fw-bold mb-0">{{ p.name }}</h6><small class="text-muted">SKU: #{{ p.id }}</small></div>
                         </div>
                     </td>
-                    <td>
-                        <span class="badge bg-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} bg-opacity-10 text-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} rounded-pill px-3 py-1">
-                            {{ p.category }}
-                        </span>
-                    </td>
+                    <td><span class="badge bg-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} bg-opacity-10 text-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} rounded-pill px-3 py-1">{{ p.category }}</span></td>
                     <td class="fw-bold" style="color: var(--deep-blue);">KSh {{ p.price }}</td>
                     <td>
                         {% if p.stock > 10 %}
@@ -53,18 +36,12 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1" title="Edit"><i class="fas fa-pen"></i></a>
-                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" title="Delete" onclick="return confirm('Delete {{ p.name }}?')"><i class="fas fa-trash-alt"></i></a>
+                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1"><i class="fas fa-pen"></i></a>
+                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Delete {{ p.name }}?')"><i class="fas fa-trash-alt"></i></a>
                     </td>
                 </tr>
                 {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-                        <h5>No products found</h5>
-                        <a href="/admin/add-product" class="btn btn-primary rounded-pill mt-3">Add Your First Product</a>
-                    </td>
-                </tr>
+                <tr><td colspan="5" class="text-center py-5"><i class="fas fa-box-open fa-4x text-muted mb-3"></i><h5>No products found</h5><a href="/admin/add-product" class="btn btn-primary rounded-pill mt-3">Add Your First Product</a></td></tr>
                 {% endfor %}
             </tbody>
         </table>
