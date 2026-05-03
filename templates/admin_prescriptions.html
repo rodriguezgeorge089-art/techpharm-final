@@ -1,35 +1,23 @@
 {% extends "admin_base.html" %}
-{% block title %}Prescriptions – {{ pharmacy_name }}{% endblock %}
+{% block title %}Prescriptions{% endblock %}
 {% block page_title %}Prescriptions{% endblock %}
 {% block admin_content %}
 <div class="row">
     {% if prescriptions|length == 0 %}
-    <div class="col-12">
-        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="fas fa-file-prescription fa-4x text-muted mb-3"></i>
-            <h5>No prescriptions uploaded yet</h5>
-        </div>
-    </div>
+    <div class="col-12"><div class="card border-0 shadow-sm rounded-4 p-5 text-center"><i class="fas fa-file-prescription fa-4x text-muted mb-3"></i><h5>No prescriptions uploaded yet</h5></div></div>
     {% else %}
     {% for rx in prescriptions %}
     <div class="col-md-6 mb-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 prescription-card h-100">
             <div class="d-flex align-items-center mb-3">
-                <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">
-                    {{ rx.customer_name[:1].upper() }}
-                </div>
-                <div>
-                    <h5 class="fw-bold mb-0">{{ rx.customer_name }}</h5>
-                    <small class="text-muted">{{ rx.created_at[:10] }}</small>
-                </div>
+                <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">{{ rx.customer_name[:1].upper() }}</div>
+                <div><h5 class="fw-bold mb-0">{{ rx.customer_name }}</h5><small class="text-muted">{{ rx.created_at[:10] }}</small></div>
                 <span class="badge bg-info text-white rounded-pill ms-auto">{{ rx.status }}</span>
             </div>
             <p class="mb-1"><i class="fas fa-envelope me-2 text-muted"></i> {{ rx.customer_email }}</p>
             <p class="mb-1"><i class="fas fa-phone me-2 text-muted"></i> {{ rx.customer_phone }}</p>
             {% if rx.notes %}<p class="mb-2"><strong>Notes:</strong> {{ rx.notes }}</p>{% endif %}
-            {% if rx.file_url %}
-            <a href="{{ rx.file_url }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill mt-2"><i class="fas fa-eye me-1"></i> View File</a>
-            {% endif %}
+            {% if rx.file_url %}<a href="{{ rx.file_url }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill mt-2"><i class="fas fa-eye me-1"></i> View File</a>{% endif %}
         </div>
     </div>
     {% endfor %}
