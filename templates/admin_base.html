@@ -3,220 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin – {{ pharmacy_name }}{% endblock %}</title>
+    <title>{{ pharmacy_name }} – Medicine At Your Convenience</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ========== PWA Meta Tags ========== -->
+    <meta name="theme-color" content="#0A3D62">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DawaLink">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+
     <style>
         :root {
             --deep-blue: #0A3D62;
             --gold: #F4A261;
-            --sidebar-bg: #0A3D62;
-            --sidebar-hover: #0F4C7A;
-            --sidebar-active: #F4A261;
+            --gold-light: #F7CDA2;
+            --cream: #F9F6F1;
+            --text: #2C3E50;
+            --card-bg: #ffffff;
+            --shadow: 0 20px 40px rgba(10, 61, 98, 0.08);
+            --hover-shadow: 0 25px 50px rgba(10, 61, 98, 0.15);
         }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background: #F1F5F9;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--cream);
+            color: var(--text);
             margin: 0;
-            display: flex;
-            min-height: 100vh;
+            overflow-x: hidden;
         }
-        .sidebar {
-            width: 260px;
-            background: linear-gradient(180deg, #0A3D62, #0F4C7A);
-            color: white;
-            position: fixed;
-            top: 0; bottom: 0; left: 0;
-            z-index: 1000;
-            box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-            display: flex; flex-direction: column;
-            transition: transform 0.3s ease;
+
+        /* ---- Navbar ---- */
+        .navbar {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+            padding: 0.8rem 0;
         }
-        .sidebar .brand {
-            padding: 2rem 1.5rem;
-            font-weight: 800; font-size: 1.8rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.9rem;
+            color: var(--deep-blue) !important;
+            letter-spacing: -0.5px;
         }
-        .sidebar .brand i { background: var(--gold); color: white; border-radius: 12px; padding: 8px 12px; margin-right: 10px; }
-        .sidebar nav { flex: 1; padding: 1.5rem 0; }
-        .sidebar nav a {
-            display: flex; align-items: center;
-            color: rgba(255,255,255,0.85);
-            padding: 0.9rem 1.5rem; margin: 0.2rem 1rem;
-            border-radius: 12px; text-decoration: none;
-            font-weight: 500; transition: all 0.2s;
-        }
-        .sidebar nav a i { width: 24px; margin-right: 12px; font-size: 1.1rem; }
-        .sidebar nav a:hover { background: var(--sidebar-hover); color: white; }
-        .sidebar nav a.active { background: var(--gold); color: #0A3D62; font-weight: 700; }
-        .sidebar .user-section {
-            padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex; align-items: center; gap: 10px;
-        }
-        .avatar {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: var(--gold); display: flex; align-items: center; justify-content: center;
-            font-weight: 700; color: #0A3D62;
-        }
-        .main-content {
-            margin-left: 260px;
-            flex: 1; padding: 2rem;
-            min-height: 100vh;
-            transition: margin-left 0.3s ease;
-        }
-        .top-bar {
-            background: white; border-radius: 16px;
-            padding: 1rem 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 2rem;
-        }
-        .sidebar-toggle {
-            display: none; background: none; border: none;
-            font-size: 1.5rem; color: var(--deep-blue); cursor: pointer;
-        }
-        .sidebar-overlay {
-            display: none; position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 999;
-        }
-        .notification-bell {
-            position: relative;
-            cursor: pointer;
-            font-size: 1.4rem;
-            color: var(--deep-blue);
-            margin-right: 1rem;
-        }
-        .notification-bell .badge {
-            position: absolute;
-            top: -8px; right: -10px;
-            font-size: 0.7rem;
+        .navbar-brand i {
             background: var(--gold);
-        }
-        .dropdown-menu-notify {
-            width: 320px;
-            max-height: 400px;
-            overflow-y: auto;
-            border: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            color: white;
             border-radius: 12px;
-            padding: 0.5rem;
+            padding: 8px 12px;
+            margin-right: 8px;
+            font-size: 1.4rem;
+            vertical-align: middle;
         }
-        .dropdown-menu-notify .dropdown-item {
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
+        .nav-link {
+            font-weight: 600;
+            color: #4A5568 !important;
+            margin-left: 1rem;
+            transition: color 0.2s;
+            position: relative;
         }
-        .dropdown-menu-notify .dropdown-header {
+        .nav-link:hover { color: var(--deep-blue) !important; }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--gold);
+            border-radius: 2px;
+        }
+
+        .btn-primary {
+            background: var(--deep-blue);
+            border: none;
+            border-radius: 40px;
+            padding: 0.7rem 2.2rem;
             font-weight: 700;
-            color: var(--deep-blue);
-            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+            box-shadow: 0 10px 20px rgba(10, 61, 98, 0.25);
+            transition: all 0.3s ease;
         }
+        .btn-primary:hover {
+            background: var(--gold);
+            box-shadow: 0 15px 30px rgba(244, 162, 97, 0.4);
+            transform: translateY(-2px);
+        }
+        .btn-outline-primary {
+            border: 2px solid var(--gold);
+            color: var(--deep-blue);
+            border-radius: 40px;
+            font-weight: 600;
+        }
+        .btn-outline-primary:hover {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: white;
+        }
+
+        .cart-badge {
+            background: var(--gold);
+            color: var(--deep-blue);
+            border-radius: 50px;
+            padding: 0.2em 0.7em;
+            font-weight: 700;
+            font-size: 0.75rem;
+            position: relative;
+            top: -10px;
+            left: -3px;
+        }
+
+        /* ---- Hero Section (used on index) ---- */
+        .hero {
+            background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 100%);
+            color: white;
+            padding: 8rem 0 5rem;
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(244,162,97,0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 span {
+            color: var(--gold);
+            text-decoration: underline;
+            text-underline-offset: 10px;
+        }
+        .hero p {
+            font-size: 1.3rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+        }
+
+        /* ---- Cards ---- */
+        .feature-card {
+            background: white;
+            border-radius: 30px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid transparent;
+        }
+        .feature-card:hover {
+            transform: translateY(-12px);
+            box-shadow: var(--hover-shadow);
+            border-color: var(--gold-light);
+        }
+        .feature-card i {
+            font-size: 3rem;
+            color: var(--gold);
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+        .product-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 35px rgba(10,61,98,0.15);
+            border-bottom: 4px solid var(--gold);
+        }
+
+        /* ---- Footer ---- */
+        .footer {
+            background: var(--deep-blue);
+            color: #E2E8F0;
+            padding: 4rem 0 2rem;
+            margin-top: 5rem;
+            position: relative;
+        }
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: var(--gold);
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 0);
+        }
+        .footer a { color: #CBD5E0; text-decoration: none; }
+        .footer a:hover { color: var(--gold); }
+
+        .badge-trust {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            color: #E2E8F0;
+            padding: 10px 20px;
+            border-radius: 50px;
+            margin: 8px 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(244,162,97,0.3);
+        }
+        .badge-trust i { color: var(--gold); margin-right: 8px; }
+
+        /* ---- WhatsApp Float ---- */
+        .whatsapp-float {
+            position: fixed;
+            width: 62px;
+            height: 62px;
+            bottom: 40px;
+            right: 40px;
+            background: #25D366;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+            z-index: 1000;
+            animation: floatPulse 2.5s infinite;
+            transition: transform 0.3s;
+        }
+        .whatsapp-float:hover {
+            transform: scale(1.15);
+            color: white;
+        }
+
+        @keyframes floatPulse {
+            0% { box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4); }
+            50% { box-shadow: 0 20px 35px rgba(37, 211, 102, 0.7); }
+            100% { box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4); }
+        }
+
+        /* ---- Animations ---- */
+        .fa-truck-fast { animation: gentleSpin 6s linear infinite; }
+        @keyframes gentleSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .fa-headset { animation: softBeat 2s infinite; }
+        @keyframes softBeat {
+            0% { transform: scale(1); }
+            20% { transform: scale(1.15); }
+            30% { transform: scale(1); }
+            40% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        /* ---- Pill Visualiser ---- */
+        .pill-visualiser { perspective: 800px; }
+        .pill-3d {
+            width: 120px; height: 120px; margin: 0 auto;
+            position: relative; transform-style: preserve-3d;
+            animation: rotatePill 8s infinite linear;
+        }
+        .pill-3d .pill-face {
+            position: absolute; width: 100%; height: 100%;
+            background: var(--gold-light); border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; backface-visibility: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .pill-3d .front  { transform: translateZ(60px); }
+        .pill-3d .back   { transform: rotateY(180deg) translateZ(60px); }
+        .pill-3d .left   { transform: rotateY(-90deg) translateZ(60px); }
+        .pill-3d .right  { transform: rotateY(90deg) translateZ(60px); }
+        .pill-3d .top    { transform: rotateX(90deg) translateZ(60px); }
+        .pill-3d .bottom { transform: rotateX(-90deg) translateZ(60px); }
+        @keyframes rotatePill {
+            from { transform: rotateX(0deg) rotateY(0deg); }
+            to   { transform: rotateX(360deg) rotateY(360deg); }
+        }
+
+        /* ---- Dark Mode ---- */
+        body.dark-mode {
+            --cream: #1a202c;
+            --card-bg: #2d3748;
+            --text: #e2e8f0;
+            background: var(--cream);
+            color: var(--text);
+        }
+        body.dark-mode .navbar { background: rgba(30,41,59,0.9) !important; }
+        body.dark-mode .nav-link { color: #cbd5e0 !important; }
+        body.dark-mode .btn-outline-primary { border-color: var(--gold); color: var(--gold); }
+        body.dark-mode .feature-card, body.dark-mode .product-card {
+            background: var(--card-bg);
+            color: var(--text);
+        }
+        body.dark-mode .footer { background: #0f172a; }
+
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.open { transform: translateX(0); }
-            .sidebar-overlay.show { display: block; }
-            .main-content { margin-left: 0; }
-            .sidebar-toggle { display: inline-block; }
+            .hero h1 { font-size: 2.5rem; }
         }
     </style>
 </head>
 <body>
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
-    <aside class="sidebar" id="sidebar">
-        <div class="brand"><i class="fas fa-pills"></i> <span>DawaLink</span></div>
-        <nav>
-            <a href="/admin"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
-            <a href="/admin/orders"><i class="fas fa-shopping-cart"></i> <span>Orders</span></a>
-            <a href="/admin/products"><i class="fas fa-pills"></i> <span>Products</span></a>
-            <a href="/admin/prescriptions"><i class="fas fa-file-prescription"></i> <span>Prescriptions</span></a>
-            <a href="/admin/customers"><i class="fas fa-users"></i> <span>Customers</span></a>
-            <a href="/admin/users"><i class="fas fa-headset"></i> <span>Customer Care</span></a>
-            <a href="/admin/create-user"><i class="fas fa-user-plus"></i> <span>Add Agent</span></a>
-            <a href="/admin/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
-            <a href="/admin/export-orders"><i class="fas fa-download"></i> <span>Export CSV</span></a>
-        </nav>
-        <div class="user-section">
-            <div class="avatar">A</div>
-            <span style="color:white; font-weight:600;">{{ session.user_name or 'Admin' }}</span>
-            <a href="/logout" class="ms-auto btn btn-sm btn-outline-light rounded-pill"><i class="fas fa-sign-out-alt"></i></a>
-        </div>
-    </aside>
-
-    <div class="main-content">
-        <div class="top-bar">
-            <div class="d-flex align-items-center">
-                <button class="sidebar-toggle me-3" onclick="openSidebar()">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-secondary rounded-pill me-3" onclick="window.history.back()" title="Go back">
-                    <i class="fas fa-arrow-left"></i> Back
-                </button>
-                <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">{% block page_title %}Dashboard{% endblock %}</h4>
-            </div>
-            <div class="d-flex align-items-center">
-                {% if user and user.is_admin %}
-                <div class="dropdown">
-                    <span class="notification-bell" data-bs-toggle="dropdown" aria-expanded="false" id="bellIcon">
-                        <i class="fas fa-bell"></i>
-                        {% set pending_total = (pending_orders|length) + (pending_prescriptions|length) %}
-                        {% if pending_total > 0 %}
-                        <span class="badge rounded-pill">{{ pending_total }}</span>
-                        {% endif %}
-                    </span>
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify" aria-labelledby="bellIcon">
-                        {% if pending_orders|length > 0 %}
-                        <li class="dropdown-header">Pending Orders</li>
-                        {% for o in pending_orders %}
-                        <li>
-                            <a class="dropdown-item" href="/admin/orders">
-                                <strong>#{{ (o.id|string)[:8] }}</strong> – {{ o.get('shipping_name', 'Guest') }}<br>
-                                <small class="text-muted">KSh {{ o['total_amount'] }}</small>
-                            </a>
-                        </li>
-                        {% endfor %}
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        {% if pending_prescriptions|length > 0 %}
-                        <li class="dropdown-header">Pending Prescriptions</li>
-                        {% for rx in pending_prescriptions %}
-                        <li>
-                            <a class="dropdown-item" href="/admin/prescriptions">
-                                <strong>{{ rx.customer_name }}</strong> – {{ rx.created_at[:10] }}
-                            </a>
-                        </li>
-                        {% endfor %}
-                        {% endif %}
-                        {% if pending_total == 0 %}
-                        <li><span class="dropdown-item text-muted">No new notifications</span></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
-                <div>{% block topbar_right %}{% endblock %}</div>
-            </div>
-        </div>
-        {% block admin_content %}{% endblock %}
+    <!-- ========== PWA Install Banner ========== -->
+    <div id="installBar" style="display:none; background: var(--deep-blue); color: white; text-align: center; padding: 12px; font-weight: 600; cursor: pointer; position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;" onclick="installPWA()">
+        <i class="fas fa-download me-2"></i> Tap to install DawaLink on your phone 
+        <span style="opacity:0.7; font-weight:400; margin-left: 12px;">✕</span>
     </div>
 
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-pills"></i> <span>{{ pharmacy_name }}</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/contact">Contact</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Shop</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/shop">All Products</a></li>
+                            <li><a class="dropdown-item" href="/shop?category=Supplements">Supplements</a></li>
+                            <li><a class="dropdown-item" href="/shop?category=Pain+Relief">Pain Relief</a></li>
+                            <li><a class="dropdown-item" href="/shop?category=Baby+Care">Baby Care</a></li>
+                            <li><a class="dropdown-item" href="/shop?category=Women+Health">Women Health</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/prescription">Upload Rx</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/blog">Blog</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/download">Get App</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="/cart">
+                            <i class="fas fa-shopping-cart"></i> Cart
+                            <span class="cart-badge">KSh {{ "%.0f"|format(cart_total) }}</span>
+                        </a>
+                    </li>
+                    {% if user %}
+                        <li class="nav-item"><a class="nav-link" href="/my-account">My Orders</a></li>
+                        {% if user.is_admin %}
+                            <li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold); font-weight:700;">🔧 Admin Panel</a></li>
+                        {% endif %}
+                        <li class="nav-item"><a class="nav-link" href="/logout">{{ user.full_name }} (Logout)</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+                    {% endif %}
+                    <li class="nav-item ms-2">
+                        <button id="darkModeToggle" class="btn btn-sm btn-outline-secondary" style="border-radius:40px;" title="Toggle dark mode">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <h5 class="text-white mb-3"><i class="fas fa-pills me-2" style="color:var(--gold);"></i>{{ pharmacy_name }}</h5>
+                    <p>Your trusted online pharmacy – delivering genuine medicines, supplements, and personal care products right to your doorstep.</p>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="text-white mb-3">Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/shop"><i class="fas fa-chevron-right me-2" style="color:var(--gold);"></i> Shop</a></li>
+                        <li><a href="/about"><i class="fas fa-chevron-right me-2" style="color:var(--gold);"></i> About Us</a></li>
+                        <li><a href="/contact"><i class="fas fa-chevron-right me-2" style="color:var(--gold);"></i> Contact</a></li>
+                        <li><a href="/prescription"><i class="fas fa-chevron-right me-2" style="color:var(--gold);"></i> Upload Prescription</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="text-white mb-3">Contact Info</h5>
+                    <p><i class="fas fa-phone me-2" style="color:var(--gold);"></i> {{ phone }}</p>
+                    <p><i class="fas fa-envelope me-2" style="color:var(--gold);"></i> {{ email }}</p>
+                    <p><i class="fas fa-map-marker-alt me-2" style="color:var(--gold);"></i> Mombasa Road, Taji Mall, Nairobi</p>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <span class="badge-trust"><i class="fas fa-lock"></i> SSL Secure</span>
+                    <span class="badge-trust"><i class="fas fa-certificate"></i> Licensed Pharmacy</span>
+                    <span class="badge-trust"><i class="fas fa-shield-alt"></i> Privacy Protected</span>
+                </div>
+            </div>
+
+            <hr style="border-color: rgba(255,255,255,0.15); margin: 2rem 0;">
+            <p class="text-center mb-0" style="color: #A0AEC0;">&copy; 2026 {{ pharmacy_name }}. All rights reserved. Terms & Conditions apply.</p>
+        </div>
+    </footer>
+
+    <!-- Floating WhatsApp -->
+    <a href="https://wa.me/254792524333?text=Hello%20DawaLink%2C%20I%20need%20assistance"
+       class="whatsapp-float" target="_blank" title="Chat on WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function openSidebar() {
-            document.getElementById('sidebar').classList.add('open');
-            document.getElementById('sidebarOverlay').classList.add('show');
-        }
-        function closeSidebar() {
-            document.getElementById('sidebar').classList.remove('open');
-            document.getElementById('sidebarOverlay').classList.remove('show');
-        }
-        const links = document.querySelectorAll('.sidebar nav a');
-        const currentPath = window.location.pathname;
-        links.forEach(link => {
-            if (link.getAttribute('href') === currentPath) {
-                link.classList.add('active');
+        // Dark mode toggle
+        const toggle = document.getElementById('darkModeToggle');
+        const icon = toggle.querySelector('i');
+        toggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            if (document.body.classList.contains('dark-mode')) {
+                icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('darkMode', 'disabled');
             }
         });
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.body.classList.add('dark-mode');
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+
+        // PWA install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => {
+                const installBar = document.getElementById('installBar');
+                if (installBar) installBar.style.display = 'block';
+            }, 3000);
+        });
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(result => {
+                    document.getElementById('installBar').style.display = 'none';
+                });
+            }
+        }
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
     </script>
 </body>
 </html>
