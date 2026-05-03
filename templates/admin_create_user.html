@@ -1,11 +1,7 @@
 {% extends "admin_base.html" %}
 {% block title %}Add Customer Care Agent{% endblock %}
+{% block page_title %}Add Customer Care Agent{% endblock %}
 {% block admin_content %}
-
-<div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-user-plus me-2"></i>Add Customer Care Agent</h4>
-</div>
-
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm rounded-4 p-4">
@@ -28,14 +24,13 @@
                 </div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" name="is_admin" id="isAdmin">
-                    <label class="form-check-label fw-semibold" for="isAdmin">Grant Admin Privileges (makes them a full admin)</label>
+                    <label class="form-check-label fw-semibold" for="isAdmin">Grant Admin Privileges</label>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 rounded-pill">Create Agent</button>
             </form>
         </div>
     </div>
 </div>
-
 <script>
     document.querySelectorAll('.toggle-password').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -51,5 +46,4 @@
         });
     });
 </script>
-
 {% endblock %}
