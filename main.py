@@ -1,5 +1,5 @@
 import os, json, bcrypt, csv, io
-from flask import Flask, render_template, request, redirect, session, Response
+from flask import Flask, render_template, request, redirect, session, Response, make_response
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor (includes notification data) ----------
+# ---------- Context processor ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -56,7 +56,7 @@ def utility_processor():
         except:
             pass
 
-    # ---- Notification data for bell ----
+    # Notification data for admin bell
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -277,7 +277,6 @@ def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
-    # Delivery method & pickup logic
     delivery_method = request.form.get('delivery_method', 'delivery')
     shipping = {}
     if delivery_method == 'pickup':
@@ -294,7 +293,6 @@ def place_order():
 
     shipping['payment_method'] = request.form['payment_method']
 
-    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -313,7 +311,6 @@ def place_order():
 
     total = sum(it['price'] * it['qty'] for it in cart_items)
 
-    # Discount code
     discount_applied = 0
     discount_code = request.form.get('discount_code', '').strip().upper()
     if discount_code:
@@ -352,7 +349,6 @@ def place_order():
             'total_price': item['price'] * item['qty']
         }).execute()
 
-    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
@@ -387,7 +383,6 @@ def login():
         is_admin = user.get('is_admin', False)
         approved = user.get('approved', False)
 
-        # Super admin always approved
         if email == 'rodriguezgeorge089@gmail.com':
             approved = True
             if not user.get('approved'):
@@ -437,7 +432,7 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ---------- Customer Orders (inline for reliability) ----------
+# ---------- Customer Orders ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
@@ -696,6 +691,42 @@ def export_orders():
         w.writerow([str(o['id'])[:8], o['created_at'][:10], o.get('customer_name','') or o.get('shipping_name',''), o.get('customer_email','') or o.get('guest_email',''), o.get('customer_phone','') or o.get('shipping_phone',''), o['total_amount'], o.get('order_status','pending'), o.get('payment_method','')])
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
+
+# ==================== PWA ICON ROUTES ====================
+
+@app.route('/static/icon-192.png')
+def icon_192():
+    svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+        <rect width="192" height="192" rx="36" fill="#0A3D62"/>
+        <g transform="translate(40,38) scale(0.20) translate(30,28)" fill="white">
+            <path d="M256 32c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64h224c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H256zm192 64v64c0 17.7-14.3 32-32 32H256c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32h160c17.7 0 32 14.3 32 32z" fill="#F4A261"/>
+            <rect x="144" y="40" width="192" height="48" rx="24" fill="#F4A261"/>
+        </g>
+        <text x="96" y="158" font-family="Arial" font-size="16" font-weight="bold" fill="#F4A261" text-anchor="middle">DawaLink</text>
+    </svg>'''
+    resp = make_response(svg)
+    resp.headers['Content-Type'] = 'image/svg+xml'
+    return resp
+
+@app.route('/static/icon-512.png')
+def icon_512():
+    svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="96" fill="#0A3D62"/>
+        <g transform="translate(86,82) scale(0.50) translate(30,28)" fill="white">
+            <path d="M256 32c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64h224c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H256zm192 64v64c0 17.7-14.3 32-32 32H256c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32h160c17.7 0 32 14.3 32 32z" fill="#F4A261"/>
+            <rect x="144" y="40" width="192" height="48" rx="24" fill="#F4A261"/>
+        </g>
+        <text x="256" y="420" font-family="Arial" font-size="42" font-weight="bold" fill="#F4A261" text-anchor="middle">DawaLink</text>
+    </svg>'''
+    resp = make_response(svg)
+    resp.headers['Content-Type'] = 'image/svg+xml'
+    return resp
+
+# ==================== DOWNLOAD PAGE ====================
+
+@app.route('/download')
+def download_page():
+    return render_template('download.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
