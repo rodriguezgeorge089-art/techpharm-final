@@ -1,11 +1,7 @@
 {% extends "admin_base.html" %}
-{% block title %}Orders{% endblock %}
+{% block title %}Orders – {{ pharmacy_name }}{% endblock %}
+{% block page_title %}Orders <small class="text-muted fs-6">({{ orders|length }})</small>{% endblock %}
 {% block admin_content %}
-
-<div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-shopping-cart me-2"></i>Orders</h4>
-    <span class="text-muted">{{ orders|length }} order(s)</span>
-</div>
 
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="table-responsive">
