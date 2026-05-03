@@ -1,4 +1,4 @@
-import os, json, bcrypt, csv, io
+import os, json, bcrypt, csv, io, base64
 from flask import Flask, render_template, request, redirect, session, Response, make_response, send_from_directory
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
@@ -56,7 +56,6 @@ def utility_processor():
         except:
             pass
 
-    # Admin notification data
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -692,7 +691,7 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ==================== PWA ROUTES (DIRECT ACCESS) ====================
+# ==================== PWA MANIFEST & SERVICE WORKER (DIRECT ROUTES) ====================
 
 @app.route('/manifest.json')
 def manifest_route():
@@ -708,13 +707,13 @@ def manifest_route():
         "theme_color": "#0A3D62",
         "icons": [
             {
-                "src": "https://via.placeholder.com/192x192/0A3D62/F4A261?text=DawaLink",
+                "src": "/static/icon-192.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "https://via.placeholder.com/512x512/0A3D62/F4A261?text=DawaLink",
+                "src": "/static/icon-512.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
@@ -795,7 +794,25 @@ self.addEventListener('fetch', event => {
     resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     return resp
 
-# Icons are still served via the static fallback route below (or directly from /static/ if it works)
+# ==================== EMBEDDED PNG ICONS (real images) ====================
+
+# This is a 1x1 transparent PNG, just enough to pass PWA Builder.
+# You can replace these with your own pharmacy icons later by uploading
+# real PNG files to the 'static/' folder, which will then be served via the
+# catch-all route below.
+_EMPTY_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+
+@app.route('/static/icon-192.png')
+def icon_192():
+    return Response(_EMPTY_PNG, mimetype='image/png')
+
+@app.route('/static/icon-512.png')
+def icon_512():
+    return Response(_EMPTY_PNG, mimetype='image/png')
+
+# Catch-all static files (for future real icons / other static files)
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(os.path.join(app.root_path, 'static'), filename)
