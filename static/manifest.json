@@ -1,11 +1,13 @@
 {
   "name": "DawaLink - Online Pharmacy",
   "short_name": "DawaLink",
+  "description": "Medicine At Your Convenience – quality OTC medicines, supplements & personal care products delivered fast across Kenya.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0A3D62",
   "theme_color": "#0A3D62",
-  "description": "Medicine At Your Convenience – quality OTC medicines, supplements & personal care products delivered fast across Kenya.",
   "icons": [
     {
       "src": "/static/icon-192.png",
@@ -19,5 +21,7 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["medical", "health", "shopping"],
+  "lang": "en-KE"
 }
