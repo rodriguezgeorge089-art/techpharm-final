@@ -1,20 +1,12 @@
 {% extends "admin_base.html" %}
-{% block title %}Orders – {{ pharmacy_name }}{% endblock %}
+{% block title %}Orders{% endblock %}
 {% block page_title %}Orders <small class="text-muted fs-6">({{ orders|length }})</small>{% endblock %}
 {% block admin_content %}
-
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead style="background: linear-gradient(135deg, #0A3D62, #0F4C7A); color: white;">
-                <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Action</th>
-                </tr>
+                <tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Action</th></tr>
             </thead>
             <tbody>
                 {% for o in orders %}
@@ -28,19 +20,17 @@
                             {% elif o.get('order_status') == 'confirmed' %} bg-info text-white
                             {% elif o.get('order_status') == 'shipped' %} bg-primary text-white
                             {% elif o.get('order_status') == 'delivered' %} bg-success text-white
-                            {% endif %}">
-                            {{ o.get('order_status', 'pending') }}
-                        </span>
+                            {% endif %}">{{ o.get('order_status', 'pending') }}</span>
                     </td>
                     <td>{{ o['created_at'][:10] }}</td>
                     <td>
                         <div class="d-flex flex-wrap gap-1">
                             <form method="post" action="/admin/order/{{ o.id }}/status" class="d-flex align-items-center">
-                                <select name="status" class="form-select form-select-sm me-1" style="width: auto;">
-                                    <option {% if o.get('order_status') == 'pending' %}selected{% endif %}>pending</option>
-                                    <option {% if o.get('order_status') == 'confirmed' %}selected{% endif %}>confirmed</option>
-                                    <option {% if o.get('order_status') == 'shipped' %}selected{% endif %}>shipped</option>
-                                    <option {% if o.get('order_status') == 'delivered' %}selected{% endif %}>delivered</option>
+                                <select name="status" class="form-select form-select-sm me-1" style="width:auto;">
+                                    <option {% if o.get('order_status')=='pending' %}selected{% endif %}>pending</option>
+                                    <option {% if o.get('order_status')=='confirmed' %}selected{% endif %}>confirmed</option>
+                                    <option {% if o.get('order_status')=='shipped' %}selected{% endif %}>shipped</option>
+                                    <option {% if o.get('order_status')=='delivered' %}selected{% endif %}>delivered</option>
                                 </select>
                                 <button class="btn btn-sm btn-primary rounded-pill">Update</button>
                             </form>
@@ -49,16 +39,10 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr>
-                    <td colspan="6" class="text-center py-5">
-                        <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-                        <h5>No orders yet</h5>
-                    </td>
-                </tr>
+                <tr><td colspan="6" class="text-center py-5"><i class="fas fa-box-open fa-4x text-muted mb-3"></i><h5>No orders yet</h5></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
-
 {% endblock %}
