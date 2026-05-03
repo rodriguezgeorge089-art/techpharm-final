@@ -1,24 +1,22 @@
 {% extends "admin_base.html" %}
 {% block title %}Products – {{ pharmacy_name }}{% endblock %}
-{% block admin_content %}
-
-<div class="top-bar">
-    <h4 class="fw-bold mb-0" style="color: var(--deep-blue);"><i class="fas fa-pills me-2"></i>Products</h4>
+{% block page_title %}Products{% endblock %}
+{% block topbar_right %}
     <a href="/admin/add-product" class="btn btn-primary rounded-pill">
         <i class="fas fa-plus-circle me-2"></i> Add New Product
     </a>
-</div>
-
+{% endblock %}
+{% block admin_content %}
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead style="background: linear-gradient(135deg, #0A3D62, #0F4C7A); color: white;">
                 <tr>
-                    <th class="ps-4">Product</th>
+                    <th>Product</th>
                     <th>Category</th>
                     <th>Price</th>
                     <th>Stock</th>
-                    <th class="text-end pe-4">Action</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -54,20 +52,16 @@
                         <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1">Out of Stock</span>
                         {% endif %}
                     </td>
-                    <td class="text-end pe-4">
-                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1" title="Edit">
-                            <i class="fas fa-pen"></i>
-                        </a>
-                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" title="Delete" onclick="return confirm('Delete {{ p.name }}?')">
-                            <i class="fas fa-trash-alt"></i>
-                        </a>
+                    <td>
+                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1" title="Edit"><i class="fas fa-pen"></i></a>
+                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" title="Delete" onclick="return confirm('Delete {{ p.name }}?')"><i class="fas fa-trash-alt"></i></a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="5" class="text-center py-5">
                         <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-                        <h5 class="text-muted">No products found</h5>
+                        <h5>No products found</h5>
                         <a href="/admin/add-product" class="btn btn-primary rounded-pill mt-3">Add Your First Product</a>
                     </td>
                 </tr>
@@ -76,32 +70,10 @@
         </table>
     </div>
 </div>
-
 <style>
-    .product-row {
-        transition: background 0.2s, transform 0.2s;
-    }
-    .product-row:hover {
-        background: rgba(10,61,98,0.02);
-        transform: scale(1.005);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.03);
-    }
-    .btn-outline-warning {
-        border-color: #F4A261;
-        color: #F4A261;
-        transition: all 0.3s;
-    }
-    .btn-outline-warning:hover {
-        background: #F4A261;
-        color: white;
-    }
-    .btn-outline-danger {
-        transition: all 0.3s;
-    }
-    .btn-outline-danger:hover {
-        background: #dc3545;
-        color: white;
-    }
+    .product-row { transition: background 0.2s, transform 0.2s; }
+    .product-row:hover { background: rgba(10,61,98,0.02); transform: scale(1.005); box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
+    .btn-outline-warning { border-color: #F4A261; color: #F4A261; }
+    .btn-outline-warning:hover { background: #F4A261; color: white; }
 </style>
-
 {% endblock %}
