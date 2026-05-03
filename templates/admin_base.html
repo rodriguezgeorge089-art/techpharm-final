@@ -11,164 +11,92 @@
         :root {
             --deep-blue: #0A3D62;
             --gold: #F4A261;
-            --gold-light: #F7CDA2;
             --sidebar-bg: #0A3D62;
             --sidebar-hover: #0F4C7A;
             --sidebar-active: #F4A261;
-            --cream: #F9F6F1;
-            --text: #1E293B;
-            --card-bg: #ffffff;
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
         }
         body {
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Inter', sans-serif;
             background: #F1F5F9;
             margin: 0;
-            color: var(--text);
             display: flex;
             min-height: 100vh;
         }
-
-        /* ---- Sidebar (desktop: fixed, mobile: slide-over) ---- */
+        /* Sidebar */
         .sidebar {
             width: 260px;
-            background: linear-gradient(180deg, #0A3D62 0%, #0F4C7A 100%);
+            background: linear-gradient(180deg, #0A3D62, #0F4C7A);
             color: white;
-            display: flex;
-            flex-direction: column;
             position: fixed;
             top: 0; bottom: 0; left: 0;
             z-index: 1000;
             box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+            display: flex; flex-direction: column;
             transition: transform 0.3s ease;
         }
         .sidebar .brand {
             padding: 2rem 1.5rem;
-            font-weight: 800;
-            font-size: 1.8rem;
-            letter-spacing: -0.5px;
+            font-weight: 800; font-size: 1.8rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .sidebar .brand i {
-            background: var(--gold);
-            color: white;
-            border-radius: 12px;
-            padding: 8px 12px;
-            margin-right: 10px;
-        }
-        .sidebar nav {
-            flex: 1;
-            padding: 1.5rem 0;
-        }
+        .sidebar .brand i { background: var(--gold); color: white; border-radius: 12px; padding: 8px 12px; margin-right: 10px; }
+        .sidebar nav { flex: 1; padding: 1.5rem 0; }
         .sidebar nav a {
-            display: flex;
-            align-items: center;
+            display: flex; align-items: center;
             color: rgba(255,255,255,0.85);
-            text-decoration: none;
-            padding: 0.9rem 1.5rem;
-            margin: 0.2rem 1rem;
-            border-radius: 12px;
-            font-weight: 500;
-            transition: all 0.2s;
+            padding: 0.9rem 1.5rem; margin: 0.2rem 1rem;
+            border-radius: 12px; text-decoration: none;
+            font-weight: 500; transition: all 0.2s;
         }
-        .sidebar nav a i {
-            width: 24px;
-            text-align: center;
-            margin-right: 12px;
-            font-size: 1.1rem;
-        }
-        .sidebar nav a:hover {
-            background: var(--sidebar-hover);
-            color: white;
-        }
-        .sidebar nav a.active {
-            background: var(--gold);
-            color: #0A3D62;
-            font-weight: 700;
-        }
+        .sidebar nav a i { width: 24px; margin-right: 12px; font-size: 1.1rem; }
+        .sidebar nav a:hover { background: var(--sidebar-hover); color: white; }
+        .sidebar nav a.active { background: var(--gold); color: #0A3D62; font-weight: 700; }
         .sidebar .user-section {
-            padding: 1.5rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 10px;
         }
         .avatar {
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            background: var(--gold);
-            display: flex; align-items: center; justify-content: center;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--gold); display: flex; align-items: center; justify-content: center;
             font-weight: 700; color: #0A3D62;
         }
-
-        /* Main content */
         .main-content {
             margin-left: 260px;
-            flex: 1;
-            padding: 2rem;
+            flex: 1; padding: 2rem;
             min-height: 100vh;
             transition: margin-left 0.3s ease;
         }
-
         /* Top bar */
         .top-bar {
-            background: white;
-            border-radius: 16px;
-            padding: 1rem 1.5rem;
-            box-shadow: var(--shadow);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: white; border-radius: 16px;
+            padding: 1rem 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+            display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 2rem;
         }
-
-        /* Mobile sidebar toggle button */
         .sidebar-toggle {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: var(--deep-blue);
-            cursor: pointer;
+            display: none; background: none; border: none;
+            font-size: 1.5rem; color: var(--deep-blue); cursor: pointer;
         }
-
-        /* Overlay for mobile sidebar */
         .sidebar-overlay {
-            display: none;
-            position: fixed;
+            display: none; position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
+            background: rgba(0,0,0,0.5); z-index: 999;
         }
-
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-            .sidebar-overlay.show {
-                display: block;
-            }
-            .main-content {
-                margin-left: 0;
-            }
-            .sidebar-toggle {
-                display: inline-block;
-            }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay.show { display: block; }
+            .main-content { margin-left: 0; }
+            .sidebar-toggle { display: inline-block; }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar overlay (closes sidebar when tapped on mobile) -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-        <div class="brand">
-            <i class="fas fa-pills"></i> <span>DawaLink</span>
-        </div>
+        <div class="brand"><i class="fas fa-pills"></i> <span>DawaLink</span></div>
         <nav>
             <a href="/admin"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
             <a href="/admin/orders"><i class="fas fa-shopping-cart"></i> <span>Orders</span></a>
@@ -188,16 +116,17 @@
     </aside>
 
     <!-- Main Content -->
-    <div class="main-content" id="mainContent">
+    <div class="main-content">
+        <!-- Top bar with hamburger + dynamic title -->
         <div class="top-bar">
             <div class="d-flex align-items-center">
                 <button class="sidebar-toggle me-3" onclick="openSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
-                {% block topbar_title %}
-                <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">Dashboard</h4>
-                {% endblock %}
+                <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">{% block page_title %}Dashboard{% endblock %}</h4>
             </div>
+            {# Optional right-side content, e.g., "Add Product" button #}
+            <div>{% block topbar_right %}{% endblock %}</div>
         </div>
         {% block admin_content %}{% endblock %}
     </div>
@@ -212,7 +141,7 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('sidebarOverlay').classList.remove('show');
         }
-        // Highlight current page link (optional)
+        // Highlight current page link
         const links = document.querySelectorAll('.sidebar nav a');
         const currentPath = window.location.pathname;
         links.forEach(link => {
