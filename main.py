@@ -73,10 +73,7 @@ def utility_processor():
                 pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL,
                 pending_orders=pending_orders, pending_prescriptions=pending_prescriptions)
 
-# ---------- Public pages (unchanged) ----------
-# … (keep all the public routes you already have) …
-# I'll include them completely for safety.
-
+# ---------- Public pages ----------
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -107,6 +104,7 @@ def blog():
     ]
     return render_template('blog.html', posts=posts)
 
+# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search', '')
@@ -135,6 +133,7 @@ def shop():
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
 
+# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET', 'POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -167,6 +166,7 @@ def prescription_upload():
         return render_template('prescription_success.html')
     return render_template('prescription_upload.html')
 
+# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     product_id = request.form['productId']
@@ -266,6 +266,7 @@ def compare_page():
     products = supabase.table('products').select('*').in_('id', ids).execute().data
     return render_template('compare.html', products=products)
 
+# ---------- Checkout with pickup & discount ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
@@ -365,6 +366,7 @@ def order_confirmation():
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
     return render_template('order_confirmation.html', order=order, items=items, discount=discount)
 
+# ---------- Authentication ----------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -429,6 +431,7 @@ def logout():
     session.clear()
     return redirect('/')
 
+# ---------- Customer Orders ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
@@ -479,7 +482,7 @@ def my_account():
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>'''
     return html
 
-# Admin decorator and routes (unchanged)
+# ---------- Admin Decorator ----------
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -487,6 +490,8 @@ def admin_required(f):
             return redirect('/login')
         return f(*args, **kwargs)
     return decorated
+
+# ==================== ADMIN ROUTES ====================
 
 @app.route('/admin')
 @admin_required
@@ -527,10 +532,6 @@ def admin_dashboard():
                            total_products=total_products,
                            total_customers=total_customers,
                            recent_orders=recent_orders_html)
-
-# (include all other admin routes exactly as before) …
-# I'll list them but they are the same; for brevity I'll just indicate they stay.
-# Full code would include them, so I'm adding them here.
 
 @app.route('/admin/orders')
 @admin_required
@@ -690,7 +691,8 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ---------- PWA routes (manifest, service worker, generated icons) ----------
+# ==================== PWA ROUTES ====================
+
 @app.route('/manifest.json')
 def manifest_route():
     manifest = {
@@ -833,6 +835,7 @@ def icon_512():
 def serve_static(filename):
     return send_from_directory(os.path.join(app.root_path, 'static'), filename)
 
+# ==================== APK DOWNLOAD PAGE ====================
 @app.route('/download')
 def download_page():
     return render_template('download.html')
