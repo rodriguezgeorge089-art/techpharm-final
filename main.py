@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor ----------
+# ---------- Context processor (includes notification data) ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -56,9 +56,23 @@ def utility_processor():
         except:
             pass
 
+    # ---- Notification data for bell ----
+    pending_orders = []
+    pending_prescriptions = []
+    if user and user.get('is_admin'):
+        try:
+            pending_orders = supabase.table('orders').select('id, shipping_name, total_amount').eq('order_status', 'pending').order('created_at', desc=True).limit(5).execute().data or []
+        except:
+            pass
+        try:
+            pending_prescriptions = supabase.table('prescriptions').select('id, customer_name, created_at').eq('status', 'pending').order('created_at', desc=True).limit(5).execute().data or []
+        except:
+            pass
+
     return dict(user=user, cart_total=cart_total,
                 wishlist_count=wishlist_count, compare_count=compare_count,
-                pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL)
+                pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL,
+                pending_orders=pending_orders, pending_prescriptions=pending_prescriptions)
 
 # ---------- Public pages ----------
 @app.route('/')
@@ -423,7 +437,7 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ---------- Customer Orders (self‑contained inline – no template needed) ----------
+# ---------- Customer Orders (inline for reliability) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
@@ -525,7 +539,6 @@ def admin_dashboard():
                            total_customers=total_customers,
                            recent_orders=recent_orders_html)
 
-# ADMIN ORDERS – now uses the template (beautiful sidebar)
 @app.route('/admin/orders')
 @admin_required
 def admin_orders():
