@@ -22,7 +22,6 @@
             display: flex;
             min-height: 100vh;
         }
-        /* Sidebar */
         .sidebar {
             width: 260px;
             background: linear-gradient(180deg, #0A3D62, #0F4C7A);
@@ -66,7 +65,6 @@
             min-height: 100vh;
             transition: margin-left 0.3s ease;
         }
-        /* Top bar */
         .top-bar {
             background: white; border-radius: 16px;
             padding: 1rem 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.04);
@@ -82,6 +80,38 @@
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 999;
         }
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            font-size: 1.4rem;
+            color: var(--deep-blue);
+            margin-right: 1rem;
+        }
+        .notification-bell .badge {
+            position: absolute;
+            top: -8px; right: -10px;
+            font-size: 0.7rem;
+            background: var(--gold);
+        }
+        .dropdown-menu-notify {
+            width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 0.5rem;
+        }
+        .dropdown-menu-notify .dropdown-item {
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+        }
+        .dropdown-menu-notify .dropdown-header {
+            font-weight: 700;
+            color: var(--deep-blue);
+            font-size: 0.9rem;
+        }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -94,7 +124,6 @@
 <body>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="brand"><i class="fas fa-pills"></i> <span>DawaLink</span></div>
         <nav>
@@ -115,18 +144,58 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <!-- Top bar with hamburger + dynamic title -->
         <div class="top-bar">
             <div class="d-flex align-items-center">
                 <button class="sidebar-toggle me-3" onclick="openSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-secondary rounded-pill me-3" onclick="window.history.back()" title="Go back">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
                 <h4 class="fw-bold mb-0" style="color: var(--deep-blue);">{% block page_title %}Dashboard{% endblock %}</h4>
             </div>
-            {# Optional right-side content, e.g., "Add Product" button #}
-            <div>{% block topbar_right %}{% endblock %}</div>
+            <div class="d-flex align-items-center">
+                {% if user and user.is_admin %}
+                <div class="dropdown">
+                    <span class="notification-bell" data-bs-toggle="dropdown" aria-expanded="false" id="bellIcon">
+                        <i class="fas fa-bell"></i>
+                        {% set pending_total = (pending_orders|length) + (pending_prescriptions|length) %}
+                        {% if pending_total > 0 %}
+                        <span class="badge rounded-pill">{{ pending_total }}</span>
+                        {% endif %}
+                    </span>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify" aria-labelledby="bellIcon">
+                        {% if pending_orders|length > 0 %}
+                        <li class="dropdown-header">Pending Orders</li>
+                        {% for o in pending_orders %}
+                        <li>
+                            <a class="dropdown-item" href="/admin/orders">
+                                <strong>#{{ (o.id|string)[:8] }}</strong> – {{ o.get('shipping_name', 'Guest') }}<br>
+                                <small class="text-muted">KSh {{ o['total_amount'] }}</small>
+                            </a>
+                        </li>
+                        {% endfor %}
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        {% if pending_prescriptions|length > 0 %}
+                        <li class="dropdown-header">Pending Prescriptions</li>
+                        {% for rx in pending_prescriptions %}
+                        <li>
+                            <a class="dropdown-item" href="/admin/prescriptions">
+                                <strong>{{ rx.customer_name }}</strong> – {{ rx.created_at[:10] }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                        {% endif %}
+                        {% if pending_total == 0 %}
+                        <li><span class="dropdown-item text-muted">No new notifications</span></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+                <div>{% block topbar_right %}{% endblock %}</div>
+            </div>
         </div>
         {% block admin_content %}{% endblock %}
     </div>
@@ -141,7 +210,6 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('sidebarOverlay').classList.remove('show');
         }
-        // Highlight current page link
         const links = document.querySelectorAll('.sidebar nav a');
         const currentPath = window.location.pathname;
         links.forEach(link => {
