@@ -4,35 +4,18 @@
 {% block admin_content %}
 <div class="row">
     {% if users|length == 0 %}
-    <div class="col-12">
-        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="fas fa-user-plus fa-4x text-muted mb-3"></i>
-            <h5>No agents yet</h5>
-            <p class="text-muted">Add your first customer care agent.</p>
-        </div>
-    </div>
+    <div class="col-12"><div class="card border-0 shadow-sm rounded-4 p-5 text-center"><i class="fas fa-user-plus fa-4x text-muted mb-3"></i><h5>No agents yet</h5><p class="text-muted">Add your first customer care agent.</p></div></div>
     {% else %}
     {% for u in users %}
     <div class="col-md-6 mb-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 team-card h-100">
             <div class="d-flex align-items-start mb-3">
-                <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">
-                    {{ u.full_name[:1].upper() }}
-                </div>
-                <div>
-                    <h5 class="fw-bold mb-1">{{ u.full_name }}</h5>
-                    <p class="text-muted mb-0">{{ u.email }}</p>
-                </div>
-                <div class="ms-auto">
-                    <span class="badge rounded-pill {% if u.is_admin %} bg-danger {% else %} bg-success {% endif %}">
-                        {{ 'Admin' if u.is_admin else 'Agent' }}
-                    </span>
-                </div>
+                <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">{{ u.full_name[:1].upper() }}</div>
+                <div><h5 class="fw-bold mb-1">{{ u.full_name }}</h5><p class="text-muted mb-0">{{ u.email }}</p></div>
+                <div class="ms-auto"><span class="badge rounded-pill {% if u.is_admin %} bg-danger {% else %} bg-success {% endif %}">{{ 'Admin' if u.is_admin else 'Agent' }}</span></div>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <span class="badge rounded-pill {% if u.approved %} bg-success {% else %} bg-warning text-dark {% endif %}">
-                    {{ 'Approved' if u.approved else 'Pending' }}
-                </span>
+                <span class="badge rounded-pill {% if u.approved %} bg-success {% else %} bg-warning text-dark {% endif %}">{{ 'Approved' if u.approved else 'Pending' }}</span>
                 <div>
                     <a href="/admin/approve-user/{{ u.id }}" class="btn btn-sm btn-outline-success rounded-pill"><i class="fas fa-check"></i> Approve</a>
                     <a href="/admin/disable-user/{{ u.id }}" class="btn btn-sm btn-outline-danger rounded-pill"><i class="fas fa-ban"></i> Disable</a>
