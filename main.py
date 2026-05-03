@@ -423,16 +423,56 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ---------- Customer Orders ----------
+# ---------- Customer Orders (self‑contained, no template) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
         return redirect('/login')
     user_id = session['user_id']
-    orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
+    try:
+        orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
+    except:
+        orders = []
+
     for order in orders:
-        order['items'] = supabase.table('order_items').select('*').eq('order_id', order['id']).execute().data or []
-    return render_template('my_orders.html', orders=orders)
+        try:
+            order['items'] = supabase.table('order_items').select('*').eq('order_id', order['id']).execute().data or []
+        except:
+            order['items'] = []
+
+    if not orders:
+        html = f'''<html><head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+        <body style="background:#f4f6f9;padding:2rem;"><div class="container text-center"><i class="fas fa-box-open fa-4x text-muted mb-3"></i><h5>No orders yet</h5><a href="/shop" class="btn btn-primary rounded-pill">Start Shopping</a></div></body></html>'''
+        return html
+
+    order_html = ''
+    for o in orders:
+        oid = str(o['id'])[:8]
+        status = o.get('order_status', 'pending')
+        items_rows = ''
+        for item in o['items']:
+            items_rows += f'<tr><td>{item["product_name"]}</td><td>{item["quantity"]}</td><td>KSh {item["unit_price"]}</td><td>KSh {item["total_price"]}</td></tr>'
+        order_html += f'''
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#order{o['id']}">
+                <span><strong>Order #{oid}</strong> – {o['created_at'][:10]}</span>
+                <span class="badge bg-{'warning' if status=='pending' else 'info' if status=='confirmed' else 'primary' if status=='shipped' else 'success'}">{status}</span>
+                <span class="fw-bold">KSh {o['total_amount']}</span>
+            </div>
+            <div class="collapse" id="order{o['id']}">
+                <div class="card-body">
+                    <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead><tbody>{items_rows}</tbody></table>
+                </div>
+            </div>
+        </div>
+        '''
+    html = f'''<!DOCTYPE html>
+<html>
+<head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{{background:#f4f6f9;padding:2rem;}}</style></head>
+<body><div class="container"><h2>My Orders</h2>{order_html}</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>'''
+    return html
 
 # ---------- Admin Decorator ----------
 def admin_required(f):
@@ -443,7 +483,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== ADMIN ROUTES (template-based) ====================
+# ==================== ADMIN ROUTES (mix of templates and inline) ====================
 
 @app.route('/admin')
 @admin_required
@@ -485,11 +525,65 @@ def admin_dashboard():
                            total_customers=total_customers,
                            recent_orders=recent_orders_html)
 
+# ADMIN ORDERS – self‑contained, no template
 @app.route('/admin/orders')
 @admin_required
 def admin_orders():
-    orders = supabase.table('orders').select('*').order('created_at', desc=True).execute().data or []
-    return render_template('admin_orders.html', orders=orders)
+    try:
+        orders = supabase.table('orders').select('*').order('created_at', desc=True).execute().data or []
+    except:
+        orders = []
+
+    rows = ''
+    for o in orders:
+        oid = str(o['id'])[:8]
+        status = o.get('order_status', 'pending')
+        customer = o.get('shipping_name') or o.get('guest_email', 'Guest')
+        total = o.get('total_amount', 0)
+        date = o.get('created_at', '')[:10]
+        pay = o.get('payment_method', 'COD')
+        rows += f'''
+        <tr>
+            <td><strong>#{oid}</strong></td>
+            <td>{customer}</td>
+            <td>KSh {total}</td>
+            <td><span class="badge bg-{'warning' if status=='pending' else 'info' if status=='confirmed' else 'primary' if status=='shipped' else 'success'}">{status}</span></td>
+            <td>{date}</td>
+            <td>
+                <form method="post" action="/admin/order/{o['id']}/status" class="d-inline">
+                    <select name="status" class="form-select form-select-sm d-inline-block w-auto">
+                        <option {'selected' if status=='pending' else ''}>pending</option>
+                        <option {'selected' if status=='confirmed' else ''}>confirmed</option>
+                        <option {'selected' if status=='shipped' else ''}>shipped</option>
+                        <option {'selected' if status=='delivered' else ''}>delivered</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary rounded-pill">Update</button>
+                </form>
+                <a href="/admin/order/{o['id']}/invoice" class="btn btn-sm btn-outline-primary rounded-pill ms-1" target="_blank">Invoice</a>
+            </td>
+        </tr>
+        '''
+    if not rows:
+        rows = '<tr><td colspan="6" class="text-center py-4">No orders yet.</td></tr>'
+
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>Orders – Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body{{padding:2rem;background:#f4f6f9;}}</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="/admin" class="text-decoration-none text-dark">←</a> Orders</h1>
+        <table class="table table-striped align-middle">
+            <thead class="table-dark"><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    </div>
+</body>
+</html>'''
+    return html
 
 @app.route('/admin/order/<order_id>/status', methods=['POST'])
 @admin_required
