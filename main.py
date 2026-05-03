@@ -1,4 +1,4 @@
-import os, json, bcrypt, csv, io, base64
+import os, json, bcrypt, csv, io, struct, zlib
 from flask import Flask, render_template, request, redirect, session, Response, make_response, send_from_directory
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
@@ -73,7 +73,10 @@ def utility_processor():
                 pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL,
                 pending_orders=pending_orders, pending_prescriptions=pending_prescriptions)
 
-# ---------- Public pages ----------
+# ---------- Public pages (unchanged) ----------
+# … (keep all the public routes you already have) …
+# I'll include them completely for safety.
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -104,7 +107,6 @@ def blog():
     ]
     return render_template('blog.html', posts=posts)
 
-# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search', '')
@@ -133,7 +135,6 @@ def shop():
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
 
-# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET', 'POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -166,7 +167,6 @@ def prescription_upload():
         return render_template('prescription_success.html')
     return render_template('prescription_upload.html')
 
-# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     product_id = request.form['productId']
@@ -266,7 +266,6 @@ def compare_page():
     products = supabase.table('products').select('*').in_('id', ids).execute().data
     return render_template('compare.html', products=products)
 
-# ---------- Checkout with pickup & discount ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
@@ -366,7 +365,6 @@ def order_confirmation():
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
     return render_template('order_confirmation.html', order=order, items=items, discount=discount)
 
-# ---------- Authentication ----------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -431,7 +429,6 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ---------- Customer Orders ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
@@ -482,7 +479,7 @@ def my_account():
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>'''
     return html
 
-# ---------- Admin Decorator ----------
+# Admin decorator and routes (unchanged)
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -490,8 +487,6 @@ def admin_required(f):
             return redirect('/login')
         return f(*args, **kwargs)
     return decorated
-
-# ==================== ADMIN ROUTES ====================
 
 @app.route('/admin')
 @admin_required
@@ -532,6 +527,10 @@ def admin_dashboard():
                            total_products=total_products,
                            total_customers=total_customers,
                            recent_orders=recent_orders_html)
+
+# (include all other admin routes exactly as before) …
+# I'll list them but they are the same; for brevity I'll just indicate they stay.
+# Full code would include them, so I'm adding them here.
 
 @app.route('/admin/orders')
 @admin_required
@@ -691,8 +690,7 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ==================== PWA ROUTES ====================
-
+# ---------- PWA routes (manifest, service worker, generated icons) ----------
 @app.route('/manifest.json')
 def manifest_route():
     manifest = {
@@ -794,29 +792,47 @@ self.addEventListener('fetch', event => {
     resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     return resp
 
-# ---- Properly sized PNG icons (192x192 and 512x512) ----
-_ICON_192 = base64.b64decode(
-    "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"
-)
+# --- Helper to generate a minimal PNG of given dimensions ---
+def _create_png(width, height, color=(10, 61, 98)):
+    """Return bytes of a simple solid-colour PNG with the given dimensions."""
+    def chunk(ctype, data):
+        c = ctype + data
+        crc = struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        return struct.pack(">I", len(data)) + c + crc
 
-_ICON_512 = base64.b64decode(
-    "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"
-)
+    # PNG signature
+    signature = b'\x89PNG\r\n\x1a\n'
+    # IHDR chunk
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit RGB
+    ihdr_chunk = chunk(b'IHDR', ihdr)
+
+    # IDAT chunk – raw pixel data (uncompressed, then zlib)
+    raw = b''
+    for y in range(height):
+        raw += b'\x00'  # filter none
+        for x in range(width):
+            raw += bytes(color)  # R, G, B
+    compressed = zlib.compress(raw)
+    idat_chunk = chunk(b'IDAT', compressed)
+
+    # IEND chunk
+    iend_chunk = chunk(b'IEND', b'')
+    return signature + ihdr_chunk + idat_chunk + iend_chunk
 
 @app.route('/static/icon-192.png')
 def icon_192():
-    return Response(_ICON_192, mimetype='image/png')
+    png_bytes = _create_png(192, 192, color=(10, 61, 98))  # deep blue background
+    return Response(png_bytes, mimetype='image/png')
 
 @app.route('/static/icon-512.png')
 def icon_512():
-    return Response(_ICON_512, mimetype='image/png')
+    png_bytes = _create_png(512, 512, color=(10, 61, 98))
+    return Response(png_bytes, mimetype='image/png')
 
-# Catch-all for other static files (future real icons)
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(os.path.join(app.root_path, 'static'), filename)
 
-# ==================== APK DOWNLOAD PAGE ====================
 @app.route('/download')
 def download_page():
     return render_template('download.html')
