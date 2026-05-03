@@ -1,24 +1,15 @@
 {% extends "admin_base.html" %}
-{% block title %}Customers – {{ pharmacy_name }}{% endblock %}
+{% block title %}Customers{% endblock %}
 {% block page_title %}Customers <small class="text-muted fs-6">({{ customers|length }})</small>{% endblock %}
 {% block admin_content %}
 <div class="card border-0 shadow-sm rounded-4 p-4">
     <div class="table-responsive">
         <table class="table align-middle customer-table">
-            <thead>
-                <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr>
-            </thead>
+            <thead><tr><th>Customer</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead>
             <tbody>
                 {% for email, c in customers.items() %}
                 <tr>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">
-                                {{ c.name[:1].upper() }}
-                            </div>
-                            <h6 class="fw-semibold mb-0">{{ c.name }}</h6>
-                        </div>
-                    </td>
+                    <td><div class="d-flex align-items-center"><div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">{{ c.name[:1].upper() }}</div><h6 class="fw-semibold mb-0">{{ c.name }}</h6></div></td>
                     <td>{{ email }}</td>
                     <td>{{ c.phone }}</td>
                     <td><span class="badge bg-primary rounded-pill">{{ c.orders }}</span></td>
