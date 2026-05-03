@@ -1,5 +1,5 @@
 import os, json, bcrypt, csv, io
-from flask import Flask, render_template, request, redirect, session, Response, make_response
+from flask import Flask, render_template, request, redirect, session, Response, make_response, send_from_directory
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -56,7 +56,7 @@ def utility_processor():
         except:
             pass
 
-    # Notification data for admin bell
+    # Admin notification data
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -692,38 +692,105 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ==================== PWA ICON ROUTES ====================
+# ==================== PWA ROUTES (DIRECT ACCESS – NO STATIC FOLDER) ====================
 
-@app.route('/static/icon-192.png')
-def icon_192():
-    svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-        <rect width="192" height="192" rx="36" fill="#0A3D62"/>
-        <g transform="translate(40,38) scale(0.20) translate(30,28)" fill="white">
-            <path d="M256 32c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64h224c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H256zm192 64v64c0 17.7-14.3 32-32 32H256c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32h160c17.7 0 32 14.3 32 32z" fill="#F4A261"/>
-            <rect x="144" y="40" width="192" height="48" rx="24" fill="#F4A261"/>
-        </g>
-        <text x="96" y="158" font-family="Arial" font-size="16" font-weight="bold" fill="#F4A261" text-anchor="middle">DawaLink</text>
-    </svg>'''
-    resp = make_response(svg)
-    resp.headers['Content-Type'] = 'image/svg+xml'
+@app.route('/manifest.json')
+def manifest_route():
+    manifest = {
+        "name": "DawaLink - Online Pharmacy",
+        "short_name": "DawaLink",
+        "description": "Medicine At Your Convenience – quality OTC medicines, supplements & personal care products delivered fast across Kenya.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#0A3D62",
+        "theme_color": "#0A3D62",
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ],
+        "categories": ["medical", "health", "shopping"],
+        "lang": "en-KE"
+    }
+    resp = make_response(json.dumps(manifest))
+    resp.headers['Content-Type'] = 'application/manifest+json; charset=utf-8'
     return resp
 
-@app.route('/static/icon-512.png')
-def icon_512():
-    svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-        <rect width="512" height="512" rx="96" fill="#0A3D62"/>
-        <g transform="translate(86,82) scale(0.50) translate(30,28)" fill="white">
-            <path d="M256 32c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64h224c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H256zm192 64v64c0 17.7-14.3 32-32 32H256c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32h160c17.7 0 32 14.3 32 32z" fill="#F4A261"/>
-            <rect x="144" y="40" width="192" height="48" rx="24" fill="#F4A261"/>
-        </g>
-        <text x="256" y="420" font-family="Arial" font-size="42" font-weight="bold" fill="#F4A261" text-anchor="middle">DawaLink</text>
-    </svg>'''
-    resp = make_response(svg)
-    resp.headers['Content-Type'] = 'image/svg+xml'
+@app.route('/sw.js')
+def service_worker_route():
+    sw_js = """// DawaLink Service Worker
+const CACHE_NAME = 'dawalink-v2';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/manifest.json',
+  '/static/icon-192.png',
+  '/static/icon-512.png',
+  '/shop',
+  '/about',
+  '/contact',
+  '/cart'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(() => {
+        return Promise.resolve();
+      });
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.filter(name => name !== CACHE_NAME)
+          .map(name => caches.delete(name))
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(event.request).then(cachedResponse => {
+      if (cachedResponse) return cachedResponse;
+      return fetch(event.request).then(response => {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseToCache);
+        });
+        return response;
+      }).catch(() => {
+        if (event.request.headers.get('accept').includes('text/html')) {
+          return caches.match('/');
+        }
+        return new Response('You are offline. Please check your connection.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      });
+    })
+  );
+});"""
+    resp = make_response(sw_js)
+    resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     return resp
 
-# ==================== DOWNLOAD PAGE ====================
+# Icons are still served via the static fallback route below (or directly from /static/ if it works)
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
 
+# ==================== APK DOWNLOAD PAGE ====================
 @app.route('/download')
 def download_page():
     return render_template('download.html')
