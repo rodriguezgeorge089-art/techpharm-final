@@ -13,14 +13,31 @@
             </thead>
             <tbody>
                 {% for p in products %}
-                <tr>
-                    <td>{{ p.name }}</td>
-                    <td>{{ p.category }}</td>
-                    <td>KSh {{ p.price }}</td>
-                    <td>{{ p.stock }}</td>
+                <tr class="product-row">
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            {% if p.image_url %}
+                            <img src="{{ p.image_url }}" class="rounded-3 me-3" style="width:48px;height:48px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-3 me-3 bg-light d-flex align-items-center justify-content-center" style="width:48px;height:48px;"><i class="fas fa-pills text-muted fs-5"></i></div>
+                            {% endif %}
+                            <div><h6 class="fw-bold mb-0">{{ p.name }}</h6><small class="text-muted">SKU: #{{ p.id }}</small></div>
+                        </div>
+                    </td>
+                    <td><span class="badge bg-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} bg-opacity-10 text-{{ 'success' if p.category == 'Supplements' else 'warning' if p.category == 'Pain Relief' else 'info' if p.category == 'Baby Care' else 'danger' if p.category == 'Women Health' else 'secondary' }} rounded-pill px-3 py-1">{{ p.category }}</span></td>
+                    <td class="fw-bold" style="color: var(--deep-blue);">KSh {{ p.price }}</td>
                     <td>
-                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-warning rounded-pill">Edit</a>
-                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-danger rounded-pill" onclick="return confirm('Delete {{ p.name }}?')">Delete</a>
+                        {% if p.stock > 10 %}
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1">In Stock ({{ p.stock }})</span>
+                        {% elif p.stock > 0 %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-1">Low Stock ({{ p.stock }})</span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1">Out of Stock</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/admin/edit-product/{{ p.id }}" class="btn btn-sm btn-outline-warning rounded-pill me-1"><i class="fas fa-pen"></i></a>
+                        <a href="/admin/delete-product/{{ p.id }}" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Delete {{ p.name }}?')"><i class="fas fa-trash-alt"></i></a>
                     </td>
                 </tr>
                 {% else %}
@@ -30,4 +47,10 @@
         </table>
     </div>
 </div>
+<style>
+    .product-row { transition: background 0.2s, transform 0.2s; }
+    .product-row:hover { background: rgba(10,61,98,0.02); transform: scale(1.005); box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
+    .btn-outline-warning { border-color: #F4A261; color: #F4A261; }
+    .btn-outline-warning:hover { background: #F4A261; color: white; }
+</style>
 {% endblock %}
