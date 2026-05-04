@@ -1,5 +1,5 @@
-import os, json, bcrypt, csv, io, struct, zlib
-from flask import Flask, render_template, request, redirect, session, Response, make_response
+import os, json, bcrypt, csv, io
+from flask import Flask, render_template, request, redirect, session, Response
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# Context processor (unchanged – supplies cart, user, notifications)
+# ---------- Context processor (includes notification data) ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -56,6 +56,7 @@ def utility_processor():
         except:
             pass
 
+    # ---- Notification data for bell ----
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -73,9 +74,7 @@ def utility_processor():
                 pharmacy_name=PHARMACY_NAME, phone=PHARMACY_PHONE, email=PHARMACY_EMAIL,
                 pending_orders=pending_orders, pending_prescriptions=pending_prescriptions)
 
-# ---------- Public pages (same as before) ----------
-# ... (keep all public routes: /, /about, /contact, /blog, /shop, /prescription, /cart/*, /checkout, /order-confirmation, /login, /register, /logout, /my-account) ...
-# They are identical to the last full main.py. I'll include them inline for completeness.
+# ---------- Public pages ----------
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -106,6 +105,7 @@ def blog():
     ]
     return render_template('blog.html', posts=posts)
 
+# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search', '')
@@ -134,6 +134,7 @@ def shop():
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
 
+# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET', 'POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -166,6 +167,7 @@ def prescription_upload():
         return render_template('prescription_success.html')
     return render_template('prescription_upload.html')
 
+# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     product_id = request.form['productId']
@@ -232,6 +234,40 @@ def remove_from_cart(product_id):
         session['cart'] = cart
     return redirect('/cart')
 
+@app.route('/wishlist/toggle', methods=['POST'])
+def wishlist_toggle():
+    if 'user_id' not in session:
+        return 'Login required', 401
+    user_id = session['user_id']
+    product_id = request.form['productId']
+    existing = supabase.table('wishlist').select('id').eq('user_id', user_id).eq('product_id', product_id).execute()
+    if existing.data:
+        supabase.table('wishlist').delete().eq('user_id', user_id).eq('product_id', product_id).execute()
+    else:
+        supabase.table('wishlist').insert({'user_id': user_id, 'product_id': product_id}).execute()
+    return redirect(request.referrer or '/')
+
+@app.route('/compare/toggle/<product_id>')
+def compare_toggle(product_id):
+    compare = json.loads(request.cookies.get('compare', '[]'))
+    if product_id in compare:
+        compare.remove(product_id)
+    else:
+        if len(compare) < 4:
+            compare.append(product_id)
+    resp = redirect(request.referrer or '/')
+    resp.set_cookie('compare', json.dumps(compare), max_age=86400)
+    return resp
+
+@app.route('/compare')
+def compare_page():
+    ids = json.loads(request.cookies.get('compare', '[]'))
+    if not ids:
+        return 'No products to compare.'
+    products = supabase.table('products').select('*').in_('id', ids).execute().data
+    return render_template('compare.html', products=products)
+
+# ---------- Checkout with pickup & discount ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
@@ -241,6 +277,7 @@ def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
+    # Delivery method & pickup logic
     delivery_method = request.form.get('delivery_method', 'delivery')
     shipping = {}
     if delivery_method == 'pickup':
@@ -257,6 +294,7 @@ def place_order():
 
     shipping['payment_method'] = request.form['payment_method']
 
+    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -275,6 +313,7 @@ def place_order():
 
     total = sum(it['price'] * it['qty'] for it in cart_items)
 
+    # Discount code
     discount_applied = 0
     discount_code = request.form.get('discount_code', '').strip().upper()
     if discount_code:
@@ -313,6 +352,7 @@ def place_order():
             'total_price': item['price'] * item['qty']
         }).execute()
 
+    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
@@ -321,7 +361,6 @@ def place_order():
     session['last_order_id'] = order_id
     return redirect('/order-confirmation')
 
-# Inline order confirmation – no missing template
 @app.route('/order-confirmation')
 def order_confirmation():
     order_id = session.pop('last_order_id', None)
@@ -330,26 +369,9 @@ def order_confirmation():
         return redirect('/')
     order = supabase.table('orders').select('*').eq('id', order_id).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
-    item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
-    html = f'''<!DOCTYPE html>
-<html><head><title>Order Confirmed – DawaLink</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>body{{background:#f4f6f9;padding:2rem;}}</style></head><body>
-<div class="container" style="max-width:600px;margin:auto;background:white;border-radius:20px;padding:2rem;box-shadow:0 10px 30px rgba(0,0,0,0.1);">
-    <h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2>
-    <p>Your order <strong>#{order_id}</strong> has been placed successfully.</p>
-    <p>Total: <strong>KSh {order['total_amount']}</strong></p>
-    <p>Status: <span class="badge bg-warning">{order.get('order_status','pending')}</span></p>
-    <hr>
-    <h5>Items</h5>
-    <table class="table table-sm">
-        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
-        <tbody>{item_rows}</tbody>
-    </table>
-    <a href="/shop" class="btn btn-primary rounded-pill">Continue Shopping</a>
-</div></body></html>'''
-    return html
+    return render_template('order_confirmation.html', order=order, items=items, discount=discount)
 
+# ---------- Authentication ----------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -365,16 +387,18 @@ def login():
         is_admin = user.get('is_admin', False)
         approved = user.get('approved', False)
 
+        # Super admin always approved
         if email == 'rodriguezgeorge089@gmail.com':
             approved = True
             if not user.get('approved'):
                 supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
 
         if not is_admin and not approved:
-            return render_template('login.html', error='Your account is pending approval.')
+            return render_template('login.html', error='Your account is pending approval. Please try again later or contact support.')
 
         if is_admin and not approved:
             supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
+            user['approved'] = True
 
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
@@ -398,7 +422,11 @@ def register():
         password = request.form['password']
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         try:
-            supabase.table('users').insert({'full_name': full_name, 'email': email, 'password_hash': hashed}).execute()
+            supabase.table('users').insert({
+                'full_name': full_name,
+                'email': email,
+                'password_hash': hashed
+            }).execute()
         except:
             return render_template('register.html', error='Email already exists.')
         return render_template('register_success.html')
@@ -409,15 +437,58 @@ def logout():
     session.clear()
     return redirect('/')
 
+# ---------- Customer Orders (inline for reliability) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
         return redirect('/login')
     user_id = session['user_id']
-    orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
-    return render_template('my_orders.html', orders=orders)  # uses the existing my_orders.html template
+    try:
+        orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
+    except:
+        orders = []
 
-# Admin decorator
+    for order in orders:
+        try:
+            order['items'] = supabase.table('order_items').select('*').eq('order_id', order['id']).execute().data or []
+        except:
+            order['items'] = []
+
+    if not orders:
+        html = f'''<html><head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+        <body style="background:#f4f6f9;padding:2rem;"><div class="container text-center"><i class="fas fa-box-open fa-4x text-muted mb-3"></i><h5>No orders yet</h5><a href="/shop" class="btn btn-primary rounded-pill">Start Shopping</a></div></body></html>'''
+        return html
+
+    order_html = ''
+    for o in orders:
+        oid = str(o['id'])[:8]
+        status = o.get('order_status', 'pending')
+        items_rows = ''
+        for item in o['items']:
+            items_rows += f'<tr><td>{item["product_name"]}</td><td>{item["quantity"]}</td><td>KSh {item["unit_price"]}</td><td>KSh {item["total_price"]}</td></tr>'
+        order_html += f'''
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#order{o['id']}">
+                <span><strong>Order #{oid}</strong> – {o['created_at'][:10]}</span>
+                <span class="badge bg-{'warning' if status=='pending' else 'info' if status=='confirmed' else 'primary' if status=='shipped' else 'success'}">{status}</span>
+                <span class="fw-bold">KSh {o['total_amount']}</span>
+            </div>
+            <div class="collapse" id="order{o['id']}">
+                <div class="card-body">
+                    <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead><tbody>{items_rows}</tbody></table>
+                </div>
+            </div>
+        </div>
+        '''
+    html = f'''<!DOCTYPE html>
+<html>
+<head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{{background:#f4f6f9;padding:2rem;}}</style></head>
+<body><div class="container"><h2>My Orders</h2>{order_html}</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>'''
+    return html
+
+# ---------- Admin Decorator ----------
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -426,7 +497,8 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== Admin routes (template‑based) ====================
+# ==================== ADMIN ROUTES ====================
+
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -451,14 +523,15 @@ def admin_dashboard():
             'shipped': 'bg-primary text-white',
             'delivered': 'bg-success text-white'
         }.get(status, 'bg-secondary text-white')
-        recent_orders_html += f'''<tr>
+        recent_orders_html += f'''
+        <tr>
             <td><strong>#{oid}</strong></td>
             <td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td>
             <td>KSh {o['total_amount']}</td>
             <td><span class="badge {status_color} rounded-pill">{status}</span></td>
             <td>{o['created_at'][:10]}</td>
-        </tr>'''
-
+        </tr>
+        '''
     return render_template('admin_dashboard.html',
                            total_sales=f"{total_sales:,.2f}",
                            total_orders=total_orders,
@@ -624,5 +697,5 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ---------- PWA + icons (unchanged) ----------
-# ... (same as before) ...
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
