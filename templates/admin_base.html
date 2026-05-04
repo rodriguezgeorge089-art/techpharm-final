@@ -102,6 +102,16 @@
             border-radius: 12px;
             padding: 0.5rem;
         }
+        .dropdown-menu-notify .dropdown-item {
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+        }
+        .dropdown-menu-notify .dropdown-header {
+            font-weight: 700;
+            color: var(--deep-blue);
+            font-size: 0.9rem;
+        }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -135,7 +145,6 @@
     </aside>
 
     <div class="main-content">
-        <!-- Top bar with hamburger, back button, title, and notification bell -->
         <div class="top-bar">
             <div class="d-flex align-items-center">
                 <button class="sidebar-toggle me-3" onclick="openSidebar()">
@@ -160,18 +169,27 @@
                         {% if pending_orders|length > 0 %}
                         <li class="dropdown-header">Pending Orders</li>
                         {% for o in pending_orders %}
-                        <li><a class="dropdown-item" href="/admin/orders"><strong>#{{ (o.id|string)[:8] }}</strong> – {{ o.shipping_name }}<br><small class="text-muted">KSh {{ o.total_amount }}</small></a></li>
+                        <li>
+                            <a class="dropdown-item" href="/admin/orders">
+                                <strong>#{{ (o.id|string)[:8] }}</strong> – {{ o.get('shipping_name', 'Guest') }}<br>
+                                <small class="text-muted">KSh {{ o['total_amount'] }}</small>
+                            </a>
+                        </li>
                         {% endfor %}
                         <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if pending_prescriptions|length > 0 %}
                         <li class="dropdown-header">Pending Prescriptions</li>
                         {% for rx in pending_prescriptions %}
-                        <li><a class="dropdown-item" href="/admin/prescriptions">{{ rx.customer_name }}</a></li>
+                        <li>
+                            <a class="dropdown-item" href="/admin/prescriptions">
+                                <strong>{{ rx.customer_name }}</strong> – {{ rx.created_at[:10] }}
+                            </a>
+                        </li>
                         {% endfor %}
                         {% endif %}
                         {% if pending_total == 0 %}
-                        <li><span class="dropdown-item text-muted">No notifications</span></li>
+                        <li><span class="dropdown-item text-muted">No new notifications</span></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -195,7 +213,9 @@
         const links = document.querySelectorAll('.sidebar nav a');
         const currentPath = window.location.pathname;
         links.forEach(link => {
-            if (link.getAttribute('href') === currentPath) link.classList.add('active');
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
         });
     </script>
 </body>
