@@ -1,20 +1,18 @@
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Compare Products</h1>
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Compare Products</h2>
     {% if products %}
-        <table border="1">
-            <tr><th>Name</th><th>Price</th><th>Description</th></tr>
+    <table class="table table-bordered">
+        <thead><tr><th>Name</th><th>Price</th><th>Description</th></tr></thead>
+        <tbody>
             {% for p in products %}
-            <tr>
-                <td>{{ p.name }}</td>
-                <td>OKES {{ p.price }}</td>
-                <td>{{ p.description }}</td>
-            </tr>
+            <tr><td>{{ p.name }}</td><td>KSh {{ p.price }}</td><td>{{ p.description }}</td></tr>
             {% endfor %}
-        </table>
+        </tbody>
+    </table>
     {% else %}
-        <p>No products to compare.</p>
+    <p>No products to compare.</p>
     {% endif %}
-</body>
-</html>
+</div>
+{% endblock %}
