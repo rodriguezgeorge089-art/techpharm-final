@@ -11,7 +11,10 @@
         <div class="card border-0 shadow-sm rounded-4 p-4 prescription-card h-100">
             <div class="d-flex align-items-center mb-3">
                 <div class="avatar-circle me-3" style="background: var(--gold); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">{{ rx.customer_name[:1].upper() }}</div>
-                <div><h5 class="fw-bold mb-0">{{ rx.customer_name }}</h5><small class="text-muted">{{ rx.created_at[:10] }}</small></div>
+                <div>
+                    <h5 class="fw-bold mb-0">{{ rx.customer_name }}</h5>
+                    <small class="text-muted">{{ rx.created_at[:10] }}</small>
+                </div>
                 <span class="badge bg-info text-white rounded-pill ms-auto">{{ rx.status }}</span>
             </div>
             <p class="mb-1"><i class="fas fa-envelope me-2 text-muted"></i> {{ rx.customer_email }}</p>
