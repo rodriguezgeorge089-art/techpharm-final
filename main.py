@@ -15,7 +15,6 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Shared CSS ----------
 COMMON_CSS = """
 <style>
     :root { --blue: #0A3D62; --gold: #F4A261; }
@@ -45,6 +44,7 @@ COMMON_CSS = """
 """
 
 def public_page(title, body, user=None):
+    # --- FIX: compute cart total for both guests and logged-in users ---
     cart_total = 0.0
     if user and session.get('user_id'):
         try:
@@ -52,7 +52,13 @@ def public_page(title, body, user=None):
             resp = supabase.table('cart').select('quantity, products(price)').eq('user_id', uid).execute()
             for it in resp.data:
                 cart_total += float(it['products']['price']) * it['quantity']
-        except: pass
+        except:
+            pass
+    else:
+        # Guest user – get cart from session
+        guest_cart = session.get('cart', [])
+        cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
+
     nav = f'''<nav class="navbar navbar-expand-lg navbar-public sticky-top"><div class="container">
     <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {PHARMACY_NAME}</a>
     <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
@@ -164,7 +170,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
-# ---------- Cart ----------
+# Cart
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -259,7 +265,11 @@ def checkout():
     <input class="form-control mb-2" name="discount_code" placeholder="Discount Code">
     <button class="btn btn-success w-100 py-3">Place Order</button></form>''')
 
-# ---------- Prescription, about, contact ----------
+# ... (the rest of the routes remain exactly as in the previous working version, including prescription, about, contact, login, register, logout, my-account, all admin routes, PWA, etc.)
+
+# I'll now include everything for completeness.
+
+# Prescription, about, contact
 @app.route('/prescription', methods=['GET','POST'])
 def prescription_upload():
     if request.method=='POST':
@@ -330,7 +340,7 @@ def my_account():
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2>My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
-# ---------- Admin decorator ----------
+# Admin decorator
 def admin_required(f):
     @wraps(f)
     def decorated(*args,**kwargs):
@@ -338,7 +348,7 @@ def admin_required(f):
         return f(*args,**kwargs)
     return decorated
 
-# ---------- Admin routes ----------
+# Admin routes
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -360,7 +370,6 @@ def admin_orders():
     orders = supabase.table('orders').select('*').order('created_at',desc=True).execute().data or []
     rows = ''
     for o in orders:
-        # determine selected attribute outside f-string
         sel_pending = 'selected' if o.get("order_status")=="pending" else ''
         sel_confirmed = 'selected' if o.get("order_status")=="confirmed" else ''
         sel_shipped = 'selected' if o.get("order_status")=="shipped" else ''
@@ -512,7 +521,7 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ---------- PWA / Icons ----------
+# PWA / Icons
 @app.route('/manifest.json')
 def manifest():
     return make_response(json.dumps({"name":f"{PHARMACY_NAME} - Online Pharmacy","short_name":PHARMACY_NAME,"start_url":"/","display":"standalone","icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png"}]}),{'Content-Type':'application/manifest+json'})
