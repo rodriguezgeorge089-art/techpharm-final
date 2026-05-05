@@ -15,10 +15,10 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Shared CSS (colourful, mobile‑first) ----------
+# ---------- Shared CSS ----------
 COMMON_CSS = """
 <style>
-    :root { --blue: #0A3D62; --gold: #F4A261; --light: #f8f9fa; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
+    :root { --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
     body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; }
     .navbar-public { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; }
     .navbar-brand { font-weight: 800; font-size: 1.8rem; color: var(--blue) !important; }
@@ -29,29 +29,28 @@ COMMON_CSS = """
     .btn-outline-primary:hover { background: var(--gold); color: white; }
     .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
     .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .hero { background: var(--grad); color: white; border-radius: 24px; padding: 4rem 2rem; text-align: center; margin-top: 1rem; animation: fadeIn 1s; }
+    .hero { background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%); color: white; border-radius: 24px; padding: 5rem 2rem; text-align: center; margin-top: 1rem; animation: fadeIn 1s; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     .hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.5px; }
-    .hero p { font-size: 1.2rem; max-width: 600px; margin: 1rem auto; }
+    .hero p { font-size: 1.2rem; max-width: 650px; margin: 1rem auto; opacity: 0.9; }
     .badge-status { padding: 6px 14px; border-radius: 30px; font-weight: 600; }
     .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); } 70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); } }
     .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
     .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
     @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
-    /* Notification bell */
-    .bell-icon { position: relative; cursor: pointer; }
-    .bell-icon .badge { position: absolute; top: -8px; right: -8px; font-size: 0.7rem; }
-    .dropdown-menu-notify { width: 320px; max-height: 300px; overflow-y: auto; border: none; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border-radius: 12px; }
-    /* Mobile admin navbar */
+    .eye-icon { cursor: pointer; }
+    /* Offcanvas sidebar for admin mobile */
     @media (max-width: 768px) {
         .hero h1 { font-size: 2rem; }
         .navbar-brand { font-size: 1.4rem; }
-        .admin-sidebar { display: none; }
-        .admin-top-nav { display: flex !important; }
+        .admin-desktop-sidebar { display: none !important; }
+        .admin-toggle-btn { display: block !important; }
+        .admin-offcanvas { width: 280px !important; }
     }
     @media (min-width: 769px) {
-        .admin-top-nav { display: none !important; }
+        .admin-toggle-btn { display: none !important; }
+        .admin-offcanvas { display: none !important; }
     }
 </style>
 """
@@ -69,34 +68,6 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    # Notification data for admin bell (public navbar)
-    pending_orders = []
-    pending_prescriptions = []
-    if user and user.get('is_admin'):
-        try:
-            pending_orders = supabase.table('orders').select('id,shipping_name,total_amount').eq('order_status','pending').order('created_at',desc=True).limit(5).execute().data or []
-            pending_prescriptions = supabase.table('prescriptions').select('id,customer_name,created_at').eq('status','pending').order('created_at',desc=True).limit(5).execute().data or []
-        except: pass
-
-    bell_html = ''
-    if user and user.get('is_admin'):
-        pending_total = len(pending_orders) + len(pending_prescriptions)
-        bell_html = f'''
-        <li class="nav-item dropdown ms-2">
-            <a class="nav-link bell-icon" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-bell fs-5"></i>
-                {f'<span class="badge rounded-pill bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
-                {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
-                {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
-                {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
-                {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
-                {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
-                {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
-            </ul>
-        </li>'''
-
     nav = f'''<nav class="navbar navbar-expand-lg navbar-public sticky-top"><div class="container">
     <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {PHARMACY_NAME}</a>
     <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
@@ -110,13 +81,11 @@ def public_page(title, body, user=None):
         nav += '<li class="nav-item"><a class="nav-link" href="/my-account">My Orders</a></li>'
         if user.get('is_admin'):
             nav += '<li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold);font-weight:700;">🔧 Admin Panel</a></li>'
-            nav += bell_html
         nav += f'<li class="nav-item"><a class="nav-link" href="/logout">{user["full_name"]} (Logout)</a></li>'
     else:
         nav += '<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>'
         nav += '<li class="nav-item"><a class="nav-link" href="/register">Register</a></li>'
     nav += '</ul></div></div></nav>'
-
     return f"""<!DOCTYPE html><html><head><title>{title} – {PHARMACY_NAME}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -141,115 +110,26 @@ def public_page(title, body, user=None):
         url.searchParams.delete('added');
         window.history.replaceState({{}}, '', url);
     }}
+    // Password toggle
+    document.querySelectorAll('.toggle-password').forEach(btn => {{
+        btn.addEventListener('click', function() {{
+            const input = document.getElementById(this.dataset.target);
+            const icon = this.querySelector('i');
+            if (input.type === 'password') {{
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            }} else {{
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }}
+        }});
+    }});
 }})();
 </script>
 </body></html>"""
 
 def admin_page(title, body, active='dashboard'):
-    # Notification data
-    pending_orders = []
-    pending_prescriptions = []
-    try:
-        pending_orders = supabase.table('orders').select('id,shipping_name,total_amount').eq('order_status','pending').order('created_at',desc=True).limit(5).execute().data or []
-        pending_prescriptions = supabase.table('prescriptions').select('id,customer_name,created_at').eq('status','pending').order('created_at',desc=True).limit(5).execute().data or []
-    except: pass
-
-    pending_total = len(pending_orders) + len(pending_prescriptions)
-
-    # Desktop sidebar
-    sidebar = f'''<div class="admin-sidebar d-none d-md-flex" id="adminSidebar">
-        <div class="sidebar-content">
-            <div class="brand"><i class="fas fa-pills"></i> DawaLink</div>
-            {''.join(f'<a href="{url}" class="{"active" if active == name else ""}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>' for name, icon, url in [
-                ('dashboard', 'fa-tachometer-alt', '/admin'),
-                ('orders', 'fa-shopping-cart', '/admin/orders'),
-                ('products', 'fa-pills', '/admin/products'),
-                ('prescriptions', 'fa-file-prescription', '/admin/prescriptions'),
-                ('customers', 'fa-users', '/admin/customers'),
-                ('users', 'fa-headset', '/admin/users'),
-                ('create-user', 'fa-user-plus', '/admin/create-user'),
-                ('settings', 'fa-cog', '/admin/settings'),
-                ('export', 'fa-download', '/admin/export-orders')
-            ])}
-            <hr>
-            <a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a>
-            <a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a>
-        </div>
-    </div>'''
-
-    # Mobile top navbar with dropdowns
-    mobile_nav = f'''<div class="admin-top-nav d-md-none" style="background: var(--blue); color: white; padding: 0.5rem 1rem;">
-        <div class="d-flex justify-content-between align-items-center">
-            <span class="fw-bold"><i class="fas fa-pills"></i> DawaLink</span>
-            <div class="d-flex align-items-center">
-                <div class="dropdown me-2">
-                    <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">Menu</button>
-                    <ul class="dropdown-menu">
-                        {"".join(f'<li><a class="dropdown-item" href="{url}">{name.replace("-"," ").title()}</a></li>' for name, _, url in links)}
-                    </ul>
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-light bell-icon" data-bs-toggle="dropdown">
-                        <i class="fas fa-bell"></i> {f'<span class="badge bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
-                        {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
-                        {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
-                        {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
-                        {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
-                        {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
-                        {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>'''
-
-    # Desktop top bar with bell
-    desktop_top = f'''<div class="d-none d-md-flex justify-content-end mb-4">
-        <div class="dropdown">
-            <button class="btn btn-outline-secondary rounded-pill bell-icon" data-bs-toggle="dropdown">
-                <i class="fas fa-bell fs-5"></i> {f'<span class="badge bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
-                {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
-                {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
-                {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
-                {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
-                {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
-                {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
-            </ul>
-        </div>
-    </div>'''
-
-    sidebar_css = """
-    <style>
-        .admin-sidebar {
-            width: 260px; background: var(--grad); color: white; min-height: 100vh;
-            padding: 1.5rem 1rem; position: fixed; top: 0; left: 0; z-index: 1000;
-            flex-direction: column;
-        }
-        .sidebar-content { display: flex; flex-direction: column; height: 100%; }
-        .sidebar-content .brand { font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }
-        .admin-sidebar a {
-            color: rgba(255,255,255,0.85); display: flex; align-items: center;
-            padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px;
-            transition: all 0.2s;
-        }
-        .admin-sidebar a:hover, .admin-sidebar a.active { background: var(--gold); color: #0A3D62; font-weight: 600; }
-        .admin-sidebar a i { width: 24px; margin-right: 12px; }
-        .main-admin {
-            margin-left: 260px; padding: 2rem; background: #f4f6f9; min-height: 100vh;
-        }
-        @media (max-width: 768px) {
-            .main-admin { margin-left: 0; padding-top: 1rem; }
-            .admin-sidebar { display: none !important; }
-        }
-        .stat-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .table-light th { background: #f8f9fa; font-weight: 600; }
-    </style>
-    """
-
+    # Sidebar content (used in both desktop and offcanvas)
     links = [
         ('dashboard', 'fa-tachometer-alt', '/admin'),
         ('orders', 'fa-shopping-cart', '/admin/orders'),
@@ -261,16 +141,63 @@ def admin_page(title, body, active='dashboard'):
         ('settings', 'fa-cog', '/admin/settings'),
         ('export', 'fa-download', '/admin/export-orders')
     ]
+    def sidebar_items():
+        items = ''
+        for name, icon, url in links:
+            cls = 'active' if active == name else ''
+            items += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>'
+        return items
+
+    # Desktop sidebar (hidden on mobile)
+    desktop_sidebar = f'''
+    <div class="admin-desktop-sidebar d-none d-md-flex flex-column" style="width:260px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1rem; position:fixed; top:0; left:0; z-index:1000;">
+        <div class="brand" style="font-weight:800; font-size:1.6rem; margin-bottom:2rem;"><i class="fas fa-pills"></i> DawaLink</div>
+        {sidebar_items()}
+        <hr>
+        <a href="/" class="btn btn-sm btn-outline-light mb-1">View Site</a>
+        <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
+    </div>'''
+
+    # Offcanvas for mobile
+    offcanvas = f'''
+    <div class="offcanvas offcanvas-start admin-offcanvas" tabindex="-1" id="adminOffcanvas" style="background:var(--grad); color:white;">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title"><i class="fas fa-pills"></i> DawaLink</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-flex flex-column">
+                {sidebar_items()}
+                <hr>
+                <a href="/" class="btn btn-sm btn-outline-light mb-1">View Site</a>
+                <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
+            </div>
+        </div>
+    </div>'''
+
+    # Hamburger button for mobile
+    toggle_btn = '<button class="btn btn-outline-primary admin-toggle-btn d-md-none mb-3" data-bs-toggle="offcanvas" data-bs-target="#adminOffcanvas"><i class="fas fa-bars"></i> Menu</button>'
 
     return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-{sidebar_css}</head><body style="display:flex; margin:0;">
-{sidebar}
+<style>
+    body {{ display: flex; margin:0; }}
+    .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
+    .admin-desktop-sidebar a {{ color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }}
+    .admin-desktop-sidebar a:hover, .admin-desktop-sidebar a.active {{ background: #F4A261; color: #0A3D62; font-weight: 600; }}
+    .admin-desktop-sidebar a i {{ width: 24px; margin-right: 12px; }}
+    .offcanvas-body a {{ color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; }}
+    .offcanvas-body a:hover, .offcanvas-body a.active {{ background: #F4A261; color: #0A3D62; font-weight: 600; }}
+    .offcanvas-body a i {{ width: 24px; margin-right: 12px; }}
+    .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+    .table-light th {{ background: #f8f9fa; font-weight: 600; }}
+</style></head><body>
+{desktop_sidebar}
+{offcanvas}
 <div class="main-admin">
-    {mobile_nav}
-    {desktop_top}
+    {toggle_btn}
     <h2>{title}</h2><hr>{body}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -307,7 +234,22 @@ def home():
 @app.route('/blog')
 def blog():
     posts = [{"title":"Understanding Pain Relief","date":"2026-04-15","snippet":"Learn about OTC pain relievers."},{"title":"Essential Baby Care","date":"2026-04-10","snippet":"A guide for new parents."},{"title":"Probiotics & Gut Health","date":"2026-04-02","snippet":"How probiotics improve wellness."}]
-    html = ''.join(f'<div class="card mb-3"><div class="card-body"><h5>{p["title"]}</h5><small class="text-muted">{p["date"]}</small><p class="mt-2">{p["snippet"]}</p></div></div>' for p in posts)
+    html = ''
+    for p in posts:
+        html += f"""<div class="card mb-4 shadow-sm border-0 rounded-4 overflow-hidden">
+            <div class="row g-0">
+                <div class="col-md-4 bg-light d-flex align-items-center justify-content-center p-4">
+                    <i class="fas fa-newspaper fa-4x text-muted"></i>
+                </div>
+                <div class="col-md-8">
+                    <div class="card-body">
+                        <h5 class="fw-bold">{p['title']}</h5>
+                        <small class="text-muted"><i class="far fa-calendar-alt me-1"></i>{p['date']}</small>
+                        <p class="mt-2">{p['snippet']}</p>
+                    </div>
+                </div>
+            </div>
+        </div>"""
     return public_page("Blog", html)
 
 @app.route('/shop')
@@ -348,7 +290,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
-# ---------- Cart, checkout, prescription, etc. (unchanged logic, keep existing routes) ----------
+# Cart, checkout, prescription, about, contact, login, register, etc. (same logic but enhanced)
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -368,10 +310,7 @@ def add_to_cart():
         session['cart'] = cart
     referrer = request.referrer
     if referrer and ('/shop' in referrer or '/' == referrer):
-        if '?' in referrer:
-            redirect_url = referrer + '&added=1'
-        else:
-            redirect_url = referrer + '?added=1'
+        redirect_url = referrer + ('&' if '?' in referrer else '?') + 'added=1'
     else:
         redirect_url = '/shop?added=1'
     return redirect(redirect_url)
@@ -440,29 +379,32 @@ def checkout():
         if session.get('user_id'): supabase.table('cart').delete().eq('user_id',session['user_id']).execute()
         else: session.pop('cart',None)
 
-        items_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in supabase.table('order_items').select('*').eq('order_id',oid).execute().data)
-        receipt = f"""<div class="card shadow-lg rounded-4 overflow-hidden" style="max-width:600px; margin:2rem auto;">
-            <div class="bg-success text-white p-4 text-center" style="background: var(--grad) !important;">
-                <i class="fas fa-check-circle fa-4x mb-3" style="animation: scaleIn 0.6s;"></i>
-                <h2 class="fw-bold">Thank You!</h2>
-                <p class="mb-0">Your order has been placed successfully.</p>
-            </div>
-            <div class="p-4">
-                <div class="d-flex justify-content-between mb-3"><strong>Order Number</strong><span class="fw-bold">#{str(oid)[:8]}</span></div>
-                <div class="d-flex justify-content-between mb-3"><strong>Total</strong><span class="h5 text-success">KSh {total:.2f}</span></div>
-                <hr>
-                <h5>Items</h5>
-                <table class="table table-sm table-borderless">
-                    <thead><tr><th>Product</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr></thead>
-                    <tbody>{items_rows}</tbody>
-                </table>
-                <div class="text-center mt-3">
-                    <button onclick="window.print()" class="btn btn-outline-primary rounded-pill px-4"><i class="fas fa-print me-2"></i> Print Receipt</button>
-                    <a href="/shop" class="btn btn-primary rounded-pill px-4 ms-2">Continue Shopping</a>
+        # beautiful receipt (printable)
+        order_data = supabase.table('orders').select('*').eq('id',oid).single().execute().data
+        items_data = supabase.table('order_items').select('*').eq('order_id',oid).execute().data
+        receipt = f"""<div class="container" style="max-width:800px;">
+            <div class="card shadow-lg rounded-4 overflow-hidden mt-4">
+                <div class="card-header bg-success text-white text-center py-4" style="background: var(--grad) !important;">
+                    <h2 class="fw-bold mb-0"><i class="fas fa-check-circle me-2"></i>Order Confirmed</h2>
+                    <p class="mb-0">Thank you for your purchase!</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row mb-4">
+                        <div class="col-sm-6"><h5>Invoice</h5><p><strong>Order #:</strong> {str(oid)[:8]}<br><strong>Date:</strong> {order_data['created_at'][:10]}<br><strong>Status:</strong> <span class="badge bg-warning text-dark">{order_data['order_status']}</span></p></div>
+                        <div class="col-sm-6 text-sm-end"><h5>Customer</h5><p>{order_data.get('shipping_name','')}<br>{order_data.get('shipping_phone','')}<br>{order_data.get('shipping_address','')}, {order_data.get('shipping_city','')}</p></div>
+                    </div>
+                    <table class="table table-bordered">
+                        <thead class="table-light"><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                        <tbody>{"".join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items_data)}</tbody>
+                        <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order_data['total_amount']}</td></tr></tfoot>
+                    </table>
+                    <div class="text-center mt-3 no-print">
+                        <button onclick="window.print()" class="btn btn-primary rounded-pill px-4"><i class="fas fa-print me-2"></i> Print Receipt</button>
+                        <a href="/shop" class="btn btn-outline-primary rounded-pill px-4 ms-2">Continue Shopping</a>
+                    </div>
                 </div>
             </div>
-        </div>
-        <style>@keyframes scaleIn {{ 0% {{ transform: scale(0); opacity:0; }} 50% {{ transform: scale(1.2); }} 100% {{ transform: scale(1); opacity:1; }} }}</style>"""
+        </div>"""
         return public_page("Order Confirmed", receipt)
     return public_page("Checkout",'''<h2>Checkout</h2><form method="post" style="max-width:500px;">
     <input class="form-control mb-2" name="guest_email" type="email" placeholder="Email (if guest)">
@@ -485,14 +427,22 @@ def prescription_upload():
             file_url=f"{SUPABASE_URL}/storage/v1/object/public/product-images/{uname}"
         try: supabase.table('prescriptions').insert({'customer_name':name,'customer_phone':phone,'notes':notes,'file_url':file_url,'status':'pending'}).execute()
         except: pass
-        return public_page("Prescription Received",'<h2 class="text-success">Thank You!</h2><p>Prescription submitted.</p><a href="/" class="btn btn-primary">Home</a>')
-    return public_page("Upload Prescription",'''<h2>Upload Prescription</h2>
-    <form method="post" enctype="multipart/form-data" style="max-width:500px;">
-    <input class="form-control mb-2" name="customer_name" placeholder="Your Name" required>
-    <input class="form-control mb-2" name="customer_phone" placeholder="Phone" required>
-    <textarea class="form-control mb-2" name="notes" placeholder="Notes"></textarea>
-    <input class="form-control mb-2" type="file" name="prescription_file" accept="image/*,.pdf" required>
-    <button class="btn btn-primary w-100">Submit</button></form>''')
+        return public_page("Prescription Received",'<div class="text-center mt-5"><i class="fas fa-check-circle fa-5x text-success mb-3"></i><h2>Thank You!</h2><p>Your prescription has been submitted. We will contact you shortly.</p><a href="/" class="btn btn-primary rounded-pill mt-3">Back to Home</a></div>')
+    form = """<div class="row justify-content-center mt-5">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg rounded-4 p-4">
+                <div class="text-center mb-4"><i class="fas fa-file-prescription fa-3x text-primary"></i><h3 class="fw-bold mt-2">Upload Prescription</h3></div>
+                <form method="post" enctype="multipart/form-data">
+                    <div class="mb-3"><input class="form-control" name="customer_name" placeholder="Your Name" required></div>
+                    <div class="mb-3"><input class="form-control" name="customer_phone" placeholder="Phone Number" required></div>
+                    <div class="mb-3"><textarea class="form-control" name="notes" rows="3" placeholder="Additional notes (optional)"></textarea></div>
+                    <div class="mb-3"><input class="form-control" type="file" name="prescription_file" accept="image/*,.pdf" required></div>
+                    <button class="btn btn-primary w-100 py-2 rounded-pill">Submit Prescription</button>
+                </form>
+            </div>
+        </div>
+    </div>"""
+    return public_page("Upload Prescription", form)
 
 @app.route('/about')
 def about(): return public_page("About",f'<h2>About {PHARMACY_NAME}</h2><p>Your trusted online pharmacy since 2026.</p>')
@@ -516,10 +466,12 @@ def login():
         if not bcrypt.checkpw(pwd.encode(),user['password_hash'].encode()): return public_page("Login",'<div class="alert alert-danger">Invalid credentials</div><a href="/login">Try again</a>')
         session['user_id']=user['id']; session['user_name']=user['full_name']; session['is_admin']=user.get('is_admin',False)
         return redirect('/')
-    login_card = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
+    form = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
     <div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-pills fa-3x text-primary"></i><h3 class="fw-bold mt-2">Welcome Back</h3><p class="text-muted">Sign in to your account</p></div>
-    <form method="post"><div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div><div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div><button class="btn btn-primary w-100 py-2 rounded-pill">Sign In</button></form><p class="mt-3 text-center"><a href="/register">Create an account</a> · <a href="/">Home</a></p></div></div></div>"""
-    return public_page("Login", login_card)
+    <form method="post"><div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div>
+    <div class="mb-3"><div class="input-group"><input class="form-control" name="password" type="password" id="loginPassword" placeholder="Password" required><span class="input-group-text toggle-password" data-target="loginPassword"><i class="far fa-eye"></i></span></div></div>
+    <button class="btn btn-primary w-100 py-2 rounded-pill">Sign In</button></form><p class="mt-3 text-center"><a href="/register">Create an account</a> · <a href="/">Home</a></p></div></div></div>"""
+    return public_page("Login", form)
 
 @app.route('/register', methods=['GET','POST'])
 def register():
@@ -528,11 +480,14 @@ def register():
         hashed=bcrypt.hashpw(pwd.encode(),bcrypt.gensalt()).decode()
         try: supabase.table('users').insert({'full_name':name,'email':email,'password_hash':hashed}).execute()
         except: return public_page("Register",'<div class="alert alert-danger">Email already exists.</div><a href="/register">Try again</a>')
-        return public_page("Registration Submitted",'<h2>Account Created</h2><p>Please wait for approval.</p><a href="/">Home</a>')
-    register_card = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
+        return public_page("Registration Submitted",'<div class="text-center mt-5"><i class="fas fa-check-circle fa-5x text-success mb-3"></i><h2>Account Created</h2><p>Your account is pending approval. You'll be able to log in once approved.</p><a href="/" class="btn btn-primary rounded-pill mt-3">Home</a></div>')
+    form = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
     <div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-user-plus fa-3x text-primary"></i><h3 class="fw-bold mt-2">Create Account</h3></div>
-    <form method="post"><div class="mb-3"><input class="form-control" name="full_name" placeholder="Full Name" required></div><div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div><div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div><button class="btn btn-primary w-100 py-2 rounded-pill">Register</button></form><p class="mt-3 text-center"><a href="/login">Already have an account?</a></p></div></div></div>"""
-    return public_page("Register", register_card)
+    <form method="post"><div class="mb-3"><input class="form-control" name="full_name" placeholder="Full Name" required></div>
+    <div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div>
+    <div class="mb-3"><div class="input-group"><input class="form-control" name="password" type="password" id="registerPassword" placeholder="Password" required><span class="input-group-text toggle-password" data-target="registerPassword"><i class="far fa-eye"></i></span></div></div>
+    <button class="btn btn-primary w-100 py-2 rounded-pill">Register</button></form><p class="mt-3 text-center"><a href="/login">Already have an account?</a></p></div></div></div>"""
+    return public_page("Register", form)
 
 @app.route('/logout')
 def logout():
@@ -547,7 +502,7 @@ def my_account():
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
-# Admin decorator and routes (all polished)
+# Admin decorator and routes (same as before, but using the new admin_page with offcanvas)
 def admin_required(f):
     @wraps(f)
     def decorated(*args,**kwargs):
@@ -600,7 +555,43 @@ def admin_invoice(oid):
     order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
     item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
-    return f'<html><body onload="window.print()"><h2>{PHARMACY_NAME} Invoice #{oid}</h2><table border="1">{item_rows}</table><h3>Total: KSh {order["total_amount"]}</h3></body></html>'
+    # Professional invoice with company info
+    invoice_html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @media print {{ .no-print {{ display: none; }} body {{ padding: 0; }} }}
+        body {{ font-family: 'Segoe UI', sans-serif; padding: 2rem; background: #fff; }}
+        .invoice-box {{ max-width: 800px; margin: auto; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); padding: 2rem; }}
+        .invoice-header {{ border-bottom: 2px solid #0A3D62; padding-bottom: 1rem; margin-bottom: 1.5rem; }}
+        .invoice-header h2 {{ color: #0A3D62; font-weight: 700; }}
+        .company-info {{ font-size: 0.9rem; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th {{ background: #0A3D62; color: white; padding: 10px; text-align: left; }}
+        td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
+        .total-row td {{ font-weight: bold; border-top: 2px solid #0A3D62; }}
+        .no-print {{ margin-bottom: 1rem; text-align: right; }}
+    </style></head><body>
+    <div class="invoice-box">
+        <div class="no-print"><button onclick="window.print()" class="btn btn-primary rounded-pill"><i class="fas fa-print me-2"></i> Print Invoice</button></div>
+        <div class="invoice-header">
+            <div class="row">
+                <div class="col-6"><h2>{PHARMACY_NAME}</h2><p class="company-info">Mombasa Road, Taji Mall, Nairobi<br>Tel: {PHARMACY_PHONE}<br>Email: {PHARMACY_EMAIL}</p></div>
+                <div class="col-6 text-end"><h3>INVOICE</h3><p><strong>Invoice #:</strong> {oid}<br><strong>Date:</strong> {order['created_at'][:10]}<br><strong>Status:</strong> {order['order_status']}</p></div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-6"><strong>Bill To:</strong><br>{order.get('shipping_name','')}<br>{order.get('shipping_phone','')}<br>{order.get('shipping_address','')}, {order.get('shipping_city','')}</div>
+        </div>
+        <table>
+            <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+            <tbody>{item_rows}</tbody>
+            <tfoot><tr class="total-row"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot>
+        </table>
+        <p class="mt-3 text-muted">Thank you for your business!</p>
+    </div>
+    </body></html>"""
+    return invoice_html
 
 @app.route('/admin/products')
 @admin_required
