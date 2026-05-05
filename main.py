@@ -15,185 +15,6 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Common CSS (inlined in every page) ----------
-COMMON_CSS = """
-<style>
-    :root { --blue: #0A3D62; --gold: #F4A261; --light: #F8F9FA; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; }
-    .navbar-public { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; }
-    .navbar-brand { font-weight: 800; font-size: 1.8rem; color: var(--blue) !important; }
-    .navbar-brand i { background: var(--gold); color: white; border-radius: 12px; padding: 8px 12px; margin-right: 8px; }
-    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
-    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
-    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
-    .btn-outline-primary:hover { background: var(--gold); color: white; }
-    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .hero { background: linear-gradient(135deg, #0A3D62, #1B5A82); color: white; border-radius: 24px; padding: 4rem 2rem; text-align: center; margin-top: 1rem; }
-    .hero h1 { font-size: 3rem; font-weight: 800; }
-    .badge-status { padding: 6px 14px; border-radius: 30px; font-weight: 600; }
-    .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; animation: pulse 2s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); } 70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); } }
-    /* Admin sidebar */
-    .admin-body { display: flex; }
-    .sidebar { width: 260px; background: linear-gradient(180deg, #0A3D62, #0F4C7A); color: white; min-height: 100vh; padding: 1.5rem 1rem; }
-    .sidebar a { color: rgba(255,255,255,0.8); display: block; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }
-    .sidebar a:hover, .sidebar a.active { background: var(--gold); color: #0A3D62; font-weight: 600; }
-    .sidebar .brand { font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }
-    .sidebar .brand i { background: var(--gold); padding: 6px 10px; border-radius: 10px; }
-    .main-admin { flex: 1; padding: 2rem; background: #f4f6f9; }
-</style>
-"""
-
-def public_page(title, body, user=None):
-    cart_total = 0.0
-    if user and session.get('user_id'):
-        try:
-            uid = session['user_id']
-            resp = supabase.table('cart').select('quantity, products(price)').eq('user_id', uid).execute()
-            for it in resp.data:
-                cart_total += float(it['products']['price']) * it['quantity']
-        except: pass
-    nav = f'''<nav class="navbar navbar-expand-lg navbar-public sticky-top"><div class="container">
-    <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {PHARMACY_NAME}</a>
-    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
-    <div class="collapse navbar-collapse" id="nav"><ul class="navbar-nav ms-auto align-items-center">
-        <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="/shop">Shop</a></li>
-        <li class="nav-item"><a class="nav-link" href="/blog">Blog</a></li>
-        <li class="nav-item"><a class="nav-link" href="/prescription">Upload Rx</a></li>
-        <li class="nav-item"><a class="nav-link" href="/cart"><i class="fas fa-shopping-cart"></i> Cart <span class="badge bg-warning">KSh {cart_total:.0f}</span></a></li>'''
-    if user:
-        nav += '<li class="nav-item"><a class="nav-link" href="/my-account">My Orders</a></li>'
-        if user.get('is_admin'):
-            nav += '<li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold);font-weight:700;">🔧 Admin Panel</a></li>'
-        nav += f'<li class="nav-item"><a class="nav-link" href="/logout">{user["full_name"]} (Logout)</a></li>'
-    else:
-        nav += '<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>'
-        nav += '<li class="nav-item"><a class="nav-link" href="/register">Register</a></li>'
-    nav += '</ul></div></div></nav>'
-    return f"""<!DOCTYPE html><html><head><title>{title} – {PHARMACY_NAME}</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-{COMMON_CSS}</head><body>
-{nav}
-<div class="container mt-4">{body}</div>
-<footer class="text-center py-4 mt-5" style="background:var(--blue);color:white;"><p>&copy; 2026 {PHARMACY_NAME}.</p></footer>
-<a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>"""
-
-def admin_page(title, body, active='dashboard'):
-    links = {
-        'dashboard': '/admin', 'orders': '/admin/orders',
-        'products': '/admin/products', 'prescriptions': '/admin/prescriptions',
-        'customers': '/admin/customers', 'users': '/admin/users',
-        'create-user': '/admin/create-user', 'settings': '/admin/settings',
-        'export': '/admin/export-orders'
-    }
-    sidebar = '<div class="sidebar"><div class="brand"><i class="fas fa-pills"></i> DawaLink</div>'
-    for name, url in links.items():
-        cls = 'active' if active == name else ''
-        sidebar += f'<a href="{url}" class="{cls}"><i class="fas fa-{"tachometer-alt" if name=="dashboard" else "shopping-cart" if name=="orders" else "pills" if name=="products" else "file-prescription" if name=="prescriptions" else "users" if name=="customers" else "headset" if name=="users" else "user-plus" if name=="create-user" else "cog" if name=="settings" else "download"}"></i> {name.replace("-"," ").title()}</a>'
-    sidebar += '<hr><a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a><a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a></div>'
-    return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-{COMMON_CSS}
-<style>.admin-body{{display:flex;}}</style></head><body class="admin-body">
-{sidebar}
-<div class="main-admin"><h2>{title}</h2><hr>{body}</div></body></html>"""
-
-# ---------- Public routes ----------
-@app.route('/')
-def home():
-    body = """<div class="hero"><h1>Medicine At Your Convenience</h1><p class="lead">Quality OTC medicines, supplements & personal care products delivered fast across Kenya.</p>
-    <a href="/shop" class="btn btn-light btn-lg me-2">Shop Now</a><a href="/prescription" class="btn btn-outline-light btn-lg">Upload Prescription</a></div>
-    <div class="row mt-5 g-4"><div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>Sourced from licensed pharmacies.</p></div></div>
-    <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier across Kenya.</p></div></div>
-    <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-headset fa-3x text-primary mb-3"></i><h5>Expert Support</h5><p>Pharmacist-led customer care.</p></div></div></div>"""
-    user = None
-    if session.get('user_id'):
-        user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
-    return public_page("Home", body, user)
-
-@app.route('/blog')
-def blog():
-    posts = [{"title":"Understanding Pain Relief","date":"2026-04-15","snippet":"Learn about OTC pain relievers."},{"title":"Essential Baby Care","date":"2026-04-10","snippet":"A guide for new parents."},{"title":"Probiotics & Gut Health","date":"2026-04-02","snippet":"How probiotics improve wellness."}]
-    html = ''.join(f'<div class="card mb-3"><div class="card-body"><h5>{p["title"]}</h5><small class="text-muted">{p["date"]}</small><p class="mt-2">{p["snippet"]}</p></div></div>' for p in posts)
-    return public_page("Blog", html)
-
-@app.route('/shop')
-def shop():
-    search = request.args.get('search',''); category = request.args.get('category',''); page = int(request.args.get('page',1))
-    per_page = 6
-    query = supabase.table('products').select('*', count='exact').eq('active', True)
-    if search: query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    if category: query = query.or_(f"category.ilike.%{category}%")
-    total_res = query.execute()
-    total = total_res.count if total_res.count else 0
-    data = supabase.table('products').select('*').eq('active', True)
-    if search: data = data.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    if category: data = data.or_(f"category.ilike.%{category}%")
-    prods = data.range((page-1)*per_page, page*per_page-1).execute().data or []
-    rows = ''
-    for p in prods:
-        img = f'<img src="{p.get("image_url")}" class="card-img-top" style="height:180px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:180px;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
-        rows += f'''<div class="col-md-4 mb-4"><div class="card h-100">{img}<div class="card-body"><h5 class="fw-bold">{p['name']}</h5><p class="text-muted small">{p['category']}</p>
-        <div class="d-flex justify-content-between align-items-center"><span class="h5" style="color:var(--blue);">KSh {p['price']}</span>
-        <form action="/cart/add" method="POST"><input type="hidden" name="productId" value="{p['id']}">
-        <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm d-inline-block" style="width:60px;">
-        <button class="btn btn-primary btn-sm rounded-pill ms-1"><i class="fas fa-cart-plus"></i></button></form></div></div></div></div>'''
-    pagination = ''
-    total_pages = max(1, (total+per_page-1)//per_page)
-    if total_pages > 1:
-        pagination = '<nav><ul class="pagination justify-content-center">'
-        for p in range(1, total_pages+1):
-            active = 'active' if p == page else ''
-            pagination += f'<li class="page-item {active}"><a class="page-link" href="/shop?page={p}&search={search}&category={category}">{p}</a></li>'
-        pagination += '</ul></nav>'
-    body = f'''<h2 class="fw-bold mb-4" style="color:var(--blue);">Our Products</h2>
-    <form class="row g-3 mb-4"><div class="col-md-7"><input class="form-control" name="search" value="{search}" placeholder="Search..."></div>
-    <div class="col-md-3"><select class="form-select" name="category"><option value="">All</option><option value="Supplements" {'selected' if category=='Supplements' else ''}>Supplements</option><option value="Pain Relief" {'selected' if category=='Pain Relief' else ''}>Pain Relief</option><option value="Baby Care" {'selected' if category=='Baby Care' else ''}>Baby Care</option><option value="Women Health" {'selected' if category=='Women Health' else ''}>Women Health</option></select></div>
-    <div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div></form>
-    <div class="row">{rows}</div>{pagination}'''
-    user = None
-    if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
-    return public_page("Shop", body, user)
-
-# (Cart, checkout, login, register, my-account, admin routes follow similarly, I'll include key ones)
-# ... Due to space I'll summarize the rest with "all other routes are fully implemented in the actual file you'll paste" – but to give a complete answer we need to provide the entire code. I'll continue below.
-
-# The full code includes cart add, cart view, remove, checkout with discount, order confirmation, login, register, logout, my-account, admin dashboard, admin orders with status update, admin products with add/edit/delete, prescriptions, customers, users, create user, settings, export, invoice, prescription upload, about, contact, download, manifest, sw, icon generation.
-
-# I'll craft the entire script in the answer. It's long but we'll produce it.
-
-# Let's continue building the complete script in the answer.Below is the **complete, polished `main.py`** that turns your Dawalink into a beautiful and unique online pharmacy.  
-It includes every feature we built, plus a **fresh, modern design** and a fully functional admin panel.
-
-**Simply replace your `main.py` with this code.** No other files are needed.
-
----
-
-## 📦 Final `main.py`
-
-```python
-import os, json, bcrypt, csv, io, struct, zlib
-from flask import Flask, request, redirect, session, Response, make_response
-from supabase import create_client, Client
-from werkzeug.utils import secure_filename
-from functools import wraps
-
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dawalink-secret')
-
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-PHARMACY_NAME = "DawaLink"
-PHARMACY_PHONE = "+254792524333"
-PHARMACY_EMAIL = "info@dawalink.co.ke"
-
 # ---------- Shared CSS ----------
 COMMON_CSS = """
 <style>
@@ -271,7 +92,13 @@ def admin_page(title, body, active='dashboard'):
     sidebar = '<div class="sidebar"><div class="brand"><i class="fas fa-pills"></i> DawaLink</div>'
     for name, url in links.items():
         cls = 'active' if active == name else ''
-        sidebar += f'<a href="{url}" class="{cls}"><i class="fas fa-{"tachometer-alt" if name=="dashboard" else "shopping-cart" if name=="orders" else "pills" if name=="products" else "file-prescription" if name=="prescriptions" else "users" if name=="customers" else "headset" if name=="users" else "user-plus" if name=="create-user" else "cog" if name=="settings" else "download"}"></i> {name.replace("-"," ").title()}</a>'
+        icon = {
+            'dashboard':'fa-tachometer-alt','orders':'fa-shopping-cart',
+            'products':'fa-pills','prescriptions':'fa-file-prescription',
+            'customers':'fa-users','users':'fa-headset','create-user':'fa-user-plus',
+            'settings':'fa-cog','export':'fa-download'
+        }.get(name, 'fa-circle')
+        sidebar += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> {name.replace("-"," ").title()}</a>'
     sidebar += '<hr><a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a><a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a></div>'
     return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -337,10 +164,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
-# (Cart, checkout, login, register, my-account, admin, etc. continue...)
-
-# I'll include the remaining routes now.
-
+# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -407,7 +231,7 @@ def checkout():
             if not guest_cart: return 'Cart empty.'
             cart_items = [{'product_id':i['productId'],'product_name':i['name'],'quantity':i['qty'],'unit_price':i['price'],'total_price':i['price']*i['qty']} for i in guest_cart]
         total = sum(item['total_price'] for item in cart_items)
-        # Discount code logic
+        # discount
         discount_code = request.form.get('discount_code','').strip().upper()
         if discount_code:
             code = supabase.table('discount_codes').select('*').eq('code',discount_code).single().execute()
@@ -435,6 +259,7 @@ def checkout():
     <input class="form-control mb-2" name="discount_code" placeholder="Discount Code">
     <button class="btn btn-success w-100 py-3">Place Order</button></form>''')
 
+# ---------- Prescription, about, contact ----------
 @app.route('/prescription', methods=['GET','POST'])
 def prescription_upload():
     if request.method=='POST':
@@ -535,8 +360,14 @@ def admin_orders():
     orders = supabase.table('orders').select('*').order('created_at',desc=True).execute().data or []
     rows = ''
     for o in orders:
+        # determine selected attribute outside f-string
+        sel_pending = 'selected' if o.get("order_status")=="pending" else ''
+        sel_confirmed = 'selected' if o.get("order_status")=="confirmed" else ''
+        sel_shipped = 'selected' if o.get("order_status")=="shipped" else ''
+        sel_delivered = 'selected' if o.get("order_status")=="delivered" else ''
         rows += f'''<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td><td>KSh {o["total_amount"]}</td><td>
-        <form method="post" action="/admin/order/{o["id"]}/status" class="d-flex"><select name="status" class="form-select form-select-sm me-2" style="width:auto;"><option {'selected' if o.get("order_status")=="pending" else ''}>pending</option><option {'selected' if o.get("order_status")=="confirmed" else ''}>confirmed</option><option {'selected' if o.get("order_status")=="shipped" else ''}>shipped</option><option {'selected' if o.get("order_status")=="delivered" else ''}>delivered</option></select><button class="btn btn-sm btn-primary">Update</button></form></td></tr>'''
+        <form method="post" action="/admin/order/{o["id"]}/status" class="d-flex"><select name="status" class="form-select form-select-sm me-2" style="width:auto;">
+        <option {sel_pending}>pending</option><option {sel_confirmed}>confirmed</option><option {sel_shipped}>shipped</option><option {sel_delivered}>delivered</option></select><button class="btn btn-sm btn-primary">Update</button></form></td></tr>'''
     body = f'<table class="table"><thead class="table-dark"><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status / Action</th></tr></thead><tbody>{rows}</tbody></table>'
     return admin_page("Orders", body, active='orders')
 
