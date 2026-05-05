@@ -33,18 +33,14 @@ COMMON_CSS = """
     .badge-status { padding: 6px 14px; border-radius: 30px; font-weight: 600; }
     .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); } 70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); } }
-    .admin-body { display: flex; }
-    .sidebar { width: 260px; background: linear-gradient(180deg, #0A3D62, #0F4C7A); color: white; min-height: 100vh; padding: 1.5rem 1rem; }
-    .sidebar a { color: rgba(255,255,255,0.8); display: block; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }
-    .sidebar a:hover, .sidebar a.active { background: var(--gold); color: #0A3D62; font-weight: 600; }
-    .sidebar .brand { font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }
-    .sidebar .brand i { background: var(--gold); padding: 6px 10px; border-radius: 10px; }
-    .main-admin { flex: 1; padding: 2rem; background: #f4f6f9; }
+    /* Toast notification */
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+    .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
 </style>
 """
 
 def public_page(title, body, user=None):
-    # --- FIX: compute cart total for both guests and logged-in users ---
     cart_total = 0.0
     if user and session.get('user_id'):
         try:
@@ -52,10 +48,8 @@ def public_page(title, body, user=None):
             resp = supabase.table('cart').select('quantity, products(price)').eq('user_id', uid).execute()
             for it in resp.data:
                 cart_total += float(it['products']['price']) * it['quantity']
-        except:
-            pass
+        except: pass
     else:
-        # Guest user – get cart from session
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
@@ -77,6 +71,7 @@ def public_page(title, body, user=None):
         nav += '<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>'
         nav += '<li class="nav-item"><a class="nav-link" href="/register">Register</a></li>'
     nav += '</ul></div></div></nav>'
+
     return f"""<!DOCTYPE html><html><head><title>{title} – {PHARMACY_NAME}</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -85,33 +80,59 @@ def public_page(title, body, user=None):
 <div class="container mt-4">{body}</div>
 <footer class="text-center py-4 mt-5" style="background:var(--blue);color:white;"><p>&copy; 2026 {PHARMACY_NAME}.</p></footer>
 <a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>"""
+<!-- Toast notification for added to cart -->
+<div class="toast-container" id="toastContainer"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){{
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('added')==='1'){{
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>Item added to cart!';
+        document.getElementById('toastContainer').appendChild(toast);
+        setTimeout(()=>toast.remove(), 3000);
+        // clean URL
+        const url = new URL(window.location);
+        url.searchParams.delete('added');
+        window.history.replaceState({{}}, '', url);
+    }}
+}})();
+</script>
+</body></html>"""
 
 def admin_page(title, body, active='dashboard'):
-    links = {
-        'dashboard': '/admin', 'orders': '/admin/orders',
-        'products': '/admin/products', 'prescriptions': '/admin/prescriptions',
-        'customers': '/admin/customers', 'users': '/admin/users',
-        'create-user': '/admin/create-user', 'settings': '/admin/settings',
-        'export': '/admin/export-orders'
-    }
+    links = [
+        ('dashboard', 'fa-tachometer-alt', '/admin'),
+        ('orders', 'fa-shopping-cart', '/admin/orders'),
+        ('products', 'fa-pills', '/admin/products'),
+        ('prescriptions', 'fa-file-prescription', '/admin/prescriptions'),
+        ('customers', 'fa-users', '/admin/customers'),
+        ('users', 'fa-headset', '/admin/users'),
+        ('create-user', 'fa-user-plus', '/admin/create-user'),
+        ('settings', 'fa-cog', '/admin/settings'),
+        ('export', 'fa-download', '/admin/export-orders')
+    ]
     sidebar = '<div class="sidebar"><div class="brand"><i class="fas fa-pills"></i> DawaLink</div>'
-    for name, url in links.items():
+    for name, icon, url in links:
         cls = 'active' if active == name else ''
-        icon = {
-            'dashboard':'fa-tachometer-alt','orders':'fa-shopping-cart',
-            'products':'fa-pills','prescriptions':'fa-file-prescription',
-            'customers':'fa-users','users':'fa-headset','create-user':'fa-user-plus',
-            'settings':'fa-cog','export':'fa-download'
-        }.get(name, 'fa-circle')
         sidebar += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> {name.replace("-"," ").title()}</a>'
     sidebar += '<hr><a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a><a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a></div>'
     return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>.admin-body{{display:flex;}}{COMMON_CSS}</style></head><body class="admin-body">
+<style>
+    .sidebar {{ width: 260px; background: linear-gradient(180deg, #0A3D62, #0F4C7A); color: white; min-height: 100vh; padding: 2rem 1.5rem; }}
+    .sidebar .brand {{ font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }}
+    .sidebar a {{ color: rgba(255,255,255,0.85); display: block; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }}
+    .sidebar a:hover, .sidebar a.active {{ background: var(--gold); color: #0A3D62; font-weight: 600; }}
+    .main-admin {{ flex: 1; padding: 2rem; background: #f4f6f9; }}
+    .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+    .stat-card h5 {{ font-weight: 600; margin-bottom: 0.5rem; }}
+</style></head><body style="display:flex; margin:0;">
 {sidebar}
-<div class="main-admin"><h2>{title}</h2><hr>{body}</div></body></html>"""
+<div class="main-admin"><h2>{title}</h2><hr>{body}</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>"""
 
 # ---------- Public routes ----------
 @app.route('/')
@@ -170,7 +191,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
-# Cart
+# ---------- Cart (sticky add‑to‑cart) ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -188,7 +209,17 @@ def add_to_cart():
             if it['productId']==pid: it['qty']+=qty; found=True; break
         if not found: cart.append({'productId':pid,'qty':qty,'price':float(prod['price']),'name':prod['name']})
         session['cart'] = cart
-    return redirect('/cart')
+
+    # Redirect back to the shop (or previous page) with a notification marker
+    referrer = request.referrer
+    if referrer and ('/shop' in referrer or '/' == referrer):
+        if '?' in referrer:
+            redirect_url = referrer + '&added=1'
+        else:
+            redirect_url = referrer + '?added=1'
+    else:
+        redirect_url = '/shop?added=1'
+    return redirect(redirect_url)
 
 @app.route('/cart')
 def view_cart():
@@ -220,6 +251,7 @@ def remove_cart(pid):
         session['cart']=cart
     return redirect('/cart')
 
+# ---------- Beautiful Order Confirmation ----------
 @app.route('/checkout', methods=['GET','POST'])
 def checkout():
     if request.method=='POST':
@@ -254,7 +286,30 @@ def checkout():
         for item in cart_items: supabase.table('order_items').insert({**item,'order_id':oid}).execute()
         if session.get('user_id'): supabase.table('cart').delete().eq('user_id',session['user_id']).execute()
         else: session.pop('cart',None)
-        return public_page("Order Confirmed",f'<div class="text-center"><h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2><p>Order #{str(oid)[:8]} placed successfully.</p><p>Total: KSh {total:.2f}</p><a href="/" class="btn btn-primary mt-3">Home</a></div>')
+
+        # Build beautiful receipt
+        items_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in supabase.table('order_items').select('*').eq('order_id',oid).execute().data)
+        receipt = f"""<div class="card shadow-lg rounded-4 overflow-hidden" style="max-width:600px; margin:2rem auto;">
+            <div class="bg-success text-white p-4 text-center" style="background: linear-gradient(135deg, #2E8B57, #1E5F74) !important;">
+                <i class="fas fa-check-circle fa-4x mb-3" style="animation: scaleIn 0.6s;"></i>
+                <h2 class="fw-bold">Thank You!</h2>
+                <p class="mb-0">Your order has been placed successfully.</p>
+            </div>
+            <div class="p-4">
+                <div class="d-flex justify-content-between mb-3"><strong>Order Number</strong><span class="fw-bold">#{str(oid)[:8]}</span></div>
+                <div class="d-flex justify-content-between mb-3"><strong>Status</strong><span class="badge bg-warning text-dark">Pending</span></div>
+                <div class="d-flex justify-content-between mb-3"><strong>Total</strong><span class="h5 text-success">KSh {total:.2f}</span></div>
+                <hr>
+                <h5>Items</h5>
+                <table class="table table-sm table-borderless">
+                    <thead><tr><th>Product</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr></thead>
+                    <tbody>{items_rows}</tbody>
+                </table>
+            </div>
+        </div>
+        <div class="text-center mt-4"><a href="/shop" class="btn btn-primary btn-lg rounded-pill px-5">Continue Shopping</a></div>
+        <style>@keyframes scaleIn {{ 0% {{ transform: scale(0); opacity:0; }} 50% {{ transform: scale(1.2); }} 100% {{ transform: scale(1); opacity:1; }} }}</style>"""
+        return public_page("Order Confirmed", receipt)
     return public_page("Checkout",'''<h2>Checkout</h2><form method="post" style="max-width:500px;">
     <input class="form-control mb-2" name="guest_email" type="email" placeholder="Email (if guest)">
     <input class="form-control mb-2" name="shipping_name" placeholder="Full Name" required>
@@ -265,11 +320,9 @@ def checkout():
     <input class="form-control mb-2" name="discount_code" placeholder="Discount Code">
     <button class="btn btn-success w-100 py-3">Place Order</button></form>''')
 
-# ... (the rest of the routes remain exactly as in the previous working version, including prescription, about, contact, login, register, logout, my-account, all admin routes, PWA, etc.)
+# (prescription, about, contact, login, register, logout, my-account remain unchanged)
+# ... paste the rest of the routes exactly as in the previous working version (I'll include them for completeness)
 
-# I'll now include everything for completeness.
-
-# Prescription, about, contact
 @app.route('/prescription', methods=['GET','POST'])
 def prescription_upload():
     if request.method=='POST':
@@ -304,7 +357,6 @@ def contact():
     sent = 'Message sent!' if request.args.get('sent') else ''
     return public_page("Contact",f'<h2>Contact</h2><form method="post"><input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{sent}')
 
-# Authentication
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method=='POST':
@@ -340,7 +392,7 @@ def my_account():
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2>My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
-# Admin decorator
+# ---------- Admin decorator & routes (styled) ----------
 def admin_required(f):
     @wraps(f)
     def decorated(*args,**kwargs):
@@ -348,7 +400,6 @@ def admin_required(f):
         return f(*args,**kwargs)
     return decorated
 
-# Admin routes
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -357,11 +408,19 @@ def admin_dashboard():
     total_orders = supabase.table('orders').select('count',count='exact').execute().count
     total_products = supabase.table('products').select('count',count='exact').execute().count
     rows = ''.join(f'<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td><td>KSh {o["total_amount"]}</td><td><span class="badge badge-status {"bg-warning text-dark" if o.get("order_status")=="pending" else "bg-success"}">{o.get("order_status","pending")}</span></td></tr>' for o in orders)
-    body = f'''<div class="row mb-4"><div class="col-md-3"><div class="card bg-success text-white p-3"><h5>Total Sales</h5><h3>KSh {total_sales:,.2f}</h3></div></div>
-    <div class="col-md-3"><div class="card bg-warning text-white p-3"><h5>Orders</h5><h3>{total_orders}</h3></div></div>
-    <div class="col-md-3"><div class="card bg-primary text-white p-3"><h5>Products</h5><h3>{total_products}</h3></div></div>
-    <div class="col-md-3"><div class="card bg-danger text-white p-3"><h5>Customers</h5><h3>-</h3></div></div></div>
-    <h4>Recent Orders</h4><table class="table table-striped"><thead class="table-dark"><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table>'''
+    body = f'''<div class="row g-4 mb-4">
+    <div class="col-md-3"><div class="stat-card bg-white"><h5 class="text-success"><i class="fas fa-money-bill-wave me-2"></i>Total Sales</h5><h3 class="fw-bold">KSh {total_sales:,.2f}</h3></div></div>
+    <div class="col-md-3"><div class="stat-card bg-white"><h5 class="text-warning"><i class="fas fa-shopping-cart me-2"></i>Orders</h5><h3 class="fw-bold">{total_orders}</h3></div></div>
+    <div class="col-md-3"><div class="stat-card bg-white"><h5 class="text-primary"><i class="fas fa-pills me-2"></i>Products</h5><h3 class="fw-bold">{total_products}</h3></div></div>
+    <div class="col-md-3"><div class="stat-card bg-white"><h5 class="text-danger"><i class="fas fa-users me-2"></i>Customers</h5><h3 class="fw-bold">{len(set(o.get("customer_email","") or o.get("guest_email","") for o in orders))}</h3></div></div>
+    </div>
+    <h4 class="mt-4">Recent Orders</h4>
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    </div>'''
     return admin_page("Dashboard", body)
 
 @app.route('/admin/orders')
@@ -377,7 +436,7 @@ def admin_orders():
         rows += f'''<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td><td>KSh {o["total_amount"]}</td><td>
         <form method="post" action="/admin/order/{o["id"]}/status" class="d-flex"><select name="status" class="form-select form-select-sm me-2" style="width:auto;">
         <option {sel_pending}>pending</option><option {sel_confirmed}>confirmed</option><option {sel_shipped}>shipped</option><option {sel_delivered}>delivered</option></select><button class="btn btn-sm btn-primary">Update</button></form></td></tr>'''
-    body = f'<table class="table"><thead class="table-dark"><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status / Action</th></tr></thead><tbody>{rows}</tbody></table>'
+    body = f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status / Action</th></tr></thead><tbody>{rows}</tbody></table></div>'
     return admin_page("Orders", body, active='orders')
 
 @app.route('/admin/order/<oid>/status', methods=['POST'])
@@ -399,7 +458,7 @@ def admin_invoice(oid):
 def admin_products():
     prods = supabase.table('products').select('*').order('name').execute().data or []
     rows = ''.join(f'<tr><td>{p["name"]}</td><td>{p["category"]}</td><td>{p["price"]}</td><td>{p["stock"]}</td><td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a><a href="/admin/delete-product/{p["id"]}" class="btn btn-sm btn-danger" onclick="return confirm(\'Delete?\')">Delete</a></td></tr>' for p in prods)
-    return admin_page("Products", f'<a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a><table class="table"><thead class="table-dark"><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody>{rows}</tbody></table>', active='products')
+    return admin_page("Products", f'<a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>', active='products')
 
 @app.route('/admin/add-product', methods=['GET','POST'])
 @admin_required
@@ -452,7 +511,7 @@ def delete_product(pid):
 @admin_required
 def admin_prescriptions():
     rx = supabase.table('prescriptions').select('*').order('created_at',desc=True).execute().data or []
-    items = ''.join(f'<div class="card p-2 mb-2"><strong>{r["customer_name"]}</strong> – {r["customer_email"]}<br>{r["customer_phone"]}<br><a href="{r.get("file_url","#")}" target="_blank">View File</a></div>' for r in rx)
+    items = ''.join(f'<div class="card mb-2 p-3"><strong>{r["customer_name"]}</strong> – {r["customer_email"]}<br>{r["customer_phone"]}<br><a href="{r.get("file_url","#")}" target="_blank" class="btn btn-sm btn-primary mt-2">View File</a></div>' for r in rx)
     return admin_page("Prescriptions", items or '<p>No prescriptions yet.</p>', active='prescriptions')
 
 @app.route('/admin/customers')
@@ -466,14 +525,14 @@ def admin_customers():
         if e not in cust: cust[e] = {'name': o.get('customer_name','') or o.get('shipping_name',''), 'phone': o.get('customer_phone','') or o.get('shipping_phone',''), 'spent':0, 'orders':0}
         cust[e]['spent'] += o['total_amount']; cust[e]['orders'] += 1
     rows = ''.join(f'<tr><td>{c["name"]}</td><td>{e}</td><td>{c["phone"]}</td><td>{c["orders"]}</td><td>KSh {c["spent"]}</td></tr>' for e,c in cust.items())
-    return admin_page("Customers", f'<table class="table"><thead class="table-dark"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total</th></tr></thead><tbody>{rows}</tbody></table>', active='customers')
+    return admin_page("Customers", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table></div>', active='customers')
 
 @app.route('/admin/users')
 @admin_required
 def admin_users():
     users = supabase.table('users').select('*').execute().data or []
-    rows = ''.join(f'<tr><td>{u["full_name"]}</td><td>{u["email"]}</td><td>{"Approved" if u.get("approved") else "Pending"}</td><td><a href="/admin/approve-user/{u["id"]}" class="btn btn-sm btn-success">Approve</a> <a href="/admin/disable-user/{u["id"]}" class="btn btn-sm btn-danger">Disable</a></td></tr>' for u in users)
-    return admin_page("Customer Care", f'<table class="table"><thead class="table-dark"><tr><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>{rows}</tbody></table>', active='users')
+    rows = ''.join(f'<tr><td>{u["full_name"]}</td><td>{u["email"]}</td><td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td><td><a href="/admin/approve-user/{u["id"]}" class="btn btn-sm btn-success me-1">Approve</a><a href="/admin/disable-user/{u["id"]}" class="btn btn-sm btn-danger">Disable</a></td></tr>' for u in users)
+    return admin_page("Customer Care", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div>', active='users')
 
 @app.route('/admin/approve-user/<uid>')
 @admin_required
