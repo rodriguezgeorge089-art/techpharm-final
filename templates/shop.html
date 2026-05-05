@@ -3,15 +3,14 @@
 <div class="container mt-4">
     <h2 class="fw-bold mb-4" style="color: var(--deep-blue);">Our Products</h2>
 
-    <!-- Search & Filter Bar -->
     <form class="row g-3 mb-5" method="get" action="/shop">
-        <div class="col-12 col-md-7">
+        <div class="col-md-7">
             <div class="input-group">
                 <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
                 <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="Search medicines, supplements...">
             </div>
         </div>
-        <div class="col-8 col-md-3">
+        <div class="col-md-3">
             <select class="form-select" name="category">
                 <option value="">All Categories</option>
                 <option value="Supplements" {% if category == 'Supplements' %}selected{% endif %}>Supplements</option>
@@ -20,13 +19,12 @@
                 <option value="Women Health" {% if category == 'Women Health' %}selected{% endif %}>Women Health</option>
             </select>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col-md-2">
             <button class="btn btn-primary w-100 rounded-pill">Filter</button>
         </div>
     </form>
 
-    <!-- Responsive product grid: 3 mobile, 4 tablet, 6 large desktop -->
-    <div class="row g-3 g-md-4">
+    <div class="row g-4">
         {% for p in products %}
         <div class="col-4 col-md-3 col-lg-2 mb-4">
             <div class="card product-card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
@@ -54,7 +52,6 @@
         {% endfor %}
     </div>
 
-    <!-- Pagination -->
     {% if total_pages > 1 %}
     <nav><ul class="pagination justify-content-center">
         {% for p in range(1, total_pages+1) %}
