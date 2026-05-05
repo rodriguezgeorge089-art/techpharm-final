@@ -7,22 +7,11 @@
         <div class="card border-0 shadow-sm rounded-4 p-4">
             <h5 class="fw-bold mb-4">Change Password</h5>
             <form method="post">
-                <div class="mb-3"><label class="form-label fw-semibold">New Password</label><input type="password" name="new_password" id="adminNewPassword" class="form-control" placeholder="Enter new password" required><button type="button" class="btn btn-sm btn-outline-secondary mt-1 toggle-password" data-target="adminNewPassword"><i class="far fa-eye"></i> Show</button></div>
+                <div class="mb-3"><input class="form-control" type="password" name="new_password" placeholder="New Password" required></div>
                 <button type="submit" class="btn btn-primary w-100 rounded-pill">Update Password</button>
             </form>
             {% if request.args.get('success') %}<div class="alert alert-success mt-3 rounded-pill text-center"><i class="fas fa-check-circle me-2"></i> Password updated!</div>{% endif %}
         </div>
     </div>
 </div>
-<script>
-    document.querySelectorAll('.toggle-password').forEach(btn => btn.addEventListener('click', function(){
-        const input = document.getElementById(this.dataset.target);
-        const icon = this.querySelector('i');
-        if (input.type === 'password') {
-            input.type = 'text'; this.innerHTML = '<i class="far fa-eye-slash"></i> Hide';
-        } else {
-            input.type = 'password'; this.innerHTML = '<i class="far fa-eye"></i> Show';
-        }
-    }));
-</script>
 {% endblock %}
