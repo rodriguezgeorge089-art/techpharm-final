@@ -15,11 +15,11 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Shared CSS (mobile‑first, colourful) ----------
+# ---------- Shared CSS (colourful, mobile‑first) ----------
 COMMON_CSS = """
 <style>
-    :root { --blue: #0A3D62; --gold: #F4A261; --light: #f4f6f9; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--light); margin: 0; }
+    :root { --blue: #0A3D62; --gold: #F4A261; --light: #f8f9fa; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; }
     .navbar-public { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; }
     .navbar-brand { font-weight: 800; font-size: 1.8rem; color: var(--blue) !important; }
     .navbar-brand i { background: var(--gold); color: white; border-radius: 12px; padding: 8px 12px; margin-right: 8px; }
@@ -29,18 +29,29 @@ COMMON_CSS = """
     .btn-outline-primary:hover { background: var(--gold); color: white; }
     .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
     .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .hero { background: linear-gradient(135deg, #0A3D62, #1B5A82); color: white; border-radius: 24px; padding: 4rem 2rem; text-align: center; margin-top: 1rem; }
-    .hero h1 { font-size: 3rem; font-weight: 800; }
+    .hero { background: var(--grad); color: white; border-radius: 24px; padding: 4rem 2rem; text-align: center; margin-top: 1rem; animation: fadeIn 1s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.5px; }
+    .hero p { font-size: 1.2rem; max-width: 600px; margin: 1rem auto; }
+    .badge-status { padding: 6px 14px; border-radius: 30px; font-weight: 600; }
     .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); } 70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); } }
     .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
     .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
     @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
-    /* Mobile friendly product grid */
+    /* Notification bell */
+    .bell-icon { position: relative; cursor: pointer; }
+    .bell-icon .badge { position: absolute; top: -8px; right: -8px; font-size: 0.7rem; }
+    .dropdown-menu-notify { width: 320px; max-height: 300px; overflow-y: auto; border: none; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border-radius: 12px; }
+    /* Mobile admin navbar */
     @media (max-width: 768px) {
         .hero h1 { font-size: 2rem; }
         .navbar-brand { font-size: 1.4rem; }
-        .admin-sidebar { width: 0; overflow: hidden; }
+        .admin-sidebar { display: none; }
+        .admin-top-nav { display: flex !important; }
+    }
+    @media (min-width: 769px) {
+        .admin-top-nav { display: none !important; }
     }
 </style>
 """
@@ -58,6 +69,34 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
+    # Notification data for admin bell (public navbar)
+    pending_orders = []
+    pending_prescriptions = []
+    if user and user.get('is_admin'):
+        try:
+            pending_orders = supabase.table('orders').select('id,shipping_name,total_amount').eq('order_status','pending').order('created_at',desc=True).limit(5).execute().data or []
+            pending_prescriptions = supabase.table('prescriptions').select('id,customer_name,created_at').eq('status','pending').order('created_at',desc=True).limit(5).execute().data or []
+        except: pass
+
+    bell_html = ''
+    if user and user.get('is_admin'):
+        pending_total = len(pending_orders) + len(pending_prescriptions)
+        bell_html = f'''
+        <li class="nav-item dropdown ms-2">
+            <a class="nav-link bell-icon" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-bell fs-5"></i>
+                {f'<span class="badge rounded-pill bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
+                {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
+                {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
+                {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
+                {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
+                {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
+                {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
+            </ul>
+        </li>'''
+
     nav = f'''<nav class="navbar navbar-expand-lg navbar-public sticky-top"><div class="container">
     <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {PHARMACY_NAME}</a>
     <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
@@ -71,6 +110,7 @@ def public_page(title, body, user=None):
         nav += '<li class="nav-item"><a class="nav-link" href="/my-account">My Orders</a></li>'
         if user.get('is_admin'):
             nav += '<li class="nav-item"><a class="nav-link" href="/admin" style="color:var(--gold);font-weight:700;">🔧 Admin Panel</a></li>'
+            nav += bell_html
         nav += f'<li class="nav-item"><a class="nav-link" href="/logout">{user["full_name"]} (Logout)</a></li>'
     else:
         nav += '<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>'
@@ -84,7 +124,7 @@ def public_page(title, body, user=None):
 {COMMON_CSS}</head><body>
 {nav}
 <div class="container mt-4">{body}</div>
-<footer class="text-center py-4 mt-5" style="background:var(--blue);color:white;"><p>&copy; 2026 {PHARMACY_NAME}.</p></footer>
+<footer class="text-center py-4 mt-5" style="background:var(--blue);color:white;"><p>&copy; 2026 {PHARMACY_NAME}. All rights reserved.</p></footer>
 <a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -106,6 +146,110 @@ def public_page(title, body, user=None):
 </body></html>"""
 
 def admin_page(title, body, active='dashboard'):
+    # Notification data
+    pending_orders = []
+    pending_prescriptions = []
+    try:
+        pending_orders = supabase.table('orders').select('id,shipping_name,total_amount').eq('order_status','pending').order('created_at',desc=True).limit(5).execute().data or []
+        pending_prescriptions = supabase.table('prescriptions').select('id,customer_name,created_at').eq('status','pending').order('created_at',desc=True).limit(5).execute().data or []
+    except: pass
+
+    pending_total = len(pending_orders) + len(pending_prescriptions)
+
+    # Desktop sidebar
+    sidebar = f'''<div class="admin-sidebar d-none d-md-flex" id="adminSidebar">
+        <div class="sidebar-content">
+            <div class="brand"><i class="fas fa-pills"></i> DawaLink</div>
+            {''.join(f'<a href="{url}" class="{"active" if active == name else ""}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>' for name, icon, url in [
+                ('dashboard', 'fa-tachometer-alt', '/admin'),
+                ('orders', 'fa-shopping-cart', '/admin/orders'),
+                ('products', 'fa-pills', '/admin/products'),
+                ('prescriptions', 'fa-file-prescription', '/admin/prescriptions'),
+                ('customers', 'fa-users', '/admin/customers'),
+                ('users', 'fa-headset', '/admin/users'),
+                ('create-user', 'fa-user-plus', '/admin/create-user'),
+                ('settings', 'fa-cog', '/admin/settings'),
+                ('export', 'fa-download', '/admin/export-orders')
+            ])}
+            <hr>
+            <a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a>
+            <a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a>
+        </div>
+    </div>'''
+
+    # Mobile top navbar with dropdowns
+    mobile_nav = f'''<div class="admin-top-nav d-md-none" style="background: var(--blue); color: white; padding: 0.5rem 1rem;">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="fas fa-pills"></i> DawaLink</span>
+            <div class="d-flex align-items-center">
+                <div class="dropdown me-2">
+                    <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">Menu</button>
+                    <ul class="dropdown-menu">
+                        {"".join(f'<li><a class="dropdown-item" href="{url}">{name.replace("-"," ").title()}</a></li>' for name, _, url in links)}
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-light bell-icon" data-bs-toggle="dropdown">
+                        <i class="fas fa-bell"></i> {f'<span class="badge bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
+                        {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
+                        {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
+                        {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
+                        {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
+                        {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
+                        {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>'''
+
+    # Desktop top bar with bell
+    desktop_top = f'''<div class="d-none d-md-flex justify-content-end mb-4">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary rounded-pill bell-icon" data-bs-toggle="dropdown">
+                <i class="fas fa-bell fs-5"></i> {f'<span class="badge bg-danger">{pending_total}</span>' if pending_total > 0 else ''}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notify">
+                {f'<li class="dropdown-header">Pending Orders</li>' if pending_orders else ''}
+                {"".join(f'<li><a class="dropdown-item" href="/admin/orders"><strong>#{str(o["id"])[:8]}</strong> – {o["shipping_name"]}<br><small class="text-muted">KSh {o["total_amount"]}</small></a></li>' for o in pending_orders)}
+                {f'<li><hr class="dropdown-divider"></li>' if pending_orders and pending_prescriptions else ''}
+                {f'<li class="dropdown-header">Pending Prescriptions</li>' if pending_prescriptions else ''}
+                {"".join(f'<li><a class="dropdown-item" href="/admin/prescriptions"><strong>{r["customer_name"]}</strong> – {r.get("created_at","")[:10]}</a></li>' for r in pending_prescriptions)}
+                {f'<li><span class="dropdown-item text-muted">No notifications</span></li>' if pending_total == 0 else ''}
+            </ul>
+        </div>
+    </div>'''
+
+    sidebar_css = """
+    <style>
+        .admin-sidebar {
+            width: 260px; background: var(--grad); color: white; min-height: 100vh;
+            padding: 1.5rem 1rem; position: fixed; top: 0; left: 0; z-index: 1000;
+            flex-direction: column;
+        }
+        .sidebar-content { display: flex; flex-direction: column; height: 100%; }
+        .sidebar-content .brand { font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }
+        .admin-sidebar a {
+            color: rgba(255,255,255,0.85); display: flex; align-items: center;
+            padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+        .admin-sidebar a:hover, .admin-sidebar a.active { background: var(--gold); color: #0A3D62; font-weight: 600; }
+        .admin-sidebar a i { width: 24px; margin-right: 12px; }
+        .main-admin {
+            margin-left: 260px; padding: 2rem; background: #f4f6f9; min-height: 100vh;
+        }
+        @media (max-width: 768px) {
+            .main-admin { margin-left: 0; padding-top: 1rem; }
+            .admin-sidebar { display: none !important; }
+        }
+        .stat-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .table-light th { background: #f8f9fa; font-weight: 600; }
+    </style>
+    """
+
     links = [
         ('dashboard', 'fa-tachometer-alt', '/admin'),
         ('orders', 'fa-shopping-cart', '/admin/orders'),
@@ -117,64 +261,44 @@ def admin_page(title, body, active='dashboard'):
         ('settings', 'fa-cog', '/admin/settings'),
         ('export', 'fa-download', '/admin/export-orders')
     ]
-    sidebar = '<div class="admin-sidebar" id="adminSidebar"><div class="sidebar-content"><div class="brand"><i class="fas fa-pills"></i> DawaLink</div>'
-    for name, icon, url in links:
-        cls = 'active' if active == name else ''
-        sidebar += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>'
-    sidebar += '<hr><a href="/" class="btn btn-sm btn-outline-light w-100 mb-1">View Site</a><a href="/logout" class="btn btn-sm btn-outline-danger w-100">Logout</a></div></div>'
-    sidebar_css = """
-    <style>
-        .admin-sidebar { width: 260px; background: linear-gradient(180deg, #0A3D62, #0F4C7A); color: white; min-height: 100vh; padding: 1.5rem 1rem; position: fixed; top: 0; left: 0; transition: transform 0.3s; z-index: 1000; }
-        .sidebar-content { display: flex; flex-direction: column; height: 100%; }
-        .sidebar-content .brand { font-weight: 800; font-size: 1.6rem; margin-bottom: 2rem; }
-        .admin-sidebar a { color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }
-        .admin-sidebar a:hover, .admin-sidebar a.active { background: #F4A261; color: #0A3D62; font-weight: 600; }
-        .admin-sidebar a i { width: 24px; margin-right: 12px; }
-        .main-admin { margin-left: 260px; padding: 2rem; background: #f4f6f9; min-height: 100vh; }
-        .sidebar-toggle { display: none; position: fixed; top: 1rem; left: 1rem; z-index: 1020; background: white; border: none; border-radius: 8px; padding: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        @media (max-width: 768px) {
-            .admin-sidebar { transform: translateX(-100%); width: 280px; }
-            .admin-sidebar.open { transform: translateX(0); }
-            .main-admin { margin-left: 0; padding-top: 4rem; }
-            .sidebar-toggle { display: block; }
-            .sidebar-overlay { display: none; position: fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999; }
-            .sidebar-overlay.show { display: block; }
-        }
-        .stat-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    </style>
-    """
-    overlay = '<div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebar()"></div>'
-    toggle_btn = '<button class="sidebar-toggle" onclick="openSidebar()"><i class="fas fa-bars fs-5"></i></button>'
+
     return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {sidebar_css}</head><body style="display:flex; margin:0;">
-{overlay}
-{toggle_btn}
 {sidebar}
-<div class="main-admin"><h2>{title}</h2><hr>{body}</div>
-<script>
-function openSidebar() {{
-    document.getElementById('adminSidebar').classList.add('open');
-    document.getElementById('sidebarOverlay').classList.add('show');
-}}
-function closeSidebar() {{
-    document.getElementById('adminSidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('show');
-}}
-</script>
+<div class="main-admin">
+    {mobile_nav}
+    {desktop_top}
+    <h2>{title}</h2><hr>{body}
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body></html>"""
 
 # ---------- Public routes ----------
 @app.route('/')
 def home():
-    body = """<div class="hero"><h1>Medicine At Your Convenience</h1><p class="lead">Quality OTC medicines, supplements & personal care products delivered fast across Kenya.</p>
-    <a href="/shop" class="btn btn-light btn-lg me-2">Shop Now</a><a href="/prescription" class="btn btn-outline-light btn-lg">Upload Prescription</a></div>
-    <div class="row mt-5 g-4"><div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>Sourced from licensed pharmacies.</p></div></div>
-    <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier across Kenya.</p></div></div>
-    <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-headset fa-3x text-primary mb-3"></i><h5>Expert Support</h5><p>Pharmacist-led customer care.</p></div></div></div>"""
+    body = """<div class="hero">
+        <h1>Your Health, Delivered with Care</h1>
+        <p>Genuine medicines, premium supplements, and personal care products – delivered swiftly to your doorstep across Kenya.</p>
+        <a href="/shop" class="btn btn-light btn-lg me-2 rounded-pill px-4">Shop Now</a>
+        <a href="/prescription" class="btn btn-outline-light btn-lg rounded-pill px-4">Upload Prescription</a>
+    </div>
+    <div class="row mt-5 g-4">
+        <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
+            <i class="fas fa-certificate fa-3x text-success mb-3"></i>
+            <h5>100% Genuine</h5><p>All products sourced from licensed pharmacies.</p>
+        </div></div>
+        <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
+            <i class="fas fa-truck-fast fa-3x text-warning mb-3"></i>
+            <h5>Lightning Delivery</h5><p>Reliable courier across Kenya.</p>
+        </div></div>
+        <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
+            <i class="fas fa-headset fa-3x text-info mb-3"></i>
+            <h5>24/7 Support</h5><p>Pharmacist-led customer care.</p>
+        </div></div>
+    </div>"""
     user = None
     if session.get('user_id'):
         user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
@@ -224,6 +348,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
+# ---------- Cart, checkout, prescription, etc. (unchanged logic, keep existing routes) ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -317,7 +442,7 @@ def checkout():
 
         items_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in supabase.table('order_items').select('*').eq('order_id',oid).execute().data)
         receipt = f"""<div class="card shadow-lg rounded-4 overflow-hidden" style="max-width:600px; margin:2rem auto;">
-            <div class="bg-success text-white p-4 text-center" style="background: linear-gradient(135deg, #2E8B57, #1E5F74) !important;">
+            <div class="bg-success text-white p-4 text-center" style="background: var(--grad) !important;">
                 <i class="fas fa-check-circle fa-4x mb-3" style="animation: scaleIn 0.6s;"></i>
                 <h2 class="fw-bold">Thank You!</h2>
                 <p class="mb-0">Your order has been placed successfully.</p>
@@ -391,21 +516,9 @@ def login():
         if not bcrypt.checkpw(pwd.encode(),user['password_hash'].encode()): return public_page("Login",'<div class="alert alert-danger">Invalid credentials</div><a href="/login">Try again</a>')
         session['user_id']=user['id']; session['user_name']=user['full_name']; session['is_admin']=user.get('is_admin',False)
         return redirect('/')
-    # Beautiful login card
     login_card = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
-    <div class="card shadow-lg rounded-4 p-4">
-        <div class="text-center mb-4">
-            <i class="fas fa-pills fa-3x text-primary"></i>
-            <h3 class="fw-bold mt-2">Welcome Back</h3>
-            <p class="text-muted">Sign in to your account</p>
-        </div>
-        <form method="post">
-            <div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div>
-            <div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div>
-            <button class="btn btn-primary w-100 py-2 rounded-pill">Sign In</button>
-        </form>
-        <p class="mt-3 text-center"><a href="/register">Create an account</a> · <a href="/">Home</a></p>
-    </div></div></div>"""
+    <div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-pills fa-3x text-primary"></i><h3 class="fw-bold mt-2">Welcome Back</h3><p class="text-muted">Sign in to your account</p></div>
+    <form method="post"><div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div><div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div><button class="btn btn-primary w-100 py-2 rounded-pill">Sign In</button></form><p class="mt-3 text-center"><a href="/register">Create an account</a> · <a href="/">Home</a></p></div></div></div>"""
     return public_page("Login", login_card)
 
 @app.route('/register', methods=['GET','POST'])
@@ -417,19 +530,8 @@ def register():
         except: return public_page("Register",'<div class="alert alert-danger">Email already exists.</div><a href="/register">Try again</a>')
         return public_page("Registration Submitted",'<h2>Account Created</h2><p>Please wait for approval.</p><a href="/">Home</a>')
     register_card = """<div class="row justify-content-center mt-5"><div class="col-md-5 col-lg-4">
-    <div class="card shadow-lg rounded-4 p-4">
-        <div class="text-center mb-4">
-            <i class="fas fa-user-plus fa-3x text-primary"></i>
-            <h3 class="fw-bold mt-2">Create Account</h3>
-        </div>
-        <form method="post">
-            <div class="mb-3"><input class="form-control" name="full_name" placeholder="Full Name" required></div>
-            <div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div>
-            <div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div>
-            <button class="btn btn-primary w-100 py-2 rounded-pill">Register</button>
-        </form>
-        <p class="mt-3 text-center"><a href="/login">Already have an account?</a></p>
-    </div></div></div>"""
+    <div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-user-plus fa-3x text-primary"></i><h3 class="fw-bold mt-2">Create Account</h3></div>
+    <form method="post"><div class="mb-3"><input class="form-control" name="full_name" placeholder="Full Name" required></div><div class="mb-3"><input class="form-control" name="email" type="email" placeholder="Email" required></div><div class="mb-3"><input class="form-control" name="password" type="password" placeholder="Password" required></div><button class="btn btn-primary w-100 py-2 rounded-pill">Register</button></form><p class="mt-3 text-center"><a href="/login">Already have an account?</a></p></div></div></div>"""
     return public_page("Register", register_card)
 
 @app.route('/logout')
