@@ -9,7 +9,6 @@
                 <input type="email" name="guest_email" class="form-control" placeholder="you@example.com" required>
             </div>
         {% endif %}
-
         <h5 class="mt-4 mb-3">Delivery Method</h5>
         <div class="mb-3">
             <div class="form-check form-check-inline">
@@ -21,27 +20,13 @@
                 <label class="form-check-label fw-semibold" for="pickup">Pickup from Store</label>
             </div>
         </div>
-
         <div id="deliveryFields">
             <h5 class="mt-4 mb-3">Delivery Details</h5>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Full Name</label>
-                <input type="text" name="shipping_name" class="form-control" placeholder="John Doe" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Address</label>
-                <input type="text" name="shipping_address" class="form-control" placeholder="Street, estate">
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">City</label>
-                <input type="text" name="shipping_city" class="form-control" placeholder="Nairobi">
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Phone Number</label>
-                <input type="text" name="shipping_phone" class="form-control" placeholder="07XXXXXXXX" required>
-            </div>
+            <div class="mb-3"><label class="form-label fw-semibold">Full Name</label><input type="text" name="shipping_name" class="form-control" placeholder="John Doe" required></div>
+            <div class="mb-3"><label class="form-label fw-semibold">Address</label><input type="text" name="shipping_address" class="form-control" placeholder="Street, estate"></div>
+            <div class="mb-3"><label class="form-label fw-semibold">City</label><input type="text" name="shipping_city" class="form-control" placeholder="Nairobi"></div>
+            <div class="mb-3"><label class="form-label fw-semibold">Phone Number</label><input type="text" name="shipping_phone" class="form-control" placeholder="07XXXXXXXX" required></div>
         </div>
-
         <div id="pickupFields" style="display:none;">
             <h5 class="mt-4 mb-3">Pickup Location</h5>
             <div class="mb-3">
@@ -54,12 +39,8 @@
                     <option value="CBD, Kimathi Street">CBD, Kimathi Street</option>
                 </select>
             </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Your Phone Number</label>
-                <input type="text" name="shipping_phone" class="form-control" placeholder="07XXXXXXXX" id="pickupPhone" required>
-            </div>
+            <div class="mb-3"><label class="form-label fw-semibold">Your Phone Number</label><input type="text" name="shipping_phone" class="form-control" placeholder="07XXXXXXXX" id="pickupPhone" required></div>
         </div>
-
         <h5 class="mt-4 mb-3">Payment Method</h5>
         <div class="mb-3">
             <select name="payment_method" class="form-select">
@@ -68,7 +49,6 @@
                 <option value="pickup_pay">Pay on Pickup</option>
             </select>
         </div>
-
         <h5 class="mt-4 mb-3">Offer / Discount</h5>
         <div class="mb-3">
             <div class="input-group">
@@ -77,35 +57,25 @@
             </div>
             <small class="text-muted">If you have a promo code, enter it above.</small>
         </div>
-
         <button type="submit" class="btn btn-success w-100 py-3 fw-bold rounded-pill mt-4">
             <i class="fas fa-lock me-2"></i> Place Order
         </button>
     </form>
 </div>
-
 <script>
     const deliveryRadio = document.getElementById('delivery');
     const pickupRadio = document.getElementById('pickup');
     const deliveryFields = document.getElementById('deliveryFields');
     const pickupFields = document.getElementById('pickupFields');
-
     function toggleFields() {
         if (pickupRadio.checked) {
             deliveryFields.style.display = 'none';
             pickupFields.style.display = 'block';
-            // Remove required from delivery fields
-            deliveryFields.querySelectorAll('input[required]').forEach(el => el.removeAttribute('required'));
-            // Add required to pickup phone
             document.getElementById('pickupPhone').setAttribute('required', true);
         } else {
             deliveryFields.style.display = 'block';
             pickupFields.style.display = 'none';
-            // Restore required on delivery fields
-            deliveryFields.querySelectorAll('input').forEach(el => el.setAttribute('required', true));
-            if (document.getElementById('pickupPhone').hasAttribute('required')) {
-                document.getElementById('pickupPhone').removeAttribute('required');
-            }
+            document.getElementById('pickupPhone').removeAttribute('required');
         }
     }
     deliveryRadio.addEventListener('change', toggleFields);
