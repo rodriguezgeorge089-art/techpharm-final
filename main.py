@@ -1,5 +1,5 @@
 import os, json, bcrypt, csv, io, struct, zlib
-from flask import Flask, render_template, request, redirect, session, Response, make_response, send_from_directory
+from flask import Flask, render_template, request, redirect, session, Response, make_response
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -56,7 +56,6 @@ def utility_processor():
         except:
             pass
 
-    # Notification data for bell
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -112,7 +111,6 @@ def shop():
     page = int(request.args.get('page', 1))
     per_page = 6
     offset = (page - 1) * per_page
-
     query = supabase.table('products').select('*', count='exact').eq('active', True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
@@ -120,7 +118,6 @@ def shop():
         query = query.or_(f"category.ilike.%{category}%")
     total_res = query.execute()
     total = total_res.count if total_res.count else 0
-
     data_query = supabase.table('products').select('*').eq('active', True)
     if search:
         data_query = data_query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
@@ -128,7 +125,6 @@ def shop():
         data_query = data_query.or_(f"category.ilike.%{category}%")
     result = data_query.range(offset, offset + per_page - 1).execute()
     products = result.data or []
-
     total_pages = max(1, (total + per_page - 1) // per_page)
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
@@ -153,12 +149,8 @@ def prescription_upload():
                 pass
         try:
             supabase.table('prescriptions').insert({
-                'customer_name': name,
-                'customer_email': email,
-                'customer_phone': phone,
-                'notes': notes,
-                'file_url': file_url,
-                'status': 'pending'
+                'customer_name': name, 'customer_email': email, 'customer_phone': phone,
+                'notes': notes, 'file_url': file_url, 'status': 'pending'
             }).execute()
         except:
             pass
@@ -239,7 +231,6 @@ def checkout_form():
 def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
-
     delivery_method = request.form.get('delivery_method', 'delivery')
     shipping = {}
     if delivery_method == 'pickup':
@@ -253,9 +244,7 @@ def place_order():
         shipping['shipping_address'] = request.form['shipping_address']
         shipping['shipping_city'] = request.form['shipping_city']
         shipping['shipping_phone'] = request.form['shipping_phone']
-
     shipping['payment_method'] = request.form['payment_method']
-
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -271,9 +260,7 @@ def place_order():
         if not guest_email:
             return 'Please provide your email.'
         cart_items = guest_cart
-
     total = sum(it['price'] * it['qty'] for it in cart_items)
-
     discount_applied = 0
     discount_code = request.form.get('discount_code', '').strip().upper()
     if discount_code:
@@ -292,34 +279,27 @@ def place_order():
                         session['discount_applied'] = discount_applied
         except:
             pass
-
     order_data = {**shipping, 'total_amount': total}
     if user_id:
         order_data['user_id'] = user_id
     else:
         order_data['guest_email'] = guest_email
-
     order_res = supabase.table('orders').insert(order_data).execute()
     order_id = order_res.data[0]['id']
-
     for item in cart_items:
         supabase.table('order_items').insert({
-            'order_id': order_id,
-            'product_id': item['productId'],
-            'product_name': item['name'],
-            'quantity': item['qty'],
-            'unit_price': item['price'],
-            'total_price': item['price'] * item['qty']
+            'order_id': order_id, 'product_id': item['productId'],
+            'product_name': item['name'], 'quantity': item['qty'],
+            'unit_price': item['price'], 'total_price': item['price'] * item['qty']
         }).execute()
-
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
         session.pop('cart', None)
-
     session['last_order_id'] = order_id
     return redirect('/order-confirmation')
 
+# Inline order confirmation (avoids missing template)
 @app.route('/order-confirmation')
 def order_confirmation():
     order_id = session.pop('last_order_id', None)
@@ -328,7 +308,28 @@ def order_confirmation():
         return redirect('/')
     order = supabase.table('orders').select('*').eq('id', order_id).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
-    return render_template('order_confirmation.html', order=order, items=items, discount=discount)
+    item_rows = ''.join(
+        f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>'
+        for i in items
+    )
+    html = f'''<!DOCTYPE html>
+<html><head><title>Order Confirmed – DawaLink</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{{background:#f4f6f9;padding:2rem;}}</style></head><body>
+<div class="container" style="max-width:600px;margin:auto;background:white;border-radius:20px;padding:2rem;box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+    <h2 class="text-success"><i class="fas fa-check-circle"></i> Thank You!</h2>
+    <p>Your order <strong>#{order_id}</strong> has been placed successfully.</p>
+    <p>Total: <strong>KSh {order['total_amount']}</strong></p>
+    <p>Status: <span class="badge bg-warning">{order.get('order_status','pending')}</span></p>
+    <hr>
+    <h5>Items</h5>
+    <table class="table table-sm">
+        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+        <tbody>{item_rows}</tbody>
+    </table>
+    <a href="/shop" class="btn btn-primary rounded-pill">Continue Shopping</a>
+</div></body></html>'''
+    return html
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -341,21 +342,16 @@ def login():
         user = user_res.data[0]
         if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             return render_template('login.html', error='Invalid credentials')
-
         is_admin = user.get('is_admin', False)
         approved = user.get('approved', False)
-
         if email == 'rodriguezgeorge089@gmail.com':
             approved = True
             if not user.get('approved'):
                 supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
-
         if not is_admin and not approved:
             return render_template('login.html', error='Your account is pending approval.')
-
         if is_admin and not approved:
             supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
-
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
         session['is_admin'] = is_admin
@@ -406,8 +402,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== ADMIN ROUTES (template‑based) ====================
-
+# ==================== ADMIN ROUTES ====================
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -421,7 +416,6 @@ def admin_dashboard():
             e = o.get('customer_email') or o.get('guest_email')
             if e: customers.add(e)
     total_customers = len(customers)
-
     recent_orders_html = ''
     for o in orders_list.data:
         oid = str(o['id'])[:8]
@@ -433,14 +427,7 @@ def admin_dashboard():
             'delivered': 'bg-success text-white'
         }.get(status, 'bg-secondary text-white')
         recent_orders_html += f'''
-        <tr>
-            <td><strong>#{oid}</strong></td>
-            <td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td>
-            <td>KSh {o['total_amount']}</td>
-            <td><span class="badge {status_color} rounded-pill">{status}</span></td>
-            <td>{o['created_at'][:10]}</td>
-        </tr>
-        '''
+        <tr><td><strong>#{oid}</strong></td><td>{o.get('shipping_name', o.get('guest_email', 'Guest'))}</td><td>KSh {o['total_amount']}</td><td><span class="badge {status_color} rounded-pill">{status}</span></td><td>{o['created_at'][:10]}</td></tr>'''
     return render_template('admin_dashboard.html',
                            total_sales=f"{total_sales:,.2f}",
                            total_orders=total_orders,
@@ -606,19 +593,15 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# ==================== PWA ROUTES (safe, no impact on web) ====================
+# ==================== PWA ROUTES ====================
 @app.route('/manifest.json')
 def manifest_route():
     manifest = {
         "name": "DawaLink - Online Pharmacy",
         "short_name": "DawaLink",
         "description": "Medicine At Your Convenience – quality OTC medicines, supplements & personal care products delivered fast across Kenya.",
-        "start_url": "/",
-        "scope": "/",
-        "display": "standalone",
-        "orientation": "portrait-primary",
-        "background_color": "#0A3D62",
-        "theme_color": "#0A3D62",
+        "start_url": "/", "scope": "/", "display": "standalone",
+        "background_color": "#0A3D62", "theme_color": "#0A3D62",
         "icons": [
             {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
             {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
@@ -634,31 +617,17 @@ def manifest_route():
 def service_worker_route():
     sw_js = """// DawaLink Service Worker
 const CACHE_NAME = 'dawalink-v3';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/manifest.json',
-  '/static/icon-192.png',
-  '/static/icon-512.png',
-  '/shop',
-  '/about',
-  '/contact',
-  '/cart'
-];
+const ASSETS_TO_CACHE = [ '/', '/manifest.json', '/static/icon-192.png', '/static/icon-512.png', '/shop', '/about', '/contact', '/cart' ];
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => Promise.resolve());
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE).catch(() => Promise.resolve()))
   );
   self.skipWaiting();
 });
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME)
-          .map(name => caches.delete(name))
-      );
+      return Promise.all(cacheNames.filter(name => name !== CACHE_NAME).map(name => caches.delete(name)));
     })
   );
   self.clients.claim();
@@ -684,7 +653,7 @@ self.addEventListener('fetch', event => {
     resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     return resp
 
-# ---- Safe PNG generator (no base64 errors) ----
+# ---- Safe PNG generator ----
 def _create_png(width, height, color=(10, 61, 98)):
     def chunk(ctype, data):
         c = ctype + data
@@ -713,7 +682,9 @@ def icon_512():
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
+    import os as _os
+    from flask import send_from_directory
+    return send_from_directory(_os.path.join(app.root_path, 'static'), filename)
 
 @app.route('/download')
 def download_page():
