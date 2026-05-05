@@ -1,5 +1,5 @@
-import os, json, bcrypt, csv, io
-from flask import Flask, render_template, request, redirect, session, Response
+import os, json, bcrypt, csv, io, struct, zlib
+from flask import Flask, render_template, request, redirect, session, Response, make_response, send_from_directory
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor ----------
+# ---------- Context processor (cart, user, notifications) ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -56,7 +56,7 @@ def utility_processor():
         except:
             pass
 
-    # Notification data
+    # Notification data for bell
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -394,52 +394,10 @@ def my_account():
     if not session.get('user_id'):
         return redirect('/login')
     user_id = session['user_id']
-    try:
-        orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
-    except:
-        orders = []
+    orders = supabase.table('orders').select('*').eq('user_id', user_id).order('created_at', desc=True).execute().data or []
+    return render_template('my_orders.html', orders=orders)
 
-    for order in orders:
-        try:
-            order['items'] = supabase.table('order_items').select('*').eq('order_id', order['id']).execute().data or []
-        except:
-            order['items'] = []
-
-    if not orders:
-        html = f'''<html><head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
-        <body style="background:#f4f6f9;padding:2rem;"><div class="container text-center"><i class="fas fa-box-open fa-4x text-muted mb-3"></i><h5>No orders yet</h5><a href="/shop" class="btn btn-primary rounded-pill">Start Shopping</a></div></body></html>'''
-        return html
-
-    order_html = ''
-    for o in orders:
-        oid = str(o['id'])[:8]
-        status = o.get('order_status', 'pending')
-        items_rows = ''
-        for item in o['items']:
-            items_rows += f'<tr><td>{item["product_name"]}</td><td>{item["quantity"]}</td><td>KSh {item["unit_price"]}</td><td>KSh {item["total_price"]}</td></tr>'
-        order_html += f'''
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#order{o['id']}">
-                <span><strong>Order #{oid}</strong> – {o['created_at'][:10]}</span>
-                <span class="badge bg-{'warning' if status=='pending' else 'info' if status=='confirmed' else 'primary' if status=='shipped' else 'success'}">{status}</span>
-                <span class="fw-bold">KSh {o['total_amount']}</span>
-            </div>
-            <div class="collapse" id="order{o['id']}">
-                <div class="card-body">
-                    <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead><tbody>{items_rows}</tbody></table>
-                </div>
-            </div>
-        </div>
-        '''
-    html = f'''<!DOCTYPE html>
-<html>
-<head><title>My Orders</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>body{{background:#f4f6f9;padding:2rem;}}</style></head>
-<body><div class="container"><h2>My Orders</h2>{order_html}</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script></body></html>'''
-    return html
-
-# ---------- Admin Decorator ----------
+# ---------- Admin decorator ----------
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -448,7 +406,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== ADMIN ROUTES ====================
+# ==================== ADMIN ROUTES (template‑based) ====================
 
 @app.route('/admin')
 @admin_required
@@ -647,6 +605,119 @@ def export_orders():
         w.writerow([str(o['id'])[:8], o['created_at'][:10], o.get('customer_name','') or o.get('shipping_name',''), o.get('customer_email','') or o.get('guest_email',''), o.get('customer_phone','') or o.get('shipping_phone',''), o['total_amount'], o.get('order_status','pending'), o.get('payment_method','')])
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
+
+# ==================== PWA ROUTES (safe, no impact on web) ====================
+@app.route('/manifest.json')
+def manifest_route():
+    manifest = {
+        "name": "DawaLink - Online Pharmacy",
+        "short_name": "DawaLink",
+        "description": "Medicine At Your Convenience – quality OTC medicines, supplements & personal care products delivered fast across Kenya.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#0A3D62",
+        "theme_color": "#0A3D62",
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ],
+        "categories": ["medical", "health", "shopping"],
+        "lang": "en-KE"
+    }
+    resp = make_response(json.dumps(manifest))
+    resp.headers['Content-Type'] = 'application/manifest+json; charset=utf-8'
+    return resp
+
+@app.route('/sw.js')
+def service_worker_route():
+    sw_js = """// DawaLink Service Worker
+const CACHE_NAME = 'dawalink-v3';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/manifest.json',
+  '/static/icon-192.png',
+  '/static/icon-512.png',
+  '/shop',
+  '/about',
+  '/contact',
+  '/cart'
+];
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(() => Promise.resolve());
+    })
+  );
+  self.skipWaiting();
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.filter(name => name !== CACHE_NAME)
+          .map(name => caches.delete(name))
+      );
+    })
+  );
+  self.clients.claim();
+});
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(event.request).then(cachedResponse => {
+      if (cachedResponse) return cachedResponse;
+      return fetch(event.request).then(response => {
+        if (!response || response.status !== 200 || response.type !== 'basic') return response;
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
+        return response;
+      }).catch(() => {
+        if (event.request.headers.get('accept').includes('text/html')) return caches.match('/');
+        return new Response('You are offline.', {status: 503, headers: {'Content-Type': 'text/plain'}});
+      });
+    })
+  );
+});"""
+    resp = make_response(sw_js)
+    resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
+    return resp
+
+# ---- Safe PNG generator (no base64 errors) ----
+def _create_png(width, height, color=(10, 61, 98)):
+    def chunk(ctype, data):
+        c = ctype + data
+        crc = struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        return struct.pack(">I", len(data)) + c + crc
+    signature = b'\x89PNG\r\n\x1a\n'
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    ihdr_chunk = chunk(b'IHDR', ihdr)
+    raw = b''
+    for y in range(height):
+        raw += b'\x00'
+        for x in range(width):
+            raw += bytes(color)
+    compressed = zlib.compress(raw)
+    idat_chunk = chunk(b'IDAT', compressed)
+    iend_chunk = chunk(b'IEND', b'')
+    return signature + ihdr_chunk + idat_chunk + iend_chunk
+
+@app.route('/static/icon-192.png')
+def icon_192():
+    return Response(_create_png(192, 192), mimetype='image/png')
+
+@app.route('/static/icon-512.png')
+def icon_512():
+    return Response(_create_png(512, 512), mimetype='image/png')
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
+
+@app.route('/download')
+def download_page():
+    return render_template('download.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
