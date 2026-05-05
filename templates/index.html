@@ -1,20 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="hero" style="background: linear-gradient(135deg, #0A3D62, #1B5A82); color: white; padding: 5rem 0; text-align: center;">
-    <div class="container">
-        <h1 style="font-size: 3rem; font-weight: 800;">Medicine At Your Convenience</h1>
-        <p style="font-size: 1.2rem; max-width: 600px; margin: 1rem auto;">Quality OTC medicines, supplements & personal care products delivered fast across Kenya.</p>
-        <a href="/shop" class="btn btn-light btn-lg me-2">Shop Now</a>
-        <a href="/prescription" class="btn btn-outline-light btn-lg">Upload Prescription</a>
-    </div>
+<section class="hero text-center" style="background: linear-gradient(135deg, #0A3D62, #1B5A82); color: white; padding: 5rem 0;">
+    <h1 style="font-size: 3rem; font-weight: 800;">Medicine At Your Convenience</h1>
+    <p class="lead">Quality OTC medicines, supplements & personal care products delivered fast across Kenya.</p>
+    <a href="/shop" class="btn btn-light btn-lg me-2">Shop Now</a>
+    <a href="/prescription" class="btn btn-outline-light btn-lg">Upload Prescription</a>
 </section>
-
-<section class="container my-5">
-    <h2 class="text-center mb-4">Why Choose {{ pharmacy_name }}?</h2>
-    <div class="row g-4">
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-certificate fa-3x text-primary mb-3"></i><h5>Genuine Products</h5><p>Sourced from licensed pharmacies.</p></div></div>
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-truck-fast fa-3x text-primary mb-3"></i><h5>Fast Delivery</h5><p>Reliable courier services.</p></div></div>
-        <div class="col-md-4"><div class="card p-4 text-center"><i class="fas fa-headset fa-3x text-primary mb-3"></i><h5>Expert Support</h5><p>Pharmacist-led customer care.</p></div></div>
-    </div>
-</section>
+<!-- Feature cards, categories, etc. – you can keep the original index.html if you have it, just ensure it extends "base.html" -->
 {% endblock %}
