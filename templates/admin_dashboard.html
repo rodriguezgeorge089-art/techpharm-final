@@ -1,18 +1,41 @@
 {% extends "admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 {% block admin_content %}
-<h2>Dashboard</h2>
-<div class="row g-3">
-    <div class="col-md-3"><div class="card text-white bg-success p-3"><h5>Total Sales</h5><h3>KSh {{ total_sales }}</h3></div></div>
-    <div class="col-md-3"><div class="card text-white bg-warning p-3"><h5>Orders</h5><h3>{{ total_orders }}</h3></div></div>
-    <div class="col-md-3"><div class="card text-white bg-primary p-3"><h5>Products</h5><h3>{{ total_products }}</h3></div></div>
-    <div class="col-md-3"><div class="card text-white bg-danger p-3"><h5>Customers</h5><h3>{{ total_customers }}</h3></div></div>
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success p-3 rounded-4">
+            <h5>Total Sales</h5>
+            <h3>KSh {{ total_sales }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning p-3 rounded-4">
+            <h5>Orders</h5>
+            <h3>{{ total_orders }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-primary p-3 rounded-4">
+            <h5>Products</h5>
+            <h3>{{ total_products }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger p-3 rounded-4">
+            <h5>Customers</h5>
+            <h3>{{ total_customers }}</h3>
+        </div>
+    </div>
 </div>
 
-<h4 class="mt-4">Recent Orders</h4>
-<div class="table-responsive">
-    <table class="table table-striped">
-        <thead class="table-dark"><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody>{{ recent_orders | safe }}</tbody>
-    </table>
+<div class="card border-0 shadow-sm rounded-4 p-4">
+    <h5 class="fw-bold mb-4"><i class="far fa-clock me-2"></i>Recent Orders</h5>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead class="table-dark"><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>{{ recent_orders | safe }}</tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
