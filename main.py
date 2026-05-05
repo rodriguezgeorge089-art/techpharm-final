@@ -15,7 +15,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Context processor (includes notification data) ----------
+# ---------- Context processor ----------
 @app.context_processor
 def utility_processor():
     user_id = session.get('user_id')
@@ -56,7 +56,7 @@ def utility_processor():
         except:
             pass
 
-    # ---- Notification data for bell ----
+    # Notification data
     pending_orders = []
     pending_prescriptions = []
     if user and user.get('is_admin'):
@@ -105,7 +105,6 @@ def blog():
     ]
     return render_template('blog.html', posts=posts)
 
-# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search', '')
@@ -134,7 +133,6 @@ def shop():
     return render_template('shop.html', products=products, search=search, category=category,
                            page=page, total_pages=total_pages)
 
-# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET', 'POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -167,7 +165,6 @@ def prescription_upload():
         return render_template('prescription_success.html')
     return render_template('prescription_upload.html')
 
-# ---------- Cart ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     product_id = request.form['productId']
@@ -234,40 +231,6 @@ def remove_from_cart(product_id):
         session['cart'] = cart
     return redirect('/cart')
 
-@app.route('/wishlist/toggle', methods=['POST'])
-def wishlist_toggle():
-    if 'user_id' not in session:
-        return 'Login required', 401
-    user_id = session['user_id']
-    product_id = request.form['productId']
-    existing = supabase.table('wishlist').select('id').eq('user_id', user_id).eq('product_id', product_id).execute()
-    if existing.data:
-        supabase.table('wishlist').delete().eq('user_id', user_id).eq('product_id', product_id).execute()
-    else:
-        supabase.table('wishlist').insert({'user_id': user_id, 'product_id': product_id}).execute()
-    return redirect(request.referrer or '/')
-
-@app.route('/compare/toggle/<product_id>')
-def compare_toggle(product_id):
-    compare = json.loads(request.cookies.get('compare', '[]'))
-    if product_id in compare:
-        compare.remove(product_id)
-    else:
-        if len(compare) < 4:
-            compare.append(product_id)
-    resp = redirect(request.referrer or '/')
-    resp.set_cookie('compare', json.dumps(compare), max_age=86400)
-    return resp
-
-@app.route('/compare')
-def compare_page():
-    ids = json.loads(request.cookies.get('compare', '[]'))
-    if not ids:
-        return 'No products to compare.'
-    products = supabase.table('products').select('*').in_('id', ids).execute().data
-    return render_template('compare.html', products=products)
-
-# ---------- Checkout with pickup & discount ----------
 @app.route('/checkout')
 def checkout_form():
     return render_template('checkout.html')
@@ -277,7 +240,6 @@ def place_order():
     guest_email = request.form.get('guest_email')
     user_id = session.get('user_id')
 
-    # Delivery method & pickup logic
     delivery_method = request.form.get('delivery_method', 'delivery')
     shipping = {}
     if delivery_method == 'pickup':
@@ -294,7 +256,6 @@ def place_order():
 
     shipping['payment_method'] = request.form['payment_method']
 
-    # Get cart items
     cart_items = []
     if user_id:
         db_cart = supabase.table('cart').select('quantity, product_id, products(name, price)').eq('user_id', user_id).execute()
@@ -313,7 +274,6 @@ def place_order():
 
     total = sum(it['price'] * it['qty'] for it in cart_items)
 
-    # Discount code
     discount_applied = 0
     discount_code = request.form.get('discount_code', '').strip().upper()
     if discount_code:
@@ -352,7 +312,6 @@ def place_order():
             'total_price': item['price'] * item['qty']
         }).execute()
 
-    # Clear cart
     if user_id:
         supabase.table('cart').delete().eq('user_id', user_id).execute()
     else:
@@ -371,7 +330,6 @@ def order_confirmation():
     items = supabase.table('order_items').select('*').eq('order_id', order_id).execute().data
     return render_template('order_confirmation.html', order=order, items=items, discount=discount)
 
-# ---------- Authentication ----------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -387,18 +345,16 @@ def login():
         is_admin = user.get('is_admin', False)
         approved = user.get('approved', False)
 
-        # Super admin always approved
         if email == 'rodriguezgeorge089@gmail.com':
             approved = True
             if not user.get('approved'):
                 supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
 
         if not is_admin and not approved:
-            return render_template('login.html', error='Your account is pending approval. Please try again later or contact support.')
+            return render_template('login.html', error='Your account is pending approval.')
 
         if is_admin and not approved:
             supabase.table('users').update({'approved': True}).eq('id', user['id']).execute()
-            user['approved'] = True
 
         session['user_id'] = user['id']
         session['user_name'] = user['full_name']
@@ -422,11 +378,7 @@ def register():
         password = request.form['password']
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         try:
-            supabase.table('users').insert({
-                'full_name': full_name,
-                'email': email,
-                'password_hash': hashed
-            }).execute()
+            supabase.table('users').insert({'full_name': full_name, 'email': email, 'password_hash': hashed}).execute()
         except:
             return render_template('register.html', error='Email already exists.')
         return render_template('register_success.html')
@@ -437,7 +389,6 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ---------- Customer Orders (inline for reliability) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'):
