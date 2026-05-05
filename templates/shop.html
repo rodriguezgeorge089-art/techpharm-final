@@ -40,9 +40,10 @@
                     <p class="text-muted small mb-1">{{ p.category }}</p>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold" style="color: var(--deep-blue);">KSh {{ p.price }}</span>
-                        <form action="/cart/add" method="POST">
+                        <!-- The form that actually works -->
+                        <form action="/cart/add" method="POST" style="display: flex; align-items: center;">
                             <input type="hidden" name="productId" value="{{ p.id }}">
-                            <input type="number" name="quantity" value="1" min="1" max="10" class="form-control form-control-sm d-inline-block" style="width: 50px;">
+                            <input type="number" name="quantity" value="1" min="1" max="10" class="form-control form-control-sm" style="width: 50px; margin-right: 5px;">
                             <button type="submit" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-cart-plus"></i></button>
                         </form>
                     </div>
