@@ -3,11 +3,11 @@
 <div class="container mt-4">
     <h2>Blog</h2>
     {% for post in posts %}
-        <div class="card mb-3 p-3">
-            <h5>{{ post.title }}</h5>
-            <small class="text-muted">{{ post.date }}</small>
-            <p>{{ post.snippet }}</p>
-        </div>
+    <div class="card mb-3 p-3">
+        <h5>{{ post.title }}</h5>
+        <small class="text-muted">{{ post.date }}</small>
+        <p>{{ post.snippet }}</p>
+    </div>
     {% endfor %}
 </div>
 {% endblock %}
