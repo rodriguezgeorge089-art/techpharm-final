@@ -43,10 +43,6 @@ COMMON_CSS = """
     .eye-icon { cursor: pointer; }
     @media (max-width: 768px) {
         .hero h1 { font-size: 2rem; }
-        .admin-desktop-sidebar { display: none !important; }
-    }
-    @media (min-width: 769px) {
-        .admin-desktop-sidebar { display: block !important; }
     }
 </style>
 """
@@ -64,7 +60,6 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    # Navbar links – Blog removed
     links = [ ('/', 'Home'), ('/shop', 'Shop'), ('/prescription', 'Rx'),
               ('/branches', 'Branches'), ('/cart', f'Cart {int(cart_total)}') ]
     if user:
@@ -140,21 +135,20 @@ def admin_page(title, body, active='dashboard'):
         items = ''
         for name, icon, url in links:
             cls = 'active' if active == name else ''
-            # Clear, visible text: pure white, bold, with a subtle background on hover/active
             items += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>'
         return items
 
-    # Desktop fixed sidebar – improved readability
+    # Desktop fixed sidebar – crisp white text, clearly visible
     desktop_sidebar = f'''
-    <div class="admin-desktop-sidebar d-none d-md-flex flex-column flex-shrink-0" style="width:270px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1.2rem; position:fixed; top:0; left:0; z-index:1000; box-shadow: 4px 0 15px rgba(0,0,0,0.1);">
-        <div class="brand" style="font-weight:800; font-size:1.7rem; margin-bottom:2rem; letter-spacing:-0.5px;"><i class="fas fa-pills"></i> DawaLink</div>
+    <div class="admin-sidebar d-none d-md-flex flex-column" style="width:250px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1rem; position:fixed; top:0; left:0; z-index:1000; box-shadow: 2px 0 10px rgba(0,0,0,0.05);">
+        <div class="brand" style="font-weight:800; font-size:1.6rem; margin-bottom:2rem; letter-spacing:-0.5px;"><i class="fas fa-pills"></i> DawaLink</div>
         {sidebar_items()}
-        <hr class="mt-auto" style="border-color:rgba(255,255,255,0.2);">
+        <hr style="border-color:rgba(255,255,255,0.2); margin-top:auto;">
         <a href="/" class="btn btn-sm btn-outline-light mb-1">View Site</a>
         <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
     </div>'''
 
-    # Mobile permanent nav bar (visible only on small screens)
+    # Mobile – scrollable ribbon with all links permanently visible
     mobile_pills = ''
     for name, icon, url in links:
         cls = 'active' if active == name else ''
@@ -171,56 +165,68 @@ def admin_page(title, body, active='dashboard'):
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    body {{ display: flex; margin:0; }}
-    .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
-    /* Desktop spacing for fixed sidebar */
-    @media (min-width: 768px) {{
-        .main-admin {{ margin-left: 270px; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; font-family: 'Segoe UI', system-ui, sans-serif; }}
+    .main-admin {{
+        min-height: 100vh;
+        background: #f4f6f9;
+        padding: 2rem;
+        width: 100%;
     }}
-    /* Desktop sidebar links – high contrast, always visible */
-    .admin-desktop-sidebar a {{
-        color: #ffffff !important;      /* pure white */
+    /* Desktop: push content right so sidebar doesn't overlap */
+    @media (min-width: 768px) {{
+        .main-admin {{
+            margin-left: 250px;
+            width: calc(100% - 250px);
+        }}
+    }}
+    /* Sidebar links – perfectly visible white text */
+    .admin-sidebar a {{
+        color: #ffffff !important;
         font-weight: 600;
-        display: flex; align-items: center;
-        padding: 0.8rem 1.2rem; text-decoration: none;
-        border-radius: 12px; margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        padding: 0.8rem 1.2rem;
+        text-decoration: none;
+        border-radius: 12px;
+        margin-bottom: 6px;
         transition: all 0.2s;
         font-size: 0.95rem;
         letter-spacing: 0.3px;
     }}
-    .admin-desktop-sidebar a i {{
-        width: 24px; margin-right: 14px;
+    .admin-sidebar a i {{
+        width: 24px;
+        margin-right: 14px;
         font-size: 1.1rem;
         color: #ffffff;
     }}
-    /* Hover & Active – unmistakable gold highlight */
-    .admin-desktop-sidebar a:hover {{
-        background: rgba(244,162,97,0.9);  /* gold */
+    /* Hover – unmistakable gold highlight */
+    .admin-sidebar a:hover {{
+        background: rgba(244,162,97,0.9);
         color: #0A3D62 !important;
         transform: translateX(4px);
     }}
-    .admin-desktop-sidebar a:hover i {{
+    .admin-sidebar a:hover i {{
         color: #0A3D62;
     }}
-    .admin-desktop-sidebar a.active {{
-        background: #F4A261;              /* solid gold */
+    /* Active – solid gold, bold */
+    .admin-sidebar a.active {{
+        background: #F4A261;
         color: #0A3D62 !important;
         font-weight: 700;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }}
-    .admin-desktop-sidebar a.active i {{
+    .admin-sidebar a.active i {{
         color: #0A3D62;
     }}
-
-    /* Mobile nav – smooth scroll */
+    /* Mobile nav scrollbar */
     .admin-mobile-nav::-webkit-scrollbar {{ height: 4px; }}
     .admin-mobile-nav::-webkit-scrollbar-thumb {{ background: var(--gold); border-radius: 4px; }}
-
     /* Cards & tables */
     .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
-    .table-light th {{ background: #f8f9fa; font-weight: 600; }}
     .table-responsive {{ -webkit-overflow-scrolling: touch; }}
-</style></head><body style="display:flex; margin:0;">
+    h2 {{ color: #0A3D62; }}
+</style></head><body style="display:flex; flex-direction:column;">
 {desktop_sidebar}
 {mobile_nav}
 <div class="main-admin">
@@ -232,8 +238,6 @@ def admin_page(title, body, active='dashboard'):
 # ---------- Public routes ----------
 @app.route('/')
 def home():
-    # Quick links grid – visible only on mobile (d-md-none)
-    # Blog link removed from mobile quick links
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -615,12 +619,33 @@ def admin_dashboard():
     total_sales = sum(o['total_amount'] for o in orders) if orders else 0
     total_orders = supabase.table('orders').select('count',count='exact').execute().count
     total_products = supabase.table('products').select('count',count='exact').execute().count
-    rows = ''.join(f'<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td><td>KSh {o["total_amount"]}</td><td><span class="badge {"bg-warning text-dark" if o.get("order_status")=="pending" else "bg-success"}">{o.get("order_status","pending")}</span></td></tr>' for o in orders)
-    body = f'''<div class="row g-4 mb-4">
-    <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-success"><i class="fas fa-money-bill-wave me-2"></i>Total Sales</h5><h3 class="fw-bold">KSh {total_sales:,.2f}</h3></div></div>
-    <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-warning"><i class="fas fa-shopping-cart me-2"></i>Orders</h5><h3 class="fw-bold">{total_orders}</h3></div></div>
-    <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-primary"><i class="fas fa-pills me-2"></i>Products</h5><h3 class="fw-bold">{total_products}</h3></div></div>
-    <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-danger"><i class="fas fa-users me-2"></i>Customers</h5><h3 class="fw-bold">-</h3></div></div></div>
+
+    rows = ''.join(
+        f'<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td>'
+        f'<td>KSh {o["total_amount"]}</td>'
+        f'<td><span class="badge {"bg-warning text-dark" if o.get("order_status")=="pending" else "bg-success"}">{o.get("order_status","pending")}</span></td></tr>'
+        for o in orders
+    )
+
+    body = f'''
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3"><div class="stat-card">
+            <h5 class="text-success"><i class="fas fa-money-bill-wave me-2"></i>Total Sales</h5>
+            <h3 class="fw-bold">KSh {total_sales:,.2f}</h3>
+        </div></div>
+        <div class="col-sm-6 col-xl-3"><div class="stat-card">
+            <h5 class="text-warning"><i class="fas fa-shopping-cart me-2"></i>Orders</h5>
+            <h3 class="fw-bold">{total_orders}</h3>
+        </div></div>
+        <div class="col-sm-6 col-xl-3"><div class="stat-card">
+            <h5 class="text-primary"><i class="fas fa-pills me-2"></i>Products</h5>
+            <h3 class="fw-bold">{total_products}</h3>
+        </div></div>
+        <div class="col-sm-6 col-xl-3"><div class="stat-card">
+            <h5 class="text-danger"><i class="fas fa-users me-2"></i>Customers</h5>
+            <h3 class="fw-bold">-</h3>
+        </div></div>
+    </div>
     <h4>Recent Orders</h4>
     <div class="card border-0 shadow-sm rounded-4 p-3">
         <div class="table-responsive">
