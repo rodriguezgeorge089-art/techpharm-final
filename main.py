@@ -140,15 +140,16 @@ def admin_page(title, body, active='dashboard'):
         items = ''
         for name, icon, url in links:
             cls = 'active' if active == name else ''
+            # Clear, visible text: pure white, bold, with a subtle background on hover/active
             items += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>'
         return items
 
-    # Desktop fixed sidebar
+    # Desktop fixed sidebar – improved readability
     desktop_sidebar = f'''
-    <div class="admin-desktop-sidebar d-none d-md-flex flex-column flex-shrink-0" style="width:260px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1rem; position:fixed; top:0; left:0; z-index:1000;">
-        <div class="brand" style="font-weight:800; font-size:1.6rem; margin-bottom:2rem;"><i class="fas fa-pills"></i> DawaLink</div>
+    <div class="admin-desktop-sidebar d-none d-md-flex flex-column flex-shrink-0" style="width:270px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1.2rem; position:fixed; top:0; left:0; z-index:1000; box-shadow: 4px 0 15px rgba(0,0,0,0.1);">
+        <div class="brand" style="font-weight:800; font-size:1.7rem; margin-bottom:2rem; letter-spacing:-0.5px;"><i class="fas fa-pills"></i> DawaLink</div>
         {sidebar_items()}
-        <hr class="mt-auto">
+        <hr class="mt-auto" style="border-color:rgba(255,255,255,0.2);">
         <a href="/" class="btn btn-sm btn-outline-light mb-1">View Site</a>
         <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
     </div>'''
@@ -174,21 +175,42 @@ def admin_page(title, body, active='dashboard'):
     .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
     /* Desktop spacing for fixed sidebar */
     @media (min-width: 768px) {{
-        .main-admin {{ margin-left: 260px; }}
+        .main-admin {{ margin-left: 270px; }}
     }}
-    /* Desktop sidebar link styles */
+    /* Desktop sidebar links – high contrast, always visible */
     .admin-desktop-sidebar a {{
-        color: rgba(255,255,255,0.85);
+        color: #ffffff !important;      /* pure white */
+        font-weight: 600;
         display: flex; align-items: center;
-        padding: 0.7rem 1rem; text-decoration: none;
-        border-radius: 12px; margin-bottom: 4px;
+        padding: 0.8rem 1.2rem; text-decoration: none;
+        border-radius: 12px; margin-bottom: 6px;
         transition: all 0.2s;
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
     }}
-    .admin-desktop-sidebar a:hover,
+    .admin-desktop-sidebar a i {{
+        width: 24px; margin-right: 14px;
+        font-size: 1.1rem;
+        color: #ffffff;
+    }}
+    /* Hover & Active – unmistakable gold highlight */
+    .admin-desktop-sidebar a:hover {{
+        background: rgba(244,162,97,0.9);  /* gold */
+        color: #0A3D62 !important;
+        transform: translateX(4px);
+    }}
+    .admin-desktop-sidebar a:hover i {{
+        color: #0A3D62;
+    }}
     .admin-desktop-sidebar a.active {{
-        background: #F4A261; color: #0A3D62; font-weight: 600;
+        background: #F4A261;              /* solid gold */
+        color: #0A3D62 !important;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }}
-    .admin-desktop-sidebar a i {{ width: 24px; margin-right: 12px; }}
+    .admin-desktop-sidebar a.active i {{
+        color: #0A3D62;
+    }}
 
     /* Mobile nav – smooth scroll */
     .admin-mobile-nav::-webkit-scrollbar {{ height: 4px; }}
