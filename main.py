@@ -197,6 +197,7 @@ def admin_page(title, body, active='dashboard'):
     /* Cards & tables */
     .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
     .table-light th {{ background: #f8f9fa; font-weight: 600; }}
+    .table-responsive {{ -webkit-overflow-scrolling: touch; }}
 </style></head><body style="display:flex; margin:0;">
 {desktop_sidebar}
 {mobile_nav}
@@ -598,7 +599,15 @@ def admin_dashboard():
     <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-warning"><i class="fas fa-shopping-cart me-2"></i>Orders</h5><h3 class="fw-bold">{total_orders}</h3></div></div>
     <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-primary"><i class="fas fa-pills me-2"></i>Products</h5><h3 class="fw-bold">{total_products}</h3></div></div>
     <div class="col-sm-6 col-md-3"><div class="stat-card"><h5 class="text-danger"><i class="fas fa-users me-2"></i>Customers</h5><h3 class="fw-bold">-</h3></div></div></div>
-    <h4>Recent Orders</h4><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table></div>'''
+    <h4>Recent Orders</h4>
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+    </div>'''
     return admin_page("Dashboard", body)
 
 @app.route('/admin/orders')
