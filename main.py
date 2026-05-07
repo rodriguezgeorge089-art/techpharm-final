@@ -15,14 +15,13 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Shared CSS (public pages) ----------
+# ---------- Shared CSS ----------
 COMMON_CSS = """
 <style>
     :root { --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
     body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; }
     .navbar-public { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.5rem 0; }
-    .navbar-brand { font-weight: 800; font-size: 1.5rem; color: var(--blue) !important; }
-    .navbar-brand i { background: var(--gold); color: white; border-radius: 12px; padding: 6px 10px; margin-right: 8px; font-size: 1.2rem; }
+    .navbar-brand { text-decoration: none; }
     .public-nav-links { display: flex; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0.5rem; padding: 0 0.5rem; align-items: center; }
     .public-nav-links .nav-link { white-space: nowrap; padding: 0.5rem 1rem; color: #4A5568; font-weight: 600; text-decoration: none; border-radius: 20px; transition: all 0.2s; }
     .public-nav-links .nav-link:hover { background: #f0f0f0; color: var(--blue); }
@@ -41,6 +40,30 @@ COMMON_CSS = """
     .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
     @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
     .eye-icon { cursor: pointer; }
+
+    /* ---------- BRAND LOGO ---------- */
+    .brand-logo {
+        display: flex; align-items: center; justify-content: center;
+        width: 42px; height: 42px; background: white; border-radius: 50%;
+        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
+        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .brand-name {
+        font-weight: 800; font-size: 1.5rem;
+        background: linear-gradient(135deg, #0A3D62, #1B5A82);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .brand-sub {
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
+        color: #4A5568; text-transform: uppercase;
+    }
+    @media (max-width: 768px) {
+        .hero h1 { font-size: 2rem; }
+        .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
+        .brand-name { font-size: 1.2rem; }
+    }
 </style>
 """
 
@@ -69,7 +92,13 @@ def public_page(title, body, user=None):
 
     nav_links_html = ''.join(f'<a class="nav-link" href="{url}">{label}</a>' for url, label in links)
     nav = f'''<nav class="navbar navbar-public sticky-top"><div class="container d-flex align-items-center">
-        <a class="navbar-brand" href="/"><i class="fas fa-pills"></i> {PHARMACY_NAME}</a>
+        <a class="navbar-brand d-flex align-items-center" href="/" style="text-decoration:none;">
+            <span class="brand-logo"><i class="fas fa-plus"></i></span>
+            <div class="brand-text">
+                <span class="brand-name">DawaLink</span>
+                <span class="brand-sub">PHARMACY LTD</span>
+            </div>
+        </a>
         <div class="public-nav-links ms-auto">{nav_links_html}</div>
     </div></nav>'''
 
@@ -114,7 +143,6 @@ def public_page(title, body, user=None):
 </script>
 </body></html>"""
 
-# ---------- Admin layout (all items permanently visible) ----------
 def admin_page(title, body, active='dashboard'):
     links = [
         ('dashboard','fa-tachometer-alt','/admin'),
@@ -129,9 +157,16 @@ def admin_page(title, body, active='dashboard'):
         ('export','fa-download','/admin/export-orders')
     ]
 
-    # Desktop sidebar (always visible, no hamburger)
+    # Desktop sidebar with brand redesign
     sidebar_html = '<div class="admin-sidebar d-none d-md-flex flex-column">'
-    sidebar_html += '<div class="brand"><i class="fas fa-pills"></i> DawaLink</div>'
+    sidebar_html += '''
+    <div class="admin-brand" style="display:flex; align-items:center; margin-bottom:2rem;">
+        <span class="admin-brand-logo" style="display:flex; align-items:center; justify-content:center; width:44px; height:44px; background:white; border-radius:50%; margin-right:12px; color:#0A3D62; font-size:1.6rem; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"><i class="fas fa-plus"></i></span>
+        <div style="display:flex; flex-direction:column; line-height:1.2;">
+            <span style="font-weight:800; font-size:1.5rem; color:white;">DawaLink</span>
+            <span style="font-size:0.65rem; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.85); text-transform:uppercase;">PHARMACY LTD</span>
+        </div>
+    </div>'''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
         sidebar_html += f'<a href="{url}" class="{active_class}"><i class="fas {icon}"></i> {name.replace("-"," ").title()}</a>'
@@ -140,7 +175,7 @@ def admin_page(title, body, active='dashboard'):
     sidebar_html += '<a href="/logout" class="btn-logout">🚪 Logout</a>'
     sidebar_html += '</div>'
 
-    # Mobile top bar (scrollable, all links shown)
+    # Mobile navbar (scrollable, always visible)
     mobile_links = ''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
@@ -160,10 +195,6 @@ def admin_page(title, body, active='dashboard'):
             width: 250px; background: var(--grad); color: white;
             min-height: 100vh; position: fixed; top: 0; left: 0; z-index: 1000;
             padding: 1.5rem 1rem; box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-        }}
-        .admin-sidebar .brand {{
-            font-weight: 800; font-size: 1.5rem; margin-bottom: 2rem;
-            letter-spacing: -0.5px;
         }}
         .admin-sidebar a {{
             color: #ffffff !important; font-weight: 600;
@@ -232,7 +263,6 @@ def admin_page(title, body, active='dashboard'):
 # ---------- Public routes ----------
 @app.route('/')
 def home():
-    # (quick links mobile-only, blog removed)
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -606,7 +636,7 @@ def admin_required(f):
         return f(*args,**kwargs)
     return decorated
 
-# ---------- Admin Dashboard (fully visible) ----------
+# ---------- Admin Dashboard ----------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
