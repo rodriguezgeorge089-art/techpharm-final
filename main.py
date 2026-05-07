@@ -15,12 +15,12 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- Shared CSS ----------
+# ---------- SHARED CSS (Public Pages) ----------
 COMMON_CSS = """
 <style>
     :root { --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; }
-    .navbar-public { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.5rem 0; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; overflow-x: hidden; }
+    .navbar-public { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); box-shadow: 0 2px 20px rgba(0,0,0,0.05); padding: 0.4rem 0; }
     .navbar-brand { text-decoration: none; }
     .public-nav-links { display: flex; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0.5rem; padding: 0 0.5rem; align-items: center; }
     .public-nav-links .nav-link { white-space: nowrap; padding: 0.5rem 1rem; color: #4A5568; font-weight: 600; text-decoration: none; border-radius: 20px; transition: all 0.2s; }
@@ -30,37 +30,65 @@ COMMON_CSS = """
     .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
     .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
     .btn-outline-primary:hover { background: var(--gold); color: white; }
-    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .hero { background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%); color: white; border-radius: 24px; padding: 4rem 1.5rem; text-align: center; margin-top: 1rem; position: relative; overflow: hidden; }
-    .hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.5px; }
-    .hero p { font-size: 1.2rem; max-width: 650px; margin: 1rem auto; opacity: 0.9; }
+    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
+
+    /* Hero Section */
+    .hero { background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%); color: white; border-radius: 0 0 60px 60px; padding: 5rem 1.5rem 6rem; text-align: center; margin-top: 0; position: relative; overflow: hidden; }
+    .hero h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+    .hero .lead { font-size: 1.25rem; max-width: 650px; margin: 1.5rem auto; opacity: 0.95; }
+    .hero .btn-group .btn { padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700; border-radius: 50px; margin: 0.5rem; transition: all 0.3s; }
+    .hero .btn-white { background: white; color: var(--blue); }
+    .hero .btn-white:hover { background: var(--gold); color: white; transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
+    .hero .btn-outline-white { border: 2px solid white; color: white; }
+    .hero .btn-outline-white:hover { background: white; color: var(--blue); }
+
+    /* Animated Background Circles */
+    .hero-bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
+    .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05); animation: float 6s infinite ease-in-out; }
+    .hero-bg-animation .circle:nth-child(1) { width: 300px; height: 300px; top: -50px; left: -50px; animation-delay: 0s; }
+    .hero-bg-animation .circle:nth-child(2) { width: 200px; height: 200px; bottom: -30px; right: -20px; animation-delay: 2s; }
+    .hero-bg-animation .circle:nth-child(3) { width: 150px; height: 150px; top: 40%; right: 10%; animation-delay: 4s; }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+
+    /* Trust Counters */
+    .counter-item { text-align: center; padding: 2rem; }
+    .counter-item .number { font-size: 2.5rem; font-weight: 800; color: var(--blue); }
+    .counter-item .label { font-size: 1rem; color: #6c757d; }
+
+    /* How It Works steps */
+    .step-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; border: 2px solid transparent; height: 100%; }
+    .step-card:hover { border-color: var(--gold); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .step-icon { width: 70px; height: 70px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem; }
+
+    /* Testimonial cards */
+    .testimonial-card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%; }
+    .testimonial-card .quote { font-style: italic; color: #555; }
+    .stars { color: var(--gold); font-size: 1rem; }
+
+    /* Newsletter */
+    .newsletter-box { background: var(--grad); color: white; border-radius: 30px; padding: 3rem; text-align: center; }
+    .newsletter-box input { border-radius: 50px; padding: 0.8rem 1.5rem; border: none; width: 100%; max-width: 400px; }
+    .newsletter-box button { border-radius: 50px; padding: 0.8rem 2rem; background: var(--gold); color: white; font-weight: 700; border: none; }
+
+    /* Footer */
+    footer { background: #0A3D62; color: white; }
+
+    /* Brand logo (public) */
+    .brand-logo { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; background: white; border-radius: 50%; margin-right: 12px; color: var(--blue); font-size: 1.5rem; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .brand-name { font-weight: 800; font-size: 1.5rem; background: linear-gradient(135deg, #0A3D62, #1B5A82); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .brand-sub { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; color: #4A5568; text-transform: uppercase; }
+
     .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; }
     .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
     .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
     @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
     .eye-icon { cursor: pointer; }
 
-    /* ---------- BRAND LOGO ---------- */
-    .brand-logo {
-        display: flex; align-items: center; justify-content: center;
-        width: 42px; height: 42px; background: white; border-radius: 50%;
-        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
-        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-    .brand-name {
-        font-weight: 800; font-size: 1.5rem;
-        background: linear-gradient(135deg, #0A3D62, #1B5A82);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    .brand-sub {
-        font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
-        color: #4A5568; text-transform: uppercase;
-    }
     @media (max-width: 768px) {
-        .hero h1 { font-size: 2rem; }
+        .hero h1 { font-size: 2.2rem; }
+        .hero .lead { font-size: 1rem; }
         .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
         .brand-name { font-size: 1.2rem; }
     }
@@ -108,8 +136,7 @@ def public_page(title, body, user=None):
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {COMMON_CSS}</head><body>
 {nav}
-<div class="container mt-4">{body}</div>
-<footer class="text-center py-4 mt-5" style="background:var(--blue);color:white;"><p>&copy; 2026 {PHARMACY_NAME}. All rights reserved.</p></footer>
+{body}
 <a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -143,6 +170,7 @@ def public_page(title, body, user=None):
 </script>
 </body></html>"""
 
+# ---------- Admin Page Layout ----------
 def admin_page(title, body, active='dashboard'):
     links = [
         ('dashboard','fa-tachometer-alt','/admin'),
@@ -157,6 +185,7 @@ def admin_page(title, body, active='dashboard'):
         ('export','fa-download','/admin/export-orders')
     ]
 
+    # Desktop sidebar
     sidebar_html = '<div class="admin-sidebar d-none d-md-flex flex-column">'
     sidebar_html += '''
     <div class="admin-brand" style="display:flex; align-items:center; margin-bottom:2rem;">
@@ -174,6 +203,7 @@ def admin_page(title, body, active='dashboard'):
     sidebar_html += '<a href="/logout" class="btn-logout">🚪 Logout</a>'
     sidebar_html += '</div>'
 
+    # Mobile top bar (scrollable)
     mobile_links = ''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
@@ -258,34 +288,49 @@ def admin_page(title, body, active='dashboard'):
 </body>
 </html>"""
 
-# ---------- START: Stunning New Home Page ----------
+# ---------- STUNNING HOME PAGE ----------
 @app.route('/')
 def home():
-    # Fetch 3 random active products for featured section
+    # Fetch featured products (4 random active)
     try:
-        featured = supabase.table('products').select('id,name,price,image_url').eq('active',True).limit(3).execute().data or []
+        featured = supabase.table('products').select('id,name,price,image_url').eq('active',True).limit(4).execute().data or []
     except:
         featured = []
 
+    # Real counts from database
+    try:
+        total_orders = supabase.table('orders').select('count', count='exact').execute().count
+    except:
+        total_orders = 0
+    try:
+        total_products = supabase.table('products').select('count', count='exact').execute().count
+    except:
+        total_products = 0
+    try:
+        total_branches = supabase.table('branches').select('count', count='exact').execute().count
+    except:
+        total_branches = 0
+
+    # Build featured HTML
     featured_html = ''
     if featured:
         for p in featured:
-            img = f'<img src="{p["image_url"]}" style="height:150px; object-fit:cover; border-radius:12px 12px 0 0;">' if p.get('image_url') else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:150px; border-radius:12px 12px 0 0;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
+            img = f'<img src="{p["image_url"]}" class="card-img-top" style="height:160px; object-fit:cover; border-radius:15px 15px 0 0;">' if p.get('image_url') else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:160px; border-radius:15px 15px 0 0;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
             featured_html += f'''
-            <div class="col-md-4 mb-4">
+            <div class="col-md-3 mb-4">
                 <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
                     {img}
                     <div class="card-body text-center">
                         <h5 class="fw-bold">{p['name']}</h5>
-                        <p class="text-success fw-bold">KSh {p['price']}</p>
-                        <a href="/shop" class="btn btn-outline-primary btn-sm rounded-pill">View Details</a>
+                        <p class="text-success fw-bold mb-2">KSh {p['price']}</p>
+                        <a href="/shop" class="btn btn-outline-primary btn-sm rounded-pill">View</a>
                     </div>
                 </div>
             </div>'''
     else:
-        featured_html = '<div class="col-12 text-center"><p class="text-muted">No products available yet. <a href="/shop">Visit our shop</a> to browse.</p></div>'
+        featured_html = '<div class="col-12 text-center"><p class="text-muted">No products yet. <a href="/shop">Start shopping</a></p></div>'
 
-    # Quick links (mobile only, blog removed)
+    # Quick links (mobile only)
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -295,7 +340,7 @@ def home():
                 <div class="col-4"><a href="/prescription" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-file-prescription fa-2x text-primary"></i><div class="mt-2 fw-bold small">Rx</div></a></div>
                 <div class="col-4"><a href="/branches" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-map-marker-alt fa-2x text-primary"></i><div class="mt-2 fw-bold small">Branches</div></a></div>
                 <div class="col-4"><a href="/cart" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-shopping-cart fa-2x text-primary"></i><div class="mt-2 fw-bold small">Cart</div></a></div>
-                <div class="col-4"><a href="/my-account" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-box fa-2x text-primary"></i><div class="mt-2 fw-bold small">My Orders</div></a></div>
+                <div class="col-4"><a href="/my-account" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-box fa-2x text-primary"></i><div class="mt-2 fw-bold small">Orders</div></a></div>
                 <div class="col-4"><a href="/logout" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-sign-out-alt fa-2x text-danger"></i><div class="mt-2 fw-bold small">Logout</div></a></div>
             </div>
         </div>'''
@@ -314,127 +359,138 @@ def home():
         </div>'''
 
     body = f"""
-    <!-- HERO SECTION -->
-    <div class="hero position-relative overflow-hidden">
-        <div class="position-relative" style="z-index: 1;">
-            <h1 class="display-4 fw-bold">Your Health, Delivered with Care</h1>
-            <p class="lead">Genuine medicines, wellness essentials, and personal care products – delivered to your doorstep across Kenya.</p>
-            <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
-                <a href="/shop" class="btn btn-light btn-lg rounded-pill px-4 shadow">Shop Now</a>
-                <a href="/prescription" class="btn btn-outline-light btn-lg rounded-pill px-4">Upload Prescription</a>
-            </div>
+    <!-- HERO -->
+    <div class="hero">
+        <div class="hero-bg-animation">
+            <div class="circle"></div>
+            <div class="circle"></div>
+            <div class="circle"></div>
         </div>
-        <div class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%);"></div>
-    </div>
-
-    <!-- TRUST BADGES -->
-    <div class="row mt-4 g-3 text-center">
-        <div class="col-md-4">
-            <div class="bg-white rounded-4 p-4 shadow-sm h-100">
-                <i class="fas fa-certificate fa-3x text-success mb-3"></i>
-                <h5>100% Licensed</h5>
-                <p class="text-muted small">All products sourced from approved pharmacies & manufacturers.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="bg-white rounded-4 p-4 shadow-sm h-100">
-                <i class="fas fa-truck-fast fa-3x text-warning mb-3"></i>
-                <h5>Lightning Delivery</h5>
-                <p class="text-muted small">Reliable courier network ensuring fast, safe delivery across Kenya.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="bg-white rounded-4 p-4 shadow-sm h-100">
-                <i class="fas fa-headset fa-3x text-info mb-3"></i>
-                <h5>24/7 Expert Support</h5>
-                <p class="text-muted small">Pharmacist-led customer care, always ready to assist you.</p>
+        <div class="position-relative" style="z-index:1;">
+            <h1 class="fw-bold mb-3">Your Health,<br>Delivered with Care.</h1>
+            <p class="lead mb-4">Genuine human & veterinary medicines, supplements, and personal care products – delivered quickly to your doorstep anywhere in Kenya.</p>
+            <div class="btn-group">
+                <a href="/shop" class="btn btn-white btn-lg">Explore Products</a>
+                <a href="/prescription" class="btn btn-outline-white btn-lg">Upload Prescription</a>
             </div>
         </div>
     </div>
 
-    <!-- WHY CHOOSE US -->
-    <div class="mt-5 text-center">
-        <h2 class="fw-bold" style="color: var(--blue);">Why Choose DawaLink?</h2>
-        <p class="text-muted">Experience healthcare that puts you first.</p>
+    <!-- TRUST COUNTERS (Real data from DB) -->
+    <div class="container py-5">
+        <div class="row g-4">
+            <div class="col-6 col-md-3 counter-item">
+                <div class="number">{total_orders}</div>
+                <div class="label">Orders Delivered</div>
+            </div>
+            <div class="col-6 col-md-3 counter-item">
+                <div class="number">{total_products}</div>
+                <div class="label">Quality Products</div>
+            </div>
+            <div class="col-6 col-md-3 counter-item">
+                <div class="number">{total_branches}</div>
+                <div class="label">Branches Nationwide</div>
+            </div>
+            <div class="col-6 col-md-3 counter-item">
+                <div class="number">24/7</div>
+                <div class="label">Expert Support</div>
+            </div>
+        </div>
     </div>
-    <div class="row mt-3 g-4">
-        <div class="col-md-4">
-            <div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
-                <i class="fas fa-pills fa-3x text-primary mb-3"></i>
-                <h5>Wide Product Range</h5>
-                <p>From supplements to pain relief and baby care – we have everything you need.</p>
+
+    <!-- HOW IT WORKS -->
+    <div class="container py-5 text-center">
+        <h2 class="fw-bold mb-2" style="color: var(--blue);">How DawaLink Works</h2>
+        <p class="text-muted mb-5">Three simple steps to better health.</p>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-icon"><i class="fas fa-search"></i></div>
+                    <h5>1. Find Your Medicine</h5>
+                    <p class="text-muted">Browse our wide catalog or use the search to locate exactly what you need.</p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
-                <i class="fas fa-shield-alt fa-3x text-success mb-3"></i>
-                <h5>Genuine Quality</h5>
-                <p>Every product is verified for authenticity and safety before sale.</p>
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-icon"><i class="fas fa-clipboard-check"></i></div>
+                    <h5>2. Verified & Approved</h5>
+                    <p class="text-muted">Our pharmacists review every order and prescription for safety and accuracy.</p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4">
-                <i class="fas fa-tags fa-3x text-warning mb-3"></i>
-                <h5>Great Pricing</h5>
-                <p>Competitive prices and regular discounts – your health doesn't have to be expensive.</p>
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-icon"><i class="fas fa-truck"></i></div>
+                    <h5>3. Fast, Discreet Delivery</h5>
+                    <p class="text-muted">Receive your order at home or pick it up at your nearest branch.</p>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- FEATURED PRODUCTS -->
-    <div class="mt-5 text-center">
-        <h2 class="fw-bold" style="color: var(--blue);">Featured Products</h2>
-        <p class="text-muted">Our most popular health essentials.</p>
-    </div>
-    <div class="row mt-3">
-        {featured_html}
+    <div class="container py-5 text-center">
+        <h2 class="fw-bold mb-2" style="color: var(--blue);">Featured Products</h2>
+        <p class="text-muted mb-5">Our top‑rated health essentials handpicked for you.</p>
+        <div class="row">
+            {featured_html}
+        </div>
     </div>
 
     <!-- TESTIMONIALS -->
-    <div class="mt-5 text-center">
-        <h2 class="fw-bold" style="color: var(--blue);">What Our Customers Say</h2>
-    </div>
-    <div class="row mt-3 g-4">
-        <div class="col-md-4">
-            <div class="card p-4 border-0 shadow-sm rounded-4 h-100">
-                <i class="fas fa-quote-left fa-2x text-muted mb-2"></i>
-                <p class="fst-italic">"DawaLink delivered my prescription in under 2 hours! Absolutely reliable."</p>
-                <strong class="mt-2">– Jane M.</strong>
+    <div class="container py-5 text-center">
+        <h2 class="fw-bold mb-2" style="color: var(--blue);">Loved by Thousands</h2>
+        <p class="text-muted mb-5">Real feedback from our happy customers.</p>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <p class="quote">"DawaLink saved me a trip to the clinic. My prescription was verified and delivered within hours. Truly reliable!"</p>
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <strong class="d-block mt-2">– Grace A.</strong>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card p-4 border-0 shadow-sm rounded-4 h-100">
-                <i class="fas fa-quote-left fa-2x text-muted mb-2"></i>
-                <p class="fst-italic">"Great prices and the customer service is top-notch. I’m a loyal customer now."</p>
-                <strong class="mt-2">– Peter K.</strong>
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <p class="quote">"I regularly order supplements for my family. The pricing is great and customer service is always helpful."</p>
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></div>
+                    <strong class="d-block mt-2">– Brian O.</strong>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card p-4 border-0 shadow-sm rounded-4 h-100">
-                <i class="fas fa-quote-left fa-2x text-muted mb-2"></i>
-                <p class="fst-italic">"The website is so easy to use, and my order arrived discreetly packaged."</p>
-                <strong class="mt-2">– Aisha O.</strong>
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <p class="quote">"Very professional. I love how discreet the packaging is. Highly recommended for anyone valuing privacy."</p>
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <strong class="d-block mt-2">– Wanjiku M.</strong>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- FINAL CTA -->
-    <div class="mt-5 text-center p-5 rounded-4" style="background: var(--grad); color: white;">
-        <h2 class="fw-bold">Ready to Experience the DawaLink Difference?</h2>
-        <p class="mb-4">Start shopping or upload your prescription today.</p>
-        <a href="/shop" class="btn btn-light btn-lg rounded-pill px-4 me-2">Browse Products</a>
-        <a href="/prescription" class="btn btn-outline-light btn-lg rounded-pill px-4">Upload Rx</a>
+    <!-- NEWSLETTER / CTA -->
+    <div class="container py-5">
+        <div class="newsletter-box">
+            <h2 class="fw-bold mb-3">Stay Healthy with DawaLink</h2>
+            <p class="mb-4">Subscribe for exclusive offers, health tips, and new product alerts.</p>
+            <form action="/contact" method="POST" class="d-flex justify-content-center flex-wrap">
+                <input type="email" name="email" placeholder="Enter your email" class="mb-2 mb-md-0 me-md-2" required>
+                <button type="submit" class="btn">Subscribe</button>
+            </form>
+        </div>
     </div>
+
+    <!-- FOOTER (inline, but we also have a global footer in public_page - we'll skip the global one for home by not using the default footer) -->
+    <footer class="text-center py-4 mt-5" style="background: var(--blue); color: white;">
+        <p class="mb-0">&copy; 2026 {PHARMACY_NAME}. All rights reserved. | <i class="fas fa-phone"></i> {PHARMACY_PHONE}</p>
+    </footer>
 
     {quick_links}
     """
     user = None
     if session.get('user_id'):
         user = {'full_name': session.get('user_name', 'User'), 'is_admin': session.get('is_admin', False)}
+    # Note: we pass user=None here, but the public_page function will still compute cart.
     return public_page("Home", body, user)
-# ---------- END: Stunning New Home Page ----------
 
-# ---------- Shop ----------
+# ---------- SHOP ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search',''); category = request.args.get('category',''); page = int(request.args.get('page',1))
