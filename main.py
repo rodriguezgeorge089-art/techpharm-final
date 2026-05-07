@@ -70,7 +70,8 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    links = [ ('/', 'Home'), ('/shop', 'Shop'), ('/blog', 'Blog'), ('/prescription', 'Rx'),
+    # Blog link removed from navbar
+    links = [ ('/', 'Home'), ('/shop', 'Shop'), ('/prescription', 'Rx'),
               ('/branches', 'Branches'), ('/cart', f'Cart {int(cart_total)}') ]
     if user:
         links.append(('/my-account', 'Orders'))
@@ -166,7 +167,12 @@ def admin_page(title, body, active='dashboard'):
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    body {{ display: flex; margin:0; }} .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
+    body {{ display: flex; margin:0; }}
+    .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
+    /* Prevent content from being hidden behind the fixed sidebar on desktop */
+    @media (min-width: 768px) {{
+        .main-admin {{ margin-left: 260px; }}
+    }}
     .admin-desktop-sidebar a {{ color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }}
     .admin-desktop-sidebar a:hover, .admin-desktop-sidebar a.active {{ background: #F4A261; color: #0A3D62; font-weight: 600; }}
     .admin-desktop-sidebar a i {{ width: 24px; margin-right: 12px; }}
@@ -176,9 +182,17 @@ def admin_page(title, body, active='dashboard'):
     .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
     .table-light th {{ background: #f8f9fa; font-weight: 600; }}
     .admin-quick-links {{ display: none; }}
-    @media (max-width: 768px) {{
-        .admin-desktop-sidebar {{ display: none !important; }} .admin-toggle-btn {{ display: block !important; }}
-        .admin-offcanvas {{ width: 280px !important; }} .admin-quick-links {{ display: flex !important; flex-wrap: wrap; gap:0.5rem; margin-bottom:1.5rem; }}
+    @media (max-width: 767.98px) {{
+        .admin-desktop-sidebar {{ display: none !important; }}
+        .admin-toggle-btn {{ display: block !important; }}
+        .admin-offcanvas {{ width: 280px !important; }}
+        .admin-quick-links {{ display: flex !important; flex-wrap: wrap; gap:0.5rem; margin-bottom:1.5rem; }}
+        .main-admin {{ margin-left: 0 !important; }}
+    }}
+    @media (min-width: 768px) {{
+        .admin-toggle-btn {{ display: none !important; }}
+        .admin-offcanvas {{ display: none !important; }}
+        .admin-quick-links {{ display: none !important; }}
     }}
 </style></head><body style="display:flex; margin:0;">
 {desktop_sidebar}
@@ -194,13 +208,14 @@ def admin_page(title, body, active='dashboard'):
 # ---------- Public routes ----------
 @app.route('/')
 def home():
+    # Quick links grid – visible only on mobile (d-md-none)
+    # Blog link removed from mobile quick links
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
             <h5 class="text-center mb-3 fw-bold">Quick Links</h5>
             <div class="row g-3 text-center">
                 <div class="col-4"><a href="/shop" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-store fa-2x text-primary"></i><div class="mt-2 fw-bold small">Shop</div></a></div>
-                <div class="col-4"><a href="/blog" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-newspaper fa-2x text-primary"></i><div class="mt-2 fw-bold small">Blog</div></a></div>
                 <div class="col-4"><a href="/prescription" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-file-prescription fa-2x text-primary"></i><div class="mt-2 fw-bold small">Rx</div></a></div>
                 <div class="col-4"><a href="/branches" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-map-marker-alt fa-2x text-primary"></i><div class="mt-2 fw-bold small">Branches</div></a></div>
                 <div class="col-4"><a href="/cart" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-shopping-cart fa-2x text-primary"></i><div class="mt-2 fw-bold small">Cart</div></a></div>
@@ -214,7 +229,6 @@ def home():
             <h5 class="text-center mb-3 fw-bold">Quick Links</h5>
             <div class="row g-3 text-center">
                 <div class="col-4"><a href="/shop" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-store fa-2x text-primary"></i><div class="mt-2 fw-bold small">Shop</div></a></div>
-                <div class="col-4"><a href="/blog" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-newspaper fa-2x text-primary"></i><div class="mt-2 fw-bold small">Blog</div></a></div>
                 <div class="col-4"><a href="/prescription" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-file-prescription fa-2x text-primary"></i><div class="mt-2 fw-bold small">Rx</div></a></div>
                 <div class="col-4"><a href="/branches" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-map-marker-alt fa-2x text-primary"></i><div class="mt-2 fw-bold small">Branches</div></a></div>
                 <div class="col-4"><a href="/cart" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-shopping-cart fa-2x text-primary"></i><div class="mt-2 fw-bold small">Cart</div></a></div>
@@ -239,12 +253,6 @@ def home():
     if session.get('user_id'):
         user = {'full_name': session.get('user_name', 'User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Home", body, user)
-
-@app.route('/blog')
-def blog():
-    posts = [{"title":"Understanding Pain Relief","date":"2026-04-15","snippet":"Learn about OTC pain relievers."},{"title":"Essential Baby Care","date":"2026-04-10","snippet":"A guide for new parents."},{"title":"Probiotics & Gut Health","date":"2026-04-02","snippet":"How probiotics improve wellness."}]
-    html = ''.join(f"""<div class="card mb-4 shadow-sm border-0 rounded-4 overflow-hidden"><div class="row g-0"><div class="col-md-4 bg-light d-flex align-items-center justify-content-center p-4"><i class="fas fa-newspaper fa-4x text-muted"></i></div><div class="col-md-8"><div class="card-body"><h5 class="fw-bold">{p['title']}</h5><small class="text-muted"><i class="far fa-calendar-alt me-1"></i>{p['date']}</small><p class="mt-2">{p['snippet']}</p></div></div></div></div>""" for p in posts)
-    return public_page("Blog", html)
 
 @app.route('/shop')
 def shop():
@@ -465,7 +473,6 @@ def prescription_upload():
 @app.route('/branches')
 def branches():
     branches = supabase.table('branches').select('*').order('name').execute().data or []
-    # Default to Nairobi, or first branch's coordinates
     map_lat = -1.2921
     map_lng = 36.8219
     if branches and branches[0].get('latitude') and branches[0].get('longitude'):
@@ -568,7 +575,7 @@ def my_account():
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
-# ---------- Admin decorator (MUST be defined before admin routes) ----------
+# ---------- Admin decorator ----------
 def admin_required(f):
     @wraps(f)
     def decorated(*args,**kwargs):
@@ -748,7 +755,7 @@ def delete_branch(bid):
     supabase.table('branches').delete().eq('id', bid).execute()
     return redirect('/admin/branches')
 
-# ---------- Other admin routes (Products, Prescriptions, etc.) ----------
+# ---------- Other admin routes ----------
 @app.route('/admin/products')
 @admin_required
 def admin_products():
