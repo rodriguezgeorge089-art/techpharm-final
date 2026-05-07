@@ -44,15 +44,9 @@ COMMON_CSS = """
     @media (max-width: 768px) {
         .hero h1 { font-size: 2rem; }
         .admin-desktop-sidebar { display: none !important; }
-        .admin-toggle-btn { display: block !important; }
-        .admin-offcanvas { width: 280px !important; }
-        .admin-quick-links { display: flex !important; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-        .admin-quick-links a { flex: 1 0 auto; }
     }
     @media (min-width: 769px) {
-        .admin-toggle-btn { display: none !important; }
-        .admin-offcanvas { display: none !important; }
-        .admin-quick-links { display: none !important; }
+        .admin-desktop-sidebar { display: block !important; }
     }
 </style>
 """
@@ -70,7 +64,7 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    # Blog link removed from navbar
+    # Navbar links – Blog removed
     links = [ ('/', 'Home'), ('/shop', 'Shop'), ('/prescription', 'Rx'),
               ('/branches', 'Branches'), ('/cart', f'Cart {int(cart_total)}') ]
     if user:
@@ -130,12 +124,18 @@ def public_page(title, body, user=None):
 
 def admin_page(title, body, active='dashboard'):
     links = [
-        ('dashboard','fa-tachometer-alt','/admin'), ('orders','fa-shopping-cart','/admin/orders'),
-        ('products','fa-pills','/admin/products'), ('prescriptions','fa-file-prescription','/admin/prescriptions'),
-        ('customers','fa-users','/admin/customers'), ('users','fa-headset','/admin/users'),
-        ('create-user','fa-user-plus','/admin/create-user'), ('settings','fa-cog','/admin/settings'),
-        ('branches','fa-map-marker-alt','/admin/branches'), ('export','fa-download','/admin/export-orders')
+        ('dashboard','fa-tachometer-alt','/admin'),
+        ('orders','fa-shopping-cart','/admin/orders'),
+        ('products','fa-pills','/admin/products'),
+        ('prescriptions','fa-file-prescription','/admin/prescriptions'),
+        ('customers','fa-users','/admin/customers'),
+        ('users','fa-headset','/admin/users'),
+        ('create-user','fa-user-plus','/admin/create-user'),
+        ('settings','fa-cog','/admin/settings'),
+        ('branches','fa-map-marker-alt','/admin/branches'),
+        ('export','fa-download','/admin/export-orders')
     ]
+
     def sidebar_items():
         items = ''
         for name, icon, url in links:
@@ -143,6 +143,7 @@ def admin_page(title, body, active='dashboard'):
             items += f'<a href="{url}" class="{cls}"><i class="fas {icon}"></i> <span>{name.replace("-"," ").title()}</span></a>'
         return items
 
+    # Desktop fixed sidebar
     desktop_sidebar = f'''
     <div class="admin-desktop-sidebar d-none d-md-flex flex-column flex-shrink-0" style="width:260px; background:var(--grad); color:white; min-height:100vh; padding:1.5rem 1rem; position:fixed; top:0; left:0; z-index:1000;">
         <div class="brand" style="font-weight:800; font-size:1.6rem; margin-bottom:2rem;"><i class="fas fa-pills"></i> DawaLink</div>
@@ -152,15 +153,17 @@ def admin_page(title, body, active='dashboard'):
         <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
     </div>'''
 
-    offcanvas = f'''
-    <div class="offcanvas offcanvas-start admin-offcanvas" tabindex="-1" id="adminOffcanvas" style="background:var(--grad); color:white;">
-        <div class="offcanvas-header"><h5 class="offcanvas-title"><i class="fas fa-pills"></i> DawaLink</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button></div>
-        <div class="offcanvas-body"><div class="d-flex flex-column">{sidebar_items()}<hr><a href="/" class="btn btn-sm btn-outline-light mb-1">View Site</a><a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a></div></div>
-    </div>'''
+    # Mobile permanent nav bar (visible only on small screens)
+    mobile_pills = ''
+    for name, icon, url in links:
+        cls = 'active' if active == name else ''
+        mobile_pills += f'<a href="{url}" class="btn btn-sm rounded-pill me-1 my-1 {("btn-primary" if cls=="active" else "btn-outline-primary")}"><i class="fas {icon} me-1"></i> {name.replace("-"," ").title()}</a>'
 
-    quick_links = ''.join(f'<a href="{url}" class="btn btn-outline-primary btn-sm rounded-pill flex-fill text-center mx-1">{name.replace("-"," ").title()}</a>' for name,_,url in links)
-    mobile_quick = f'<div class="admin-quick-links">{quick_links}</div>'
-    toggle_btn = '<button class="btn btn-outline-primary admin-toggle-btn d-md-none mb-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminOffcanvas"><i class="fas fa-bars"></i> Menu</button>'
+    mobile_nav = f'''
+    <div class="d-md-none admin-mobile-nav" style="background:white; padding:0.5rem 0.5rem; overflow-x:auto; white-space:nowrap; border-bottom:1px solid #eee; position:sticky; top:0; z-index:1020;">
+        {mobile_pills}
+    </div>
+    '''
 
     return f"""<!DOCTYPE html><html><head><title>{title} – Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -169,37 +172,35 @@ def admin_page(title, body, active='dashboard'):
 <style>
     body {{ display: flex; margin:0; }}
     .main-admin {{ flex:1; padding:2rem; background:#f4f6f9; min-height:100vh; }}
-    /* Prevent content from being hidden behind the fixed sidebar on desktop */
+    /* Desktop spacing for fixed sidebar */
     @media (min-width: 768px) {{
         .main-admin {{ margin-left: 260px; }}
     }}
-    .admin-desktop-sidebar a {{ color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s; }}
-    .admin-desktop-sidebar a:hover, .admin-desktop-sidebar a.active {{ background: #F4A261; color: #0A3D62; font-weight: 600; }}
+    /* Desktop sidebar link styles */
+    .admin-desktop-sidebar a {{
+        color: rgba(255,255,255,0.85);
+        display: flex; align-items: center;
+        padding: 0.7rem 1rem; text-decoration: none;
+        border-radius: 12px; margin-bottom: 4px;
+        transition: all 0.2s;
+    }}
+    .admin-desktop-sidebar a:hover,
+    .admin-desktop-sidebar a.active {{
+        background: #F4A261; color: #0A3D62; font-weight: 600;
+    }}
     .admin-desktop-sidebar a i {{ width: 24px; margin-right: 12px; }}
-    .offcanvas-body a {{ color: rgba(255,255,255,0.85); display: flex; align-items: center; padding: 0.7rem 1rem; text-decoration: none; border-radius: 12px; margin-bottom: 4px; }}
-    .offcanvas-body a:hover, .offcanvas-body a.active {{ background: #F4A261; color: #0A3D62; font-weight: 600; }}
-    .offcanvas-body a i {{ width: 24px; margin-right: 12px; }}
+
+    /* Mobile nav – smooth scroll */
+    .admin-mobile-nav::-webkit-scrollbar {{ height: 4px; }}
+    .admin-mobile-nav::-webkit-scrollbar-thumb {{ background: var(--gold); border-radius: 4px; }}
+
+    /* Cards & tables */
     .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
     .table-light th {{ background: #f8f9fa; font-weight: 600; }}
-    .admin-quick-links {{ display: none; }}
-    @media (max-width: 767.98px) {{
-        .admin-desktop-sidebar {{ display: none !important; }}
-        .admin-toggle-btn {{ display: block !important; }}
-        .admin-offcanvas {{ width: 280px !important; }}
-        .admin-quick-links {{ display: flex !important; flex-wrap: wrap; gap:0.5rem; margin-bottom:1.5rem; }}
-        .main-admin {{ margin-left: 0 !important; }}
-    }}
-    @media (min-width: 768px) {{
-        .admin-toggle-btn {{ display: none !important; }}
-        .admin-offcanvas {{ display: none !important; }}
-        .admin-quick-links {{ display: none !important; }}
-    }}
 </style></head><body style="display:flex; margin:0;">
 {desktop_sidebar}
-{offcanvas}
+{mobile_nav}
 <div class="main-admin">
-    {toggle_btn}
-    {mobile_quick}
     <h2>{title}</h2><hr>{body}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
