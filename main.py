@@ -193,19 +193,49 @@ def admin_page(title, body, active='dashboard'):
 # ---------- Public routes ----------
 @app.route('/')
 def home():
-    body = """<div class="hero">
+    # Quick links grid – visible only on mobile (d-md-none)
+    if session.get('user_id'):
+        quick_links = '''
+        <div class="d-md-none mt-4">
+            <h5 class="text-center mb-3 fw-bold">Quick Links</h5>
+            <div class="row g-3 text-center">
+                <div class="col-4"><a href="/shop" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-store fa-2x text-primary"></i><div class="mt-2 fw-bold small">Shop</div></a></div>
+                <div class="col-4"><a href="/blog" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-newspaper fa-2x text-primary"></i><div class="mt-2 fw-bold small">Blog</div></a></div>
+                <div class="col-4"><a href="/prescription" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-file-prescription fa-2x text-primary"></i><div class="mt-2 fw-bold small">Rx</div></a></div>
+                <div class="col-4"><a href="/cart" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-shopping-cart fa-2x text-primary"></i><div class="mt-2 fw-bold small">Cart</div></a></div>
+                <div class="col-4"><a href="/my-account" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-box fa-2x text-primary"></i><div class="mt-2 fw-bold small">My Orders</div></a></div>
+                <div class="col-4"><a href="/logout" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-sign-out-alt fa-2x text-danger"></i><div class="mt-2 fw-bold small">Logout</div></a></div>
+            </div>
+        </div>'''
+    else:
+        quick_links = '''
+        <div class="d-md-none mt-4">
+            <h5 class="text-center mb-3 fw-bold">Quick Links</h5>
+            <div class="row g-3 text-center">
+                <div class="col-4"><a href="/shop" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-store fa-2x text-primary"></i><div class="mt-2 fw-bold small">Shop</div></a></div>
+                <div class="col-4"><a href="/blog" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-newspaper fa-2x text-primary"></i><div class="mt-2 fw-bold small">Blog</div></a></div>
+                <div class="col-4"><a href="/prescription" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-file-prescription fa-2x text-primary"></i><div class="mt-2 fw-bold small">Rx</div></a></div>
+                <div class="col-4"><a href="/cart" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-shopping-cart fa-2x text-primary"></i><div class="mt-2 fw-bold small">Cart</div></a></div>
+                <div class="col-4"><a href="/login" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-sign-in-alt fa-2x text-primary"></i><div class="mt-2 fw-bold small">Login</div></a></div>
+                <div class="col-4"><a href="/register" class="card p-3 text-decoration-none h-100 shadow-sm rounded-4"><i class="fas fa-user-plus fa-2x text-primary"></i><div class="mt-2 fw-bold small">Register</div></a></div>
+            </div>
+        </div>'''
+
+    body = f"""<div class="hero">
         <h1>Your Health, Delivered with Care</h1>
         <p>Genuine medicines, premium supplements, and personal care products – delivered swiftly to your doorstep across Kenya.</p>
         <a href="/shop" class="btn btn-light btn-lg me-2 rounded-pill px-4">Shop Now</a>
         <a href="/prescription" class="btn btn-outline-light btn-lg rounded-pill px-4">Upload Prescription</a>
     </div>
+    {quick_links}
     <div class="row mt-5 g-4">
         <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4"><i class="fas fa-certificate fa-3x text-success mb-3"></i><h5>100% Genuine</h5><p>All products sourced from licensed pharmacies.</p></div></div>
         <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4"><i class="fas fa-truck-fast fa-3x text-warning mb-3"></i><h5>Lightning Delivery</h5><p>Reliable courier across Kenya.</p></div></div>
         <div class="col-md-4"><div class="card p-4 text-center h-100 border-0 shadow-sm rounded-4"><i class="fas fa-headset fa-3x text-info mb-3"></i><h5>24/7 Support</h5><p>Pharmacist-led customer care.</p></div></div>
     </div>"""
     user = None
-    if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
+    if session.get('user_id'):
+        user = {'full_name': session.get('user_name', 'User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Home", body, user)
 
 @app.route('/blog')
@@ -592,8 +622,6 @@ def admin_invoice(oid):
     return html
 
 # ---------- Remaining admin routes (Products, Prescriptions, Customers, etc.) ----------
-# (Same as last working version – I'll include them briefly to keep the code complete, but they are unchanged.)
-
 @app.route('/admin/products')
 @admin_required
 def admin_products():
