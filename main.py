@@ -1,10 +1,4 @@
-import os
-import json
-import bcrypt
-import csv
-import io
-import struct
-import zlib
+import os, json, bcrypt, csv, io, struct, zlib
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
@@ -15,7 +9,6 @@ from flask import (
     Response,
     make_response,
     url_for,
-    render_template_string,
 )
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
@@ -960,12 +953,12 @@ def my_account():
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
-# ---------- Admin Decorator (MUST be defined before admin routes) ----------
+# ---------- Admin Decorator (defined before all admin routes) ----------
 def admin_required(f):
     @wraps(f)
-    def decorated(*args,**kwargs):
+    def decorated(*args, **kwargs):
         if not session.get('is_admin'): return redirect('/login')
-        return f(*args,**kwargs)
+        return f(*args, **kwargs)
     return decorated
 
 # ---------- Admin Dashboard ----------
@@ -1226,28 +1219,51 @@ def admin_settings():
     msg = '<div class="alert alert-success">Password updated!</div>' if request.args.get('success') else ''
     return admin_page("Settings",f'{msg}<form method="post" style="max-width:400px;">{csrf_field()}<input class="form-control mb-2" type="password" name="new_password" placeholder="New Password"><button class="btn btn-primary">Update</button></form>', active='settings')
 
-# ---------- Admin: Discounts ----------
+# ---------- Admin: Discounts (FIXED) ----------
 @app.route('/admin/discounts')
 @admin_required
 def admin_discounts():
-    codes = supabase.table('discount_codes').select('*').order('created_at',desc=True).execute().data or []
-    rows = ''.join(
-        f'''<tr><td>{c['code']}</td><td>{c.get('discount_percent','')}%</td>
-        <td>{c.get('discount_amount','')} KSh</td><td>{c.get('active')}</td>
-        <td><a href="/admin/disable-discount/{c['id']}" class="btn btn-sm btn-danger">Disable</a></td></tr>''' for c in codes)
-    return admin_page("Discount Codes", f'<a href="/admin/add-discount" class="btn btn-success mb-3">+ New Code</a><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover"><thead><tr><th>Code</th><th>Percent</th><th>Amount</th><th>Active</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>', active='discounts')
+    try:
+        # Use 'id' ordering instead of 'created_at' to avoid missing column errors
+        codes = supabase.table('discount_codes').select('*').order('id', desc=True).execute().data or []
+    except Exception as e:
+        codes = []
+    rows = ''
+    for c in codes:
+        percent = c.get('discount_percent', '')
+        amount = c.get('discount_amount', '')
+        active = c.get('active', False)
+        status = 'Active' if active else 'Disabled'
+        rows += f'''<tr>
+            <td>{c['code']}</td>
+            <td>{percent}%</td>
+            <td>{amount} KSh</td>
+            <td>{status}</td>
+            <td><a href="/admin/disable-discount/{c['id']}" class="btn btn-sm btn-danger">Disable</a></td>
+        </tr>'''
+    body = f'''<a href="/admin/add-discount" class="btn btn-success mb-3">+ New Code</a>
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <table class="table table-hover">
+            <thead><tr><th>Code</th><th>Percent</th><th>Amount</th><th>Active</th><th></th></tr></thead>
+            <tbody>{rows or '<tr><td colspan="5" class="text-center">No discount codes yet.</td></tr>'}</tbody>
+        </table>
+    </div>'''
+    return admin_page("Discount Codes", body, active='discounts')
 
 @app.route('/admin/add-discount', methods=['GET','POST'])
 @admin_required
 def add_discount():
-    if request.method=='POST':
+    if request.method == 'POST':
         code = request.form['code'].upper()
         percent = request.form.get('discount_percent')
         amount = request.form.get('discount_amount')
         data = {'code': code, 'active': True}
-        if percent: data['discount_percent'] = float(percent)
-        if amount: data['discount_amount'] = float(amount)
-        supabase.table('discount_codes').insert(data).execute()
+        if percent and percent.strip(): data['discount_percent'] = float(percent)
+        if amount and amount.strip(): data['discount_amount'] = float(amount)
+        try:
+            supabase.table('discount_codes').insert(data).execute()
+        except Exception as e:
+            return admin_page("Add Discount Code", f'<div class="alert alert-danger">Error: {str(e)}</div><a href="/admin/discounts">Back</a>', active='discounts')
         return redirect('/admin/discounts')
     return admin_page("Add Discount Code", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="code" placeholder="CODE" required>
@@ -1258,7 +1274,9 @@ def add_discount():
 @app.route('/admin/disable-discount/<int:did>')
 @admin_required
 def disable_discount(did):
-    supabase.table('discount_codes').update({'active': False}).eq('id',did).execute()
+    try:
+        supabase.table('discount_codes').update({'active': False}).eq('id', did).execute()
+    except: pass
     return redirect('/admin/discounts')
 
 # ---------- Admin: Branches ----------
