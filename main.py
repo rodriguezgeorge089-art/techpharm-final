@@ -15,35 +15,129 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- SHARED CSS (Public Pages) ----------
+# ---------- COMMON CSS (public pages) ----------
 COMMON_CSS = """
 <style>
-    :root { --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f6f9; margin: 0; overflow-x: hidden; }
-    .navbar-public { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); box-shadow: 0 2px 20px rgba(0,0,0,0.05); padding: 0.4rem 0; }
-    .navbar-brand { text-decoration: none; }
-    .public-nav-links { display: flex; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0.5rem; padding: 0 0.5rem; align-items: center; }
-    .public-nav-links .nav-link { white-space: nowrap; padding: 0.5rem 1rem; color: #4A5568; font-weight: 600; text-decoration: none; border-radius: 20px; transition: all 0.2s; }
-    .public-nav-links .nav-link:hover { background: #f0f0f0; color: var(--blue); }
-    .public-nav-links .nav-link.active { background: var(--gold); color: white !important; }
-    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
-    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
-    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
-    .btn-outline-primary:hover { background: var(--gold); color: white; }
-    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
-    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
+    :root {
+        --blue: #0A3D62;
+        --gold: #F4A261;
+        --grad: linear-gradient(135deg, #0A3D62, #1B5A82);
+        --nav-grad-1: linear-gradient(135deg, #0A3D62, #1B5A82);
+        --nav-grad-2: linear-gradient(135deg, #2E8B57, #1B5A82);
+        --nav-grad-3: linear-gradient(135deg, #F4A261, #E76F51);
+        --nav-grad-4: linear-gradient(135deg, #6C63FF, #3F3D9E);
+        --nav-grad-5: linear-gradient(135deg, #E91E63, #AD1457);
+        --nav-grad-6: linear-gradient(135deg, #00BCD4, #00838F);
+        --nav-grad-7: linear-gradient(135deg, #FF9800, #F57C00);
+        --nav-grad-8: linear-gradient(135deg, #4CAF50, #2E7D32);
+        --nav-grad-9: linear-gradient(135deg, #9C27B0, #6A1B9A);
+    }
 
-    /* Hero Section */
-    .hero { background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%); color: white; border-radius: 0 0 60px 60px; padding: 5rem 1.5rem 6rem; text-align: center; margin-top: 0; position: relative; overflow: hidden; }
+    body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background-color: #f4f6f9;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230A3D62' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm-10-10v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        margin: 0;
+        overflow-x: hidden;
+    }
+
+    .navbar-public {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(15px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        padding: 0.5rem 0;
+    }
+    .navbar-brand { text-decoration: none; }
+    .public-nav-links {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.5rem;
+        padding: 0 0.5rem;
+        align-items: center;
+    }
+    .public-nav-links .nav-link {
+        white-space: nowrap;
+        padding: 0.5rem 1rem;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 30px;
+        transition: all 0.3s ease;
+        background: var(--nav-grad-1);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .public-nav-links .nav-link i { font-size: 0.9rem; }
+
+    /* Different gradient for each nav link */
+    .public-nav-links .nav-link:nth-child(1) { background: var(--nav-grad-1); }
+    .public-nav-links .nav-link:nth-child(2) { background: var(--nav-grad-2); }
+    .public-nav-links .nav-link:nth-child(3) { background: var(--nav-grad-3); }
+    .public-nav-links .nav-link:nth-child(4) { background: var(--nav-grad-4); }
+    .public-nav-links .nav-link:nth-child(5) { background: var(--nav-grad-5); }
+    .public-nav-links .nav-link:nth-child(6) { background: var(--nav-grad-6); }
+    .public-nav-links .nav-link:nth-child(7) { background: var(--nav-grad-7); }
+    .public-nav-links .nav-link:nth-child(8) { background: var(--nav-grad-8); }
+    .public-nav-links .nav-link:nth-child(9) { background: var(--nav-grad-9); }
+
+    .public-nav-links .nav-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        filter: brightness(1.1);
+    }
+    .public-nav-links .nav-link.active {
+        background: var(--gold) !important;
+        color: #0A3D62 !important;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(244,162,97,0.5);
+    }
+
+    /* Brand logo */
+    .brand-logo {
+        display: flex; align-items: center; justify-content: center;
+        width: 42px; height: 42px; background: white; border-radius: 50%;
+        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
+        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .brand-name {
+        font-weight: 800; font-size: 1.5rem;
+        background: linear-gradient(135deg, #0A3D62, #1B5A82);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .brand-sub {
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
+        color: #4A5568; text-transform: uppercase;
+    }
+
+    /* Hero */
+    .hero {
+        background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%);
+        color: white;
+        border-radius: 0 0 60px 60px;
+        padding: 5rem 1.5rem 6rem;
+        text-align: center;
+        margin-top: 0;
+        position: relative;
+        overflow: hidden;
+    }
     .hero h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
     .hero .lead { font-size: 1.25rem; max-width: 650px; margin: 1.5rem auto; opacity: 0.95; }
-    .hero .btn-group .btn { padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700; border-radius: 50px; margin: 0.5rem; transition: all 0.3s; }
+    .hero .btn-group .btn {
+        padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700;
+        border-radius: 50px; margin: 0.5rem; transition: all 0.3s;
+    }
     .hero .btn-white { background: white; color: var(--blue); }
     .hero .btn-white:hover { background: var(--gold); color: white; transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
     .hero .btn-outline-white { border: 2px solid white; color: white; }
     .hero .btn-outline-white:hover { background: white; color: var(--blue); }
 
-    /* Animated Background Circles */
+    /* Floating circles */
     .hero-bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
     .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05); animation: float 6s infinite ease-in-out; }
     .hero-bg-animation .circle:nth-child(1) { width: 300px; height: 300px; top: -50px; left: -50px; animation-delay: 0s; }
@@ -51,17 +145,22 @@ COMMON_CSS = """
     .hero-bg-animation .circle:nth-child(3) { width: 150px; height: 150px; top: 40%; right: 10%; animation-delay: 4s; }
     @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
 
-    /* Trust Counters */
+    /* Counter items */
     .counter-item { text-align: center; padding: 2rem; }
     .counter-item .number { font-size: 2.5rem; font-weight: 800; color: var(--blue); }
     .counter-item .label { font-size: 1rem; color: #6c757d; }
 
-    /* How It Works steps */
+    /* Step cards */
     .step-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; border: 2px solid transparent; height: 100%; }
     .step-card:hover { border-color: var(--gold); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
     .step-icon { width: 70px; height: 70px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem; }
 
-    /* Testimonial cards */
+    /* Service cards */
+    .service-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; height: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .service-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .service-icon { width: 60px; height: 60px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.2rem; }
+
+    /* Testimonials */
     .testimonial-card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%; }
     .testimonial-card .quote { font-style: italic; color: #555; }
     .stars { color: var(--gold); font-size: 1rem; }
@@ -71,14 +170,13 @@ COMMON_CSS = """
     .newsletter-box input { border-radius: 50px; padding: 0.8rem 1.5rem; border: none; width: 100%; max-width: 400px; }
     .newsletter-box button { border-radius: 50px; padding: 0.8rem 2rem; background: var(--gold); color: white; font-weight: 700; border: none; }
 
-    /* Footer */
-    footer { background: #0A3D62; color: white; }
-
-    /* Brand logo (public) */
-    .brand-logo { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; background: white; border-radius: 50%; margin-right: 12px; color: var(--blue); font-size: 1.5rem; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-    .brand-name { font-weight: 800; font-size: 1.5rem; background: linear-gradient(135deg, #0A3D62, #1B5A82); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .brand-sub { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; color: #4A5568; text-transform: uppercase; }
+    /* Buttons */
+    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
+    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
+    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
+    .btn-outline-primary:hover { background: var(--gold); color: white; }
+    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
 
     .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; }
     .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
@@ -91,6 +189,7 @@ COMMON_CSS = """
         .hero .lead { font-size: 1rem; }
         .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
         .brand-name { font-size: 1.2rem; }
+        .public-nav-links .nav-link { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
     }
 </style>
 """
@@ -108,17 +207,23 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    links = [ ('/', 'Home'), ('/shop', 'Shop'), ('/prescription', 'Rx'),
-              ('/branches', 'Branches'), ('/cart', f'Cart {int(cart_total)}') ]
+    # Nav links with Font Awesome icons
+    links = [
+        ('/', 'Home', 'fa-home'),
+        ('/shop', 'Shop', 'fa-store'),
+        ('/prescription', 'Rx', 'fa-file-prescription'),
+        ('/branches', 'Branches', 'fa-map-marker-alt'),
+        ('/cart', f'Cart {int(cart_total)}', 'fa-shopping-cart')
+    ]
     if user:
-        links.append(('/my-account', 'Orders'))
-        if user.get('is_admin'): links.append(('/admin', 'Admin'))
-        links.append(('/logout', 'Logout'))
+        links.append(('/my-account', 'Orders', 'fa-box'))
+        if user.get('is_admin'): links.append(('/admin', 'Admin', 'fa-tachometer-alt'))
+        links.append(('/logout', 'Logout', 'fa-sign-out-alt'))
     else:
-        links.append(('/login', 'Login'))
-        links.append(('/register', 'Register'))
+        links.append(('/login', 'Login', 'fa-sign-in-alt'))
+        links.append(('/register', 'Register', 'fa-user-plus'))
 
-    nav_links_html = ''.join(f'<a class="nav-link" href="{url}">{label}</a>' for url, label in links)
+    nav_links_html = ''.join(f'<a class="nav-link" href="{url}"><i class="fas {icon}"></i>{label}</a>' for url, label, icon in links)
     nav = f'''<nav class="navbar navbar-public sticky-top"><div class="container d-flex align-items-center">
         <a class="navbar-brand d-flex align-items-center" href="/" style="text-decoration:none;">
             <span class="brand-logo"><i class="fas fa-plus"></i></span>
@@ -149,9 +254,6 @@ def public_page(title, body, user=None):
         toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>Item added to cart!';
         document.getElementById('toastContainer').appendChild(toast);
         setTimeout(()=>toast.remove(), 3000);
-        const url = new URL(window.location);
-        url.searchParams.delete('added');
-        window.history.replaceState({{}}, '', url);
     }}
     document.querySelectorAll('.toggle-password').forEach(btn => {{
         btn.addEventListener('click', function() {{
@@ -170,7 +272,7 @@ def public_page(title, body, user=None):
 </script>
 </body></html>"""
 
-# ---------- Admin Page Layout ----------
+# ---------- Admin layout (unchanged) ----------
 def admin_page(title, body, active='dashboard'):
     links = [
         ('dashboard','fa-tachometer-alt','/admin'),
@@ -185,7 +287,6 @@ def admin_page(title, body, active='dashboard'):
         ('export','fa-download','/admin/export-orders')
     ]
 
-    # Desktop sidebar
     sidebar_html = '<div class="admin-sidebar d-none d-md-flex flex-column">'
     sidebar_html += '''
     <div class="admin-brand" style="display:flex; align-items:center; margin-bottom:2rem;">
@@ -203,7 +304,6 @@ def admin_page(title, body, active='dashboard'):
     sidebar_html += '<a href="/logout" class="btn-logout">🚪 Logout</a>'
     sidebar_html += '</div>'
 
-    # Mobile top bar (scrollable)
     mobile_links = ''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
@@ -291,27 +391,21 @@ def admin_page(title, body, active='dashboard'):
 # ---------- STUNNING HOME PAGE ----------
 @app.route('/')
 def home():
-    # Fetch featured products (4 random active)
+    # Fetch featured products (4 random)
     try:
         featured = supabase.table('products').select('id,name,price,image_url').eq('active',True).limit(4).execute().data or []
     except:
         featured = []
 
-    # Real counts from database
-    try:
-        total_orders = supabase.table('orders').select('count', count='exact').execute().count
-    except:
-        total_orders = 0
-    try:
-        total_products = supabase.table('products').select('count', count='exact').execute().count
-    except:
-        total_products = 0
-    try:
-        total_branches = supabase.table('branches').select('count', count='exact').execute().count
-    except:
-        total_branches = 0
+    # Real counts from DB
+    try: total_orders = supabase.table('orders').select('count', count='exact').execute().count
+    except: total_orders = 0
+    try: total_products = supabase.table('products').select('count', count='exact').execute().count
+    except: total_products = 0
+    try: total_branches = supabase.table('branches').select('count', count='exact').execute().count
+    except: total_branches = 0
 
-    # Build featured HTML
+    # Featured products HTML
     featured_html = ''
     if featured:
         for p in featured:
@@ -330,7 +424,7 @@ def home():
     else:
         featured_html = '<div class="col-12 text-center"><p class="text-muted">No products yet. <a href="/shop">Start shopping</a></p></div>'
 
-    # Quick links (mobile only)
+    # Mobile quick links (unchanged)
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -376,7 +470,7 @@ def home():
         </div>
     </div>
 
-    <!-- TRUST COUNTERS (Real data from DB) -->
+    <!-- TRUST COUNTERS (Real data) -->
     <div class="container py-5">
         <div class="row g-4">
             <div class="col-6 col-md-3 counter-item">
@@ -422,6 +516,56 @@ def home():
                     <div class="step-icon"><i class="fas fa-truck"></i></div>
                     <h5>3. Fast, Discreet Delivery</h5>
                     <p class="text-muted">Receive your order at home or pick it up at your nearest branch.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OUR SERVICES (original but reworded) -->
+    <div class="container py-5 text-center">
+        <h2 class="fw-bold mb-2" style="color: var(--blue);">Our Services</h2>
+        <p class="text-muted mb-5">Comprehensive pharmaceutical solutions tailored to your needs.</p>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-stethoscope"></i></div>
+                    <h5>Medical Equipment</h5>
+                    <p>High‑quality hospital and clinic devices from trusted manufacturers.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-user-md"></i></div>
+                    <h5>Human Medicine</h5>
+                    <p>A complete range of pharmaceutical products for everyday health.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-dog"></i></div>
+                    <h5>Veterinary Medicine</h5>
+                    <p>Effective treatments to keep your animals healthy and thriving.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-flask"></i></div>
+                    <h5>Laboratory Chemicals</h5>
+                    <p>Premium reagents and chemicals for reliable diagnostic work.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-ship"></i></div>
+                    <h5>Medicine Importation</h5>
+                    <p>International sourcing of authentic medicines at competitive prices.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-tractor"></i></div>
+                    <h5>Farm Inputs</h5>
+                    <p>Agro‑chemicals and farming essentials to boost your agricultural yield.</p>
                 </div>
             </div>
         </div>
@@ -477,7 +621,7 @@ def home():
         </div>
     </div>
 
-    <!-- FOOTER (inline, but we also have a global footer in public_page - we'll skip the global one for home by not using the default footer) -->
+    <!-- FOOTER -->
     <footer class="text-center py-4 mt-5" style="background: var(--blue); color: white;">
         <p class="mb-0">&copy; 2026 {PHARMACY_NAME}. All rights reserved. | <i class="fas fa-phone"></i> {PHARMACY_PHONE}</p>
     </footer>
@@ -487,7 +631,6 @@ def home():
     user = None
     if session.get('user_id'):
         user = {'full_name': session.get('user_name', 'User'), 'is_admin': session.get('is_admin', False)}
-    # Note: we pass user=None here, but the public_page function will still compute cart.
     return public_page("Home", body, user)
 
 # ---------- SHOP ----------
