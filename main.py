@@ -38,14 +38,12 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- BEAUTIFUL CSS ----------
+# ---------- COMMON CSS (Public Pages) ----------
 COMMON_CSS = """
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
 <style>
     :root {
         --blue: #0A3D62;
         --gold: #F4A261;
-        --teal: #2E8B57;
         --grad: linear-gradient(135deg, #0A3D62, #1B5A82);
         --nav-grad-1: linear-gradient(135deg, #0A3D62, #1B5A82);
         --nav-grad-2: linear-gradient(135deg, #2E8B57, #1B5A82);
@@ -59,46 +57,44 @@ COMMON_CSS = """
     }
 
     body {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        background: linear-gradient(135deg, #f0f4f8 0%, #e0e8f0 100%);
-        background-attachment: fixed;
-        color: #2C3E50;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background-color: #f4f6f9;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230A3D62' fill-opacity='0.03'%3E%3Cpath d='M36 34v- .4 0 0 1 0 4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         margin: 0;
         overflow-x: hidden;
-        transition: background-color 0.3s;
     }
 
-    .container {
-        animation: fadeInUp 0.6s ease both;
-    }
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(15px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ---------- Navbar ---------- */
     .navbar-public {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        box-shadow: 0 4px 30px rgba(0,0,0,0.03);
-        padding: 0.6rem 0;
-        border-bottom: 1px solid rgba(10,61,98,0.05);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(15px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        padding: 0.5rem 0;
     }
     .navbar-brand { text-decoration: none; }
     .public-nav-links {
-        display: flex; flex-wrap: nowrap; overflow-x: auto;
-        -webkit-overflow-scrolling: touch; gap: 0.6rem;
-        padding: 0 0.5rem; align-items: center;
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.5rem;
+        padding: 0 0.5rem;
+        align-items: center;
     }
     .public-nav-links .nav-link {
-        white-space: nowrap; padding: 0.5rem 1.2rem; color: white;
-        font-weight: 600; text-decoration: none; border-radius: 30px;
-        transition: all 0.3s ease; background: var(--nav-grad-1);
-        display: flex; align-items: center; gap: 0.4rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        letter-spacing: 0.3px;
+        white-space: nowrap;
+        padding: 0.5rem 1rem;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 30px;
+        transition: all 0.3s ease;
+        background: var(--nav-grad-1);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    .public-nav-links .nav-link i { font-size: 0.95rem; }
+    .public-nav-links .nav-link i { font-size: 0.9rem; }
     .public-nav-links .nav-link:nth-child(1) { background: var(--nav-grad-1); }
     .public-nav-links .nav-link:nth-child(2) { background: var(--nav-grad-2); }
     .public-nav-links .nav-link:nth-child(3) { background: var(--nav-grad-3); }
@@ -110,23 +106,21 @@ COMMON_CSS = """
     .public-nav-links .nav-link:nth-child(9) { background: var(--nav-grad-9); }
     .public-nav-links .nav-link:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        filter: brightness(1.08);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        filter: brightness(1.1);
     }
     .public-nav-links .nav-link.active {
         background: var(--gold) !important;
         color: #0A3D62 !important;
         font-weight: 700;
-        box-shadow: 0 4px 12px rgba(244,162,97,0.4);
+        box-shadow: 0 4px 12px rgba(244,162,97,0.5);
     }
 
-    /* ---------- Brand Logo ---------- */
     .brand-logo {
         display: flex; align-items: center; justify-content: center;
-        width: 44px; height: 44px; background: white; border-radius: 50%;
-        margin-right: 12px; color: var(--blue); font-size: 1.6rem;
-        font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        background: linear-gradient(135deg, #ffffff, #f8f9fa);
+        width: 42px; height: 42px; background: white; border-radius: 50%;
+        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
+        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
     .brand-name {
@@ -140,13 +134,15 @@ COMMON_CSS = """
         color: #4A5568; text-transform: uppercase;
     }
 
-    /* ---------- Hero ---------- */
     .hero {
         background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%);
-        color: white; border-radius: 0 0 60px 60px;
-        padding: 5rem 1.5rem 6rem; text-align: center;
-        margin-top: 0; position: relative; overflow: hidden;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        color: white;
+        border-radius: 0 0 60px 60px;
+        padding: 5rem 1.5rem 6rem;
+        text-align: center;
+        margin-top: 0;
+        position: relative;
+        overflow: hidden;
     }
     .hero h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
     .hero .lead { font-size: 1.25rem; max-width: 650px; margin: 1.5rem auto; opacity: 0.95; }
@@ -160,90 +156,44 @@ COMMON_CSS = """
     .hero .btn-outline-white:hover { background: white; color: var(--blue); }
 
     .hero-bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
-    .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.03); animation: float 6s infinite ease-in-out; }
+    .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05); animation: float 6s infinite ease-in-out; }
     .hero-bg-animation .circle:nth-child(1) { width: 300px; height: 300px; top: -50px; left: -50px; animation-delay: 0s; }
     .hero-bg-animation .circle:nth-child(2) { width: 200px; height: 200px; bottom: -30px; right: -20px; animation-delay: 2s; }
     .hero-bg-animation .circle:nth-child(3) { width: 150px; height: 150px; top: 40%; right: 10%; animation-delay: 4s; }
-    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-25px); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
 
-    /* ---------- Cards & Buttons ---------- */
-    .card {
-        border: none; border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-        transition: all 0.3s ease;
-        background: white;
-    }
-    .card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 24px 40px rgba(0,0,0,0.06);
-    }
-    .btn-primary {
-        background: var(--blue); border: none; border-radius: 40px;
-        padding: 0.7rem 2rem; font-weight: 600; letter-spacing: 0.3px;
-        transition: all 0.3s;
-    }
-    .btn-primary:hover {
-        background: var(--gold);
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(244,162,97,0.3);
-    }
-    .btn-outline-primary {
-        border: 2px solid var(--gold); color: var(--blue);
-        border-radius: 40px; padding: 0.6rem 2rem;
-    }
+    .counter-item { text-align: center; padding: 2rem; }
+    .counter-item .number { font-size: 2.5rem; font-weight: 800; color: var(--blue); }
+    .counter-item .label { font-size: 1rem; color: #6c757d; }
+
+    .step-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; border: 2px solid transparent; height: 100%; }
+    .step-card:hover { border-color: var(--gold); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .step-icon { width: 70px; height: 70px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem; }
+
+    .service-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; height: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .service-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .service-icon { width: 60px; height: 60px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.2rem; }
+
+    .testimonial-card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%; }
+    .testimonial-card .quote { font-style: italic; color: #555; }
+    .stars { color: var(--gold); font-size: 1rem; }
+
+    .newsletter-box { background: var(--grad); color: white; border-radius: 30px; padding: 3rem; text-align: center; }
+    .newsletter-box input { border-radius: 50px; padding: 0.8rem 1.5rem; border: none; width: 100%; max-width: 400px; }
+    .newsletter-box button { border-radius: 50px; padding: 0.8rem 2rem; background: var(--gold); color: white; font-weight: 700; border: none; }
+
+    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
+    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
+    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
     .btn-outline-primary:hover { background: var(--gold); color: white; }
+    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
 
-    .product-actions { opacity: 0; transition: opacity 0.3s; }
-    .card:hover .product-actions { opacity: 1; }
-
-    /* ---------- WhatsApp Float & Back-to-top ---------- */
-    .whatsapp-float {
-        position: fixed; bottom: 30px; right: 30px; width: 56px; height: 56px;
-        background: #25D366; color: white; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.8rem; box-shadow: 0 8px 20px rgba(37,211,102,0.3); z-index: 1000;
-        animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); }
-        70% { box-shadow: 0 0 0 20px rgba(37,211,102,0); }
-        100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); }
-    }
-
-    .back-to-top {
-        position: fixed; bottom: 100px; right: 30px;
-        width: 46px; height: 46px; background: var(--blue); color: white;
-        border-radius: 50%; display: none; align-items: center; justify-content: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 999; border: none;
-        font-size: 1.2rem; transition: all 0.3s;
-    }
-    .back-to-top.show { display: flex; }
-    .back-to-top:hover { background: var(--gold); color: #0A3D62; }
-
-    /* ---------- Toast ---------- */
+    .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; }
     .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-    .toast {
-        background: var(--gold); color: white; padding: 1rem 1.5rem;
-        border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s;
-    }
+    .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
     @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
-
-    /* ---------- Dark Mode ---------- */
-    body.dark-mode {
-        background: #1a1a2e;
-        color: #e0e0e0;
-    }
-    body.dark-mode .navbar-public { background: rgba(25, 25, 50, 0.95); }
-    body.dark-mode .card, body.dark-mode .stat-card, body.dark-mode .testimonial-card,
-    body.dark-mode .step-card, body.dark-mode .service-card { background: #16213e; color: #e0e0e0; }
-    body.dark-mode .brand-logo { background: white; }
-    body.dark-mode .brand-name {
-        background: linear-gradient(135deg, #F4A261, #E76F51);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    body.dark-mode .brand-sub { color: #ccc; }
-    body.dark-mode .text-muted { color: #aaa !important; }
+    .eye-icon { cursor: pointer; }
 
     @media (max-width: 768px) {
         .hero h1 { font-size: 2.2rem; }
@@ -251,7 +201,6 @@ COMMON_CSS = """
         .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
         .brand-name { font-size: 1.2rem; }
         .public-nav-links .nav-link { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-        .product-actions { opacity: 1; }
     }
 </style>
 """
@@ -294,10 +243,7 @@ def public_page(title, body, user=None):
                 <span class="brand-sub">PHARMACY LTD</span>
             </div>
         </a>
-        <div class="public-nav-links ms-auto">
-            {nav_links_html}
-            <button onclick="toggleDarkMode()" class="btn btn-sm btn-outline-secondary ms-2" title="Toggle dark mode">🌓</button>
-        </div>
+        <div class="public-nav-links ms-auto">{nav_links_html}</div>
     </div></nav>'''
 
     toast_script = ""
@@ -313,23 +259,9 @@ def public_page(title, body, user=None):
 {nav}
 {body}
 <a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
-<button class="back-to-top" onclick="window.scrollTo({{top:0,behavior:'smooth'}})"><i class="fas fa-arrow-up"></i></button>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Dark mode toggle
-function toggleDarkMode() {{
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-}}
-if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
-
-// Back-to-top button
-const btnTop = document.querySelector('.back-to-top');
-window.addEventListener('scroll', () => {{
-    btnTop.classList.toggle('show', window.scrollY > 300);
-}});
-
 function showToast(message) {{
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -338,12 +270,12 @@ function showToast(message) {{
     setTimeout(() => toast.remove(), 3000);
 }}
 {toast_script}
-(function() {{
+(function(){{
     const params = new URLSearchParams(window.location.search);
-    if (params.get('added') === '1') {{
+    if(params.get('added')==='1'){{
         showToast('Item added to cart!');
     }}
-    if (params.get('wishlist_added') === '1') {{
+    if(params.get('wishlist_added')==='1'){{
         showToast('Added to wishlist!');
     }}
     document.querySelectorAll('.toggle-password').forEach(btn => {{
@@ -352,10 +284,10 @@ function showToast(message) {{
             const icon = this.querySelector('i');
             if (input.type === 'password') {{
                 input.type = 'text';
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                icon.classList.replace('fa-eye','fa-eye-slash');
             }} else {{
                 input.type = 'password';
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                icon.classList.replace('fa-eye-slash','fa-eye');
             }}
         }});
     }});
@@ -496,26 +428,23 @@ def is_password_strong(password):
 
 # ---------- Frequently Bought Together (helper) ----------
 def get_frequently_bought_together(product_id, limit=4):
-    try:
-        orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
-        if not orders_with_product:
-            return []
-        order_ids = list(set([o['order_id'] for o in orders_with_product]))
-        if not order_ids:
-            return []
-        all_items = supabase.table('order_items').select('product_id').in_('order_id', order_ids).execute().data
-        product_counts = {}
-        for item in all_items:
-            pid = item['product_id']
-            if pid == product_id:
-                continue
-            product_counts[pid] = product_counts.get(pid, 0) + 1
-        sorted_pids = sorted(product_counts, key=product_counts.get, reverse=True)[:limit]
-        if not sorted_pids:
-            return []
-        return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
-    except:
+    orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
+    if not orders_with_product:
         return []
+    order_ids = list(set([o['order_id'] for o in orders_with_product]))
+    if not order_ids:
+        return []
+    all_items = supabase.table('order_items').select('product_id').in_('order_id', order_ids).execute().data
+    product_counts = {}
+    for item in all_items:
+        pid = item['product_id']
+        if pid == product_id:
+            continue
+        product_counts[pid] = product_counts.get(pid, 0) + 1
+    sorted_pids = sorted(product_counts, key=product_counts.get, reverse=True)[:limit]
+    if not sorted_pids:
+        return []
+    return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
 
 # ---------- ROUTES ----------
 
@@ -570,6 +499,7 @@ def home():
         featured = supabase.table('products').select('id,name,price,image_url').eq('active',True).limit(4).execute().data or []
     except:
         featured = []
+
     try: total_orders = supabase.table('orders').select('count', count='exact').execute().count
     except: total_orders = 0
     try: total_products = supabase.table('products').select('count', count='exact').execute().count
@@ -585,7 +515,6 @@ def home():
     else:
         featured_html = '<div class="col-12 text-center"><p class="text-muted">No products yet. <a href="/shop">Start shopping</a></p></div>'
 
-    # quick links (mobile only)
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -616,7 +545,9 @@ def home():
     body = f"""
     <div class="hero">
         <div class="hero-bg-animation">
-            <div class="circle"></div><div class="circle"></div><div class="circle"></div>
+            <div class="circle"></div>
+            <div class="circle"></div>
+            <div class="circle"></div>
         </div>
         <div class="position-relative" style="z-index:1;">
             <h1 class="fw-bold mb-3">Your Health,<br>Delivered with Care.</h1>
@@ -716,9 +647,9 @@ def shop():
     rows = ''
     for p in prods:
         img = f'<img src="{p.get("image_url")}" class="card-img-top" style="height:180px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:180px;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
-        rows += f'''<div class="col-6 col-md-4 mb-4"><div class="card h-100 shop-card">{img}<div class="card-body"><h5 class="fw-bold">{p['name']}</h5><p class="text-muted small">{p['category']}</p>
+        rows += f'''<div class="col-6 col-md-4 mb-4"><div class="card h-100">{img}<div class="card-body"><h5 class="fw-bold">{p['name']}</h5><p class="text-muted small">{p['category']}</p>
         <div class="d-flex justify-content-between align-items-center"><span class="h5" style="color:var(--blue);">KSh {p['price']}</span>
-        <div class="product-actions">
+        <div>
             <form action="/cart/add" method="POST" class="d-inline">{csrf_field()}<input type="hidden" name="productId" value="{p['id']}">
             <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm d-inline-block" style="width:60px;">
             <button class="btn btn-primary btn-sm rounded-pill ms-1"><i class="fas fa-cart-plus"></i></button></form>
@@ -759,6 +690,7 @@ def product_detail(pid):
     <div class="stars">{''.join('<i class="fas fa-star"></i>' for _ in range(r['rating']))}</div>
     <p>{r.get('comment','')}</p></div>''' for r in reviews)
 
+    # Frequently Bought Together
     fbt_products = get_frequently_bought_together(pid)
     fbt_html = ''
     if fbt_products:
@@ -783,8 +715,8 @@ def product_detail(pid):
     <h4>KSh {prod['price']}</h4>
     <div class="mb-3">Average rating: {avg_rating} ({len(reviews)} reviews)</div>
     {review_html}
-    {fbt_html}
     {'<h5>Write a review:</h5><form method="post">'+csrf_field()+'<select name="rating" class="form-select mb-2"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select><textarea name="comment" class="form-control mb-2" placeholder="Comment"></textarea><button class="btn btn-primary">Submit</button></form>' if session.get('user_id') else '<p><a href="/login">Log in</a> to review</p>'}
+    {fbt_html}
     <a href="/shop" class="btn btn-outline-primary mt-3">Back to Shop</a>
     '''
     return public_page(prod['name'], body)
@@ -1002,6 +934,7 @@ def branches():
     if branches and branches[0].get('latitude') and branches[0].get('longitude'):
         map_lat = float(branches[0]['latitude'])
         map_lng = float(branches[0]['longitude'])
+
     markers_js = ''
     for b in branches:
         if b.get('latitude') is not None and b.get('longitude') is not None:
@@ -1010,6 +943,7 @@ def branches():
             phone = (b.get('phone') or '').replace("'", "\\'")
             popup = f"<b>{name}</b><br>{addr}<br>{phone}"
             markers_js += f"L.marker([{b['latitude']}, {b['longitude']}]).addTo(map).bindPopup('{popup}');\n"
+
     branch_cards = ''.join(f'''<div class="col-md-6 col-lg-4 mb-4">
             <div class="card h-100 shadow-sm border-0 rounded-4">
                 <div class="card-body">
@@ -1019,6 +953,7 @@ def branches():
                 </div>
             </div>
         </div>''' for b in branches)
+
     body = f'''
     <h2 class="mb-4 fw-bold" style="color:var(--blue);"><i class="fas fa-map-marked-alt me-2"></i>Find Us – Our Branches</h2>
     <div id="map" style="height:400px; border-radius:16px; margin-bottom:2rem;"></div>
@@ -1065,6 +1000,7 @@ def customer_order_detail(oid):
     order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
     if not order or order.get('user_id') != session['user_id']: return "Order not found", 404
     items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+
     status_steps = [
         {'key': 'pending', 'label': 'Order Received', 'icon': 'fas fa-receipt'},
         {'key': 'confirmed', 'label': 'Confirmed', 'icon': 'fas fa-check-circle'},
@@ -1085,6 +1021,7 @@ def customer_order_detail(oid):
             <span class="{'fw-bold' if state == 'active' else ''}">{step['label']}</span>
         </div>'''
     items_html = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
+
     body = f'''
     <h2>Order #{str(oid)[:8]}</h2>
     <div class="row mt-4">
@@ -1113,6 +1050,7 @@ def customer_invoice(oid):
     items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
     item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} .invoice-box{{max-width:800px;margin:auto;border:1px solid #eee;box-shadow:0 0 10px rgba(0,0,0,0.05);padding:2rem;}} .logo{{font-weight:800;font-size:1.8rem;color:#0A3D62;}} .logo span{{color:#F4A261}} table{{width:100%;border-collapse:collapse;}} th{{background:#0A3D62;color:white;padding:10px;}} td{{padding:10px;border-bottom:1px solid #ddd;}} .total-row td{{font-weight:bold;border-top:2px solid #0A3D62;}}</style></head><body>
 <div class="invoice-box">
     <div class="d-flex justify-content-between"><div class="logo">DawaLink <span>Pharmacy</span></div><div><h5>INVOICE</h5><p>#{oid}<br>{order['created_at'][:10]}</p></div></div>
@@ -1521,47 +1459,35 @@ def delete_bundle(bid):
     supabase.table('bundles').delete().eq('id', bid).execute()
     return redirect('/admin/bundles')
 
-# ---------- Admin: Analytics (SAFE) ----------
+# ---------- Admin: Analytics ----------
 @app.route('/admin/analytics')
 @admin_required
 def admin_analytics():
-    top_labels, top_data = [], []
-    try:
-        top_products = supabase.table('order_items').select('product_id, products(name)').execute().data
-        product_sales = {}
-        for item in top_products:
-            pname = item.get('products', {}).get('name', 'Unknown')
-            product_sales[pname] = product_sales.get(pname, 0) + 1
-        sorted_products = sorted(product_sales.items(), key=lambda x: x[1], reverse=True)[:10]
-        top_labels = [x[0] for x in sorted_products]
-        top_data = [x[1] for x in sorted_products]
-    except:
-        pass
+    top_products = supabase.table('order_items').select('product_id, products(name)').execute().data
+    product_sales = {}
+    for item in top_products:
+        pid = item['product_id']
+        pname = item.get('products', {}).get('name', 'Unknown')
+        product_sales[pname] = product_sales.get(pname, 0) + 1
+    sorted_products = sorted(product_sales.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_labels = [x[0] for x in sorted_products]
+    top_data = [x[1] for x in sorted_products]
 
-    cat_labels, cat_data = [], []
-    try:
-        rev_by_cat = supabase.table('order_items').select('products(category), total_price').execute().data
-        cat_revenue = {}
-        for item in rev_by_cat:
-            cat = item.get('products', {}).get('category', 'Uncategorized')
-            cat_revenue[cat] = cat_revenue.get(cat, 0) + float(item['total_price'])
-        cat_labels = list(cat_revenue.keys())
-        cat_data = list(cat_revenue.values())
-    except:
-        pass
+    rev_by_cat = supabase.table('order_items').select('products(category), total_price').execute().data
+    cat_revenue = {}
+    for item in rev_by_cat:
+        cat = item.get('products', {}).get('category', 'Uncategorized')
+        cat_revenue[cat] = cat_revenue.get(cat, 0) + float(item['total_price'])
+    cat_labels = list(cat_revenue.keys())
+    cat_data = list(cat_revenue.values())
 
-    total_customers, repeat_count = 0, 0
-    try:
-        ords = supabase.table('orders').select('user_id').execute().data
-        user_counts = {}
-        for o in ords:
-            uid = o.get('user_id')
-            if uid:
-                user_counts[uid] = user_counts.get(uid, 0) + 1
-        repeat_count = sum(1 for v in user_counts.values() if v > 1)
-        total_customers = len(user_counts)
-    except:
-        pass
+    orders = supabase.table('orders').select('user_id').execute().data
+    user_counts = {}
+    for o in orders:
+        uid = o['user_id']
+        if uid: user_counts[uid] = user_counts.get(uid, 0) + 1
+    repeat_count = sum(1 for v in user_counts.values() if v > 1)
+    total_customers = len(user_counts)
 
     body = f'''
     <div class="row">
