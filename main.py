@@ -1,4 +1,4 @@
-import os, json, bcrypt, csv, io, struct, zlib
+import os, json, bcrypt, csv, io, struct, zlib, base64
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
@@ -39,7 +39,7 @@ PHARMACY_NAME = "DawaLink"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@dawalink.co.ke"
 
-# ---------- COMMON CSS ----------
+# ---------- COMMON CSS (Public Pages) ----------
 COMMON_CSS = """
 <style>
     :root {
@@ -944,14 +944,154 @@ def contact():
     sent = 'Message sent!' if request.args.get('sent') else ''
     return public_page("Contact",f'<h2>Contact</h2><form method="post">{csrf_field()}<input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{sent}')
 
-# ---------- My Account ----------
+# ---------- My Account (with link to order detail) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'): return redirect('/login')
     orders = supabase.table('orders').select('*').eq('user_id',session['user_id']).order('created_at',desc=True).execute().data or []
-    html=''.join(f'<div class="card mb-3 shadow-sm"><div class="card-body"><strong>Order #{str(o["id"])[:8]}</strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{o.get("order_status","")}</span></div></div>' for o in orders)
+    html=''.join(f'<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{o.get("order_status","")}</span></div></div>' for o in orders)
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
+
+# ---------- Order Tracking (Customer) ----------
+@app.route('/order/<int:oid>')
+def customer_order_detail(oid):
+    if not session.get('user_id'):
+        return redirect('/login')
+
+    order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    if not order or order.get('user_id') != session['user_id']:
+        return "Order not found", 404
+
+    items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+
+    # Map status to timeline steps
+    status_steps = [
+        {'key': 'pending', 'label': 'Order Received', 'icon': 'fas fa-receipt'},
+        {'key': 'confirmed', 'label': 'Confirmed', 'icon': 'fas fa-check-circle'},
+        {'key': 'shipped', 'label': 'Shipped', 'icon': 'fas fa-truck'},
+        {'key': 'delivered', 'label': 'Delivered', 'icon': 'fas fa-box'},
+    ]
+    current_status = order.get('order_status', 'pending')
+
+    timeline_html = ''
+    for step in status_steps:
+        if step['key'] == current_status or status_steps.index(step) < status_steps.index(
+            next(s for s in status_steps if s['key'] == current_status)
+        ):
+            state = 'completed' if step['key'] == current_status else 'active'
+        else:
+            state = 'upcoming'
+        timeline_html += f'''
+        <div class="d-flex align-items-center mb-3">
+            <span class="badge rounded-pill p-2 me-2 {'bg-success' if state == 'completed' else 'bg-primary' if state == 'active' else 'bg-light text-muted'}">
+                <i class="{step['icon']}"></i>
+            </span>
+            <span class="{'fw-bold' if state == 'active' else ''}">{step['label']}</span>
+        </div>'''
+
+    items_html = ''.join(
+        f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>'
+        for i in items
+    ) if items else '<tr><td colspan="4">No items</td></tr>'
+
+    body = f'''
+    <h2>Order #{str(oid)[:8]}</h2>
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card p-4 shadow-sm rounded-4">
+                <h5 class="fw-bold">Status Timeline</h5>
+                {timeline_html}
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card p-4 shadow-sm rounded-4">
+                <h5 class="fw-bold">Order Details</h5>
+                <p><strong>Date:</strong> {order['created_at'][:10]}<br>
+                <strong>Shipping Address:</strong> {order.get('shipping_address','')}, {order.get('shipping_city','')}<br>
+                <strong>Phone:</strong> {order.get('shipping_phone','')}<br>
+                <strong>Payment:</strong> {order.get('payment_method','')}</p>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                        <tbody>{items_html}</tbody>
+                    </table>
+                </div>
+                <div class="text-end fw-bold">Total: KSh {order['total_amount']}</div>
+                <a href="/invoice/{oid}" target="_blank" class="btn btn-outline-primary mt-3"><i class="fas fa-print me-2"></i>Download Invoice</a>
+            </div>
+        </div>
+    </div>
+    '''
+    return public_page("Order Details", body)
+
+# ---------- Printable Invoice (Customer) ----------
+@app.route('/invoice/<int:oid>')
+def customer_invoice(oid):
+    if not session.get('user_id'):
+        return redirect('/login')
+
+    order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    if not order or order.get('user_id') != session['user_id']:
+        return "Order not found", 404
+
+    items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+    item_rows = ''.join(
+        f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>'
+        for i in items
+    )
+
+    html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body {{ font-family: 'Segoe UI', sans-serif; padding: 2rem; background: #fff; }}
+    .invoice-box {{ max-width: 800px; margin: auto; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); padding: 2rem; }}
+    .invoice-header {{ border-bottom: 3px solid #0A3D62; padding-bottom: 1rem; margin-bottom: 2rem; }}
+    .invoice-header .logo {{ font-weight: 800; font-size: 1.8rem; color: #0A3D62; }}
+    .invoice-header .logo span {{ color: #F4A261; }}
+    table {{ width: 100%; border-collapse: collapse; }}
+    th {{ background: #0A3D62; color: white; padding: 10px; text-align: left; }}
+    td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
+    .total-row td {{ font-weight: bold; border-top: 2px solid #0A3D62; }}
+    @media print {{
+        body {{ padding: 0; }}
+        .invoice-box {{ box-shadow: none; border: none; padding: 1rem; }}
+    }}
+</style></head><body>
+<div class="invoice-box">
+    <div class="invoice-header d-flex justify-content-between align-items-center">
+        <div class="logo">DawaLink <span>Pharmacy</span></div>
+        <div class="text-end">
+            <h5>INVOICE</h5>
+            <p>#{oid}<br>{order['created_at'][:10]}</p>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-6">
+            <strong>From:</strong><br>
+            DawaLink Pharmacy Ltd<br>
+            Mombasa Road, Taji Mall, Nairobi<br>
+            Tel: {PHARMACY_PHONE}<br>
+            Email: {PHARMACY_EMAIL}
+        </div>
+        <div class="col-6 text-end">
+            <strong>Bill To:</strong><br>
+            {order.get('shipping_name','')}<br>
+            {order.get('shipping_phone','')}<br>
+            {order.get('shipping_address','')}, {order.get('shipping_city','')}
+        </div>
+    </div>
+    <table>
+        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+        <tbody>{item_rows}</tbody>
+        <tfoot><tr class="total-row"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot>
+    </table>
+    <p class="mt-3 text-muted">Thank you for choosing DawaLink!</p>
+</div>
+<script>window.print();</script>
+</body></html>"""
+    return html
 
 # ---------- Admin Decorator (defined before all admin routes) ----------
 def admin_required(f):
@@ -1224,7 +1364,6 @@ def admin_settings():
 @admin_required
 def admin_discounts():
     try:
-        # Use 'id' ordering instead of 'created_at' to avoid missing column errors
         codes = supabase.table('discount_codes').select('*').order('id', desc=True).execute().data or []
     except Exception as e:
         codes = []
