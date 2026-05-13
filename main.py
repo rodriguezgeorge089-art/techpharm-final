@@ -26,7 +26,7 @@ csrf = CSRFProtect(app)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=[],            # ✨ NO GLOBAL LIMIT – avoids 429 errors
     storage_uri="memory://",
 )
 
