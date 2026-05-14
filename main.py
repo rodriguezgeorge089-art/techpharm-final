@@ -17,7 +17,7 @@ from flask_limiter.util import get_remote_address
 
 # ---------- App initialisation ----------
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dawalink-secret')
+app.secret_key = os.environ.get('SECRET_KEY', 'mediocare-secret')
 app.config['WTF_CSRF_ENABLED'] = True
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MB max upload
 
@@ -34,9 +34,9 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-PHARMACY_NAME = "DawaLink"
+PHARMACY_NAME = "Mediocare"
 PHARMACY_PHONE = "+254792524333"
-PHARMACY_EMAIL = "info@dawalink.co.ke"
+PHARMACY_EMAIL = "info@mediocare.co.ke"
 
 # ---------- COMMON CSS (Public Pages) ----------
 COMMON_CSS = """
@@ -241,7 +241,7 @@ def public_page(title, body, user=None):
         <a class="navbar-brand d-flex align-items-center" href="/" style="text-decoration:none;">
             <span class="brand-logo"><i class="fas fa-plus"></i></span>
             <div class="brand-text">
-                <span class="brand-name">DawaLink</span>
+                <span class="brand-name">Mediocare</span>
                 <span class="brand-sub">PHARMACY LTD</span>
             </div>
         </a>
@@ -260,7 +260,7 @@ def public_page(title, body, user=None):
 {COMMON_CSS}</head><body>
 {nav}
 {body}
-<a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20DawaLink" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
+<a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20Mediocare" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -316,7 +316,7 @@ def admin_page(title, body, active='dashboard'):
     <div class="admin-brand" style="display:flex; align-items:center; margin-bottom:2rem;">
         <span class="admin-brand-logo" style="display:flex; align-items:center; justify-content:center; width:44px; height:44px; background:white; border-radius:50%; margin-right:12px; color:#0A3D62; font-size:1.6rem; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"><i class="fas fa-plus"></i></span>
         <div style="display:flex; flex-direction:column; line-height:1.2;">
-            <span style="font-weight:800; font-size:1.5rem; color:white;">DawaLink</span>
+            <span style="font-weight:800; font-size:1.5rem; color:white;">Mediocare</span>
             <span style="font-size:0.65rem; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.85); text-transform:uppercase;">PHARMACY LTD</span>
         </div>
     </div>'''
@@ -566,7 +566,7 @@ def home():
     </div>
 
     <div class="container py-5 text-center">
-        <h2 class="fw-bold mb-2" style="color: var(--blue);">How DawaLink Works</h2>
+        <h2 class="fw-bold mb-2" style="color: var(--blue);">How Mediocare Works</h2>
         <p class="text-muted mb-5">Three simple steps to better health.</p>
         <div class="row g-4">
             <div class="col-md-4"><div class="step-card"><div class="step-icon"><i class="fas fa-search"></i></div><h5>1. Find Your Medicine</h5><p class="text-muted">Browse our wide catalog or use the search to locate exactly what you need.</p></div></div>
@@ -598,7 +598,7 @@ def home():
         <h2 class="fw-bold mb-2" style="color: var(--blue);">Loved by Thousands</h2>
         <p class="text-muted mb-5">Real feedback from our happy customers.</p>
         <div class="row g-4">
-            <div class="col-md-4"><div class="testimonial-card"><p class="quote">"DawaLink saved me a trip to the clinic. My prescription was verified and delivered within hours. Truly reliable!"</p><div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div><strong class="d-block mt-2">– Grace A.</strong></div></div>
+            <div class="col-md-4"><div class="testimonial-card"><p class="quote">"Mediocare saved me a trip to the clinic. My prescription was verified and delivered within hours. Truly reliable!"</p><div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div><strong class="d-block mt-2">– Grace A.</strong></div></div>
             <div class="col-md-4"><div class="testimonial-card"><p class="quote">"I regularly order supplements for my family. The pricing is great and customer service is always helpful."</p><div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></div><strong class="d-block mt-2">– Brian O.</strong></div></div>
             <div class="col-md-4"><div class="testimonial-card"><p class="quote">"Very professional. I love how discreet the packaging is. Highly recommended for anyone valuing privacy."</p><div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div><strong class="d-block mt-2">– Wanjiku M.</strong></div></div>
         </div>
@@ -606,7 +606,7 @@ def home():
 
     <div class="container py-5">
         <div class="newsletter-box">
-            <h2 class="fw-bold mb-3">Stay Healthy with DawaLink</h2>
+            <h2 class="fw-bold mb-3">Stay Healthy with Mediocare</h2>
             <p class="mb-4">Subscribe for exclusive offers, health tips, and new product alerts.</p>
             <form action="/contact" method="POST" class="d-flex justify-content-center flex-wrap">
                 {csrf_field()}
@@ -1078,10 +1078,10 @@ def customer_invoice(oid):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} .invoice-box{{max-width:800px;margin:auto;border:1px solid #eee;box-shadow:0 0 10px rgba(0,0,0,0.05);padding:2rem;}} .logo{{font-weight:800;font-size:1.8rem;color:#0A3D62;}} .logo span{{color:#F4A261}} table{{width:100%;border-collapse:collapse;}} th{{background:#0A3D62;color:white;padding:10px;}} td{{padding:10px;border-bottom:1px solid #ddd;}} .total-row td{{font-weight:bold;border-top:2px solid #0A3D62;}}</style></head><body>
 <div class="invoice-box">
-    <div class="d-flex justify-content-between"><div class="logo">DawaLink <span>Pharmacy</span></div><div><h5>INVOICE</h5><p>#{oid}<br>{order['created_at'][:10]}</p></div></div>
-    <div class="row"><div class="col-6"><strong>From:</strong><br>DawaLink Pharmacy Ltd<br>Mombasa Road, Taji Mall, Nairobi<br>Tel: {PHARMACY_PHONE}</div><div class="col-6 text-end"><strong>Bill To:</strong><br>{order.get('shipping_name','')}<br>{order.get('shipping_phone','')}<br>{order.get('shipping_address','')}, {order.get('shipping_city','')}</div></div>
+    <div class="d-flex justify-content-between"><div class="logo">Mediocare <span>Pharmacy</span></div><div><h5>INVOICE</h5><p>#{oid}<br>{order['created_at'][:10]}</p></div></div>
+    <div class="row"><div class="col-6"><strong>From:</strong><br>Mediocare Pharmacy Ltd<br>Mombasa Road, Taji Mall, Nairobi<br>Tel: {PHARMACY_PHONE}</div><div class="col-6 text-end"><strong>Bill To:</strong><br>{order.get('shipping_name','')}<br>{order.get('shipping_phone','')}<br>{order.get('shipping_address','')}, {order.get('shipping_city','')}</div></div>
     <table class="mt-3"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{item_rows}</tbody><tfoot><tr class="total-row"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot></table>
-    <p class="mt-3">Thank you for choosing DawaLink!</p>
+    <p class="mt-3">Thank you for choosing Mediocare!</p>
 </div><script>window.print();</script></body></html>"""
     return html
 
