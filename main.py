@@ -43,10 +43,170 @@ PHARMACY_NAME = "Mediocare"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@mediocare.co.ke"
 
-# ---------- COMMON CSS (unchanged, but escaped constants used later) ----------
+# ---------- COMMON CSS (Public Pages) – FULL ORIGINAL ----------
 COMMON_CSS = """
 <style>
-    /* ... (your CSS remains exactly the same) ... */
+    :root {
+        --blue: #0A3D62;
+        --gold: #F4A261;
+        --grad: linear-gradient(135deg, #0A3D62, #1B5A82);
+        --nav-grad-1: linear-gradient(135deg, #0A3D62, #1B5A82);
+        --nav-grad-2: linear-gradient(135deg, #2E8B57, #1B5A82);
+        --nav-grad-3: linear-gradient(135deg, #F4A261, #E76F51);
+        --nav-grad-4: linear-gradient(135deg, #6C63FF, #3F3D9E);
+        --nav-grad-5: linear-gradient(135deg, #E91E63, #AD1457);
+        --nav-grad-6: linear-gradient(135deg, #00BCD4, #00838F);
+        --nav-grad-7: linear-gradient(135deg, #FF9800, #F57C00);
+        --nav-grad-8: linear-gradient(135deg, #4CAF50, #2E7D32);
+        --nav-grad-9: linear-gradient(135deg, #9C27B0, #6A1B9A);
+    }
+
+    body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background-color: #f4f6f9;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230A3D62' fill-opacity='0.03'%3E%3Cpath d='M36 34v- .4 0 0 1 0 4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        margin: 0;
+        overflow-x: hidden;
+    }
+
+    .navbar-public {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(15px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        padding: 0.5rem 0;
+    }
+    .navbar-brand { text-decoration: none; }
+    .public-nav-links {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.5rem;
+        padding: 0 0.5rem;
+        align-items: center;
+    }
+    .public-nav-links .nav-link {
+        white-space: nowrap;
+        padding: 0.5rem 1rem;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 30px;
+        transition: all 0.3s ease;
+        background: var(--nav-grad-1);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .public-nav-links .nav-link i { font-size: 0.9rem; }
+    .public-nav-links .nav-link:nth-child(1) { background: var(--nav-grad-1); }
+    .public-nav-links .nav-link:nth-child(2) { background: var(--nav-grad-2); }
+    .public-nav-links .nav-link:nth-child(3) { background: var(--nav-grad-3); }
+    .public-nav-links .nav-link:nth-child(4) { background: var(--nav-grad-4); }
+    .public-nav-links .nav-link:nth-child(5) { background: var(--nav-grad-5); }
+    .public-nav-links .nav-link:nth-child(6) { background: var(--nav-grad-6); }
+    .public-nav-links .nav-link:nth-child(7) { background: var(--nav-grad-7); }
+    .public-nav-links .nav-link:nth-child(8) { background: var(--nav-grad-8); }
+    .public-nav-links .nav-link:nth-child(9) { background: var(--nav-grad-9); }
+    .public-nav-links .nav-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        filter: brightness(1.1);
+    }
+    .public-nav-links .nav-link.active {
+        background: var(--gold) !important;
+        color: #0A3D62 !important;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(244,162,97,0.5);
+    }
+
+    .brand-logo {
+        display: flex; align-items: center; justify-content: center;
+        width: 42px; height: 42px; background: white; border-radius: 50%;
+        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
+        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .brand-name {
+        font-weight: 800; font-size: 1.5rem;
+        background: linear-gradient(135deg, #0A3D62, #1B5A82);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .brand-sub {
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
+        color: #4A5568; text-transform: uppercase;
+    }
+
+    .hero {
+        background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%);
+        color: white;
+        border-radius: 0 0 60px 60px;
+        padding: 5rem 1.5rem 6rem;
+        text-align: center;
+        margin-top: 0;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+    .hero .lead { font-size: 1.25rem; max-width: 650px; margin: 1.5rem auto; opacity: 0.95; }
+    .hero .btn-group .btn {
+        padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700;
+        border-radius: 50px; margin: 0.5rem; transition: all 0.3s;
+    }
+    .hero .btn-white { background: white; color: var(--blue); }
+    .hero .btn-white:hover { background: var(--gold); color: white; transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
+    .hero .btn-outline-white { border: 2px solid white; color: white; }
+    .hero .btn-outline-white:hover { background: white; color: var(--blue); }
+
+    .hero-bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
+    .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05); animation: float 6s infinite ease-in-out; }
+    .hero-bg-animation .circle:nth-child(1) { width: 300px; height: 300px; top: -50px; left: -50px; animation-delay: 0s; }
+    .hero-bg-animation .circle:nth-child(2) { width: 200px; height: 200px; bottom: -30px; right: -20px; animation-delay: 2s; }
+    .hero-bg-animation .circle:nth-child(3) { width: 150px; height: 150px; top: 40%; right: 10%; animation-delay: 4s; }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+
+    .counter-item { text-align: center; padding: 2rem; }
+    .counter-item .number { font-size: 2.5rem; font-weight: 800; color: var(--blue); }
+    .counter-item .label { font-size: 1rem; color: #6c757d; }
+
+    .step-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; border: 2px solid transparent; height: 100%; }
+    .step-card:hover { border-color: var(--gold); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .step-icon { width: 70px; height: 70px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem; }
+
+    .service-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; height: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .service-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .service-icon { width: 60px; height: 60px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.2rem; }
+
+    .testimonial-card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%; }
+    .testimonial-card .quote { font-style: italic; color: #555; }
+    .stars { color: var(--gold); font-size: 1rem; }
+
+    .newsletter-box { background: var(--grad); color: white; border-radius: 30px; padding: 3rem; text-align: center; }
+    .newsletter-box input { border-radius: 50px; padding: 0.8rem 1.5rem; border: none; width: 100%; max-width: 400px; }
+    .newsletter-box button { border-radius: 50px; padding: 0.8rem 2rem; background: var(--gold); color: white; font-weight: 700; border: none; }
+
+    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
+    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
+    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
+    .btn-outline-primary:hover { background: var(--gold); color: white; }
+    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
+
+    .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; }
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+    .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+    .eye-icon { cursor: pointer; }
+
+    @media (max-width: 768px) {
+        .hero h1 { font-size: 2.2rem; }
+        .hero .lead { font-size: 1rem; }
+        .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
+        .brand-name { font-size: 1.2rem; }
+        .public-nav-links .nav-link { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+    }
 </style>
 """
 
@@ -63,7 +223,6 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
-    # Link generation – labels are static, so no escaping needed here
     links = [
         ('/', 'Home', 'fa-home'),
         ('/shop', 'Shop', 'fa-store'),
@@ -97,8 +256,6 @@ def public_page(title, body, user=None):
     toast_script = ""
     if request.args.get('toast'):
         toast_msg = request.args.get('toast')
-        # toast_msg is user-provided query param, must be escaped in JS context
-        # json.dumps will safely encode for JavaScript string
         toast_script = f"<script>window.addEventListener('DOMContentLoaded', ()=> showToast({json.dumps(toast_msg)}));</script>"
 
     return f"""<!DOCTYPE html><html><head><title>{e(title)} – {e(PHARMACY_NAME)}</title>
@@ -191,7 +348,64 @@ def admin_page(title, body, active='dashboard'):
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        /* ... (your admin CSS unchanged) ... */
+        :root {{ --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }}
+        .admin-sidebar {{
+            width: 250px; background: var(--grad); color: white;
+            min-height: 100vh; position: fixed; top: 0; left: 0; z-index: 1000;
+            padding: 1.5rem 1rem; box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }}
+        .admin-sidebar a {{
+            color: #ffffff !important; font-weight: 600;
+            display: flex; align-items: center; padding: 0.8rem 1.2rem;
+            text-decoration: none; border-radius: 12px; margin-bottom: 4px;
+            transition: all 0.2s;
+        }}
+        .admin-sidebar a i {{ width: 24px; margin-right: 12px; font-size: 1.1rem; color: #ffffff; }}
+        .admin-sidebar a:hover {{
+            background: rgba(244,162,97,0.9); color: #0A3D62 !important;
+            transform: translateX(4px);
+        }}
+        .admin-sidebar a:hover i {{ color: #0A3D62; }}
+        .admin-sidebar a.active {{
+            background: var(--gold); color: #0A3D62 !important;
+            font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }}
+        .admin-sidebar a.active i {{ color: #0A3D62; }}
+        .admin-sidebar .btn-view, .admin-sidebar .btn-logout {{
+            display: block; padding: 0.6rem 1rem; border-radius: 8px;
+            margin-bottom: 4px; text-align: center; color: white !important;
+            background: rgba(255,255,255,0.15);
+        }}
+        .admin-sidebar .btn-logout {{ background: rgba(220,53,69,0.9); }}
+
+        .main-admin {{
+            min-height: 100vh; background: #f4f6f9;
+            padding: 2rem; width: 100%;
+        }}
+        @media (min-width: 768px) {{
+            .main-admin {{ margin-left: 250px; width: calc(100% - 250px); }}
+        }}
+
+        .admin-mobile-nav {{
+            background: white; overflow-x: auto; white-space: nowrap;
+            padding: 0.5rem; border-bottom: 1px solid #eee;
+            position: sticky; top: 0; z-index: 1020;
+        }}
+        .admin-mobile-nav a {{
+            display: inline-block; font-weight: 600; font-size: 0.85rem;
+            padding: 0.4rem 1rem; margin: 0 2px; border-radius: 30px;
+            text-decoration: none; color: var(--blue); transition: 0.2s;
+        }}
+        .admin-mobile-nav a i {{ margin-right: 4px; }}
+        .admin-mobile-nav a:hover, .admin-mobile-nav a.active {{
+            background: var(--blue); color: white !important;
+        }}
+        .admin-mobile-nav::-webkit-scrollbar {{ height: 4px; }}
+        .admin-mobile-nav::-webkit-scrollbar-thumb {{ background: var(--gold); border-radius: 4px; }}
+
+        .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+        .table-responsive {{ -webkit-overflow-scrolling: touch; }}
+        h2 {{ color: var(--blue); }}
     </style>
 </head>
 <body style="display:flex; flex-direction:column;">
@@ -216,7 +430,7 @@ def is_password_strong(password):
     if not any(c.isdigit() for c in password): return False
     return True
 
-# ---------- Frequently Bought Together (helper, unchanged) ----------
+# ---------- Frequently Bought Together (helper) ----------
 def get_frequently_bought_together(product_id, limit=4):
     orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
     if not orders_with_product:
@@ -304,7 +518,6 @@ def home():
     else:
         featured_html = '<div class="col-12 text-center"><p class="text-muted">No products yet. <a href="/shop">Start shopping</a></p></div>'
 
-    # quick links unchanged
     if session.get('user_id'):
         quick_links = '''
         <div class="d-md-none mt-4">
@@ -445,7 +658,6 @@ def shop():
             <a href="/wishlist/add/{p['id']}" class="btn btn-sm btn-outline-danger ms-1"><i class="far fa-heart"></i></a>
         </div></div></div></div></div>'''
 
-    # Voice search button and JS
     voice_button = '''<button type="button" class="btn btn-outline-secondary" onclick="startVoiceSearch()" title="Search by voice"><i class="fas fa-microphone"></i></button>'''
     voice_js = '''<script>
     function startVoiceSearch() {
@@ -698,7 +910,7 @@ def download_receipt(oid):
     resp.headers['Content-Type'] = 'text/html'
     return resp
 
-# ---------- Prescription upload (with file restrictions) ----------
+# ---------- Prescription upload ----------
 @app.route('/prescription', methods=['GET','POST'])
 def prescription_upload():
     if request.method == 'POST':
@@ -729,9 +941,9 @@ def prescription_upload():
             }).execute()
             return public_page("Prescription Received",
                 '<div class="text-center mt-5"><i class="fas fa-check-circle fa-5x text-success mb-3"></i><h2>Thank You!</h2><p>Your prescription has been submitted.</p><a href="/" class="btn btn-primary rounded-pill mt-3">Back to Home</a></div>')
-        except Exception as e:
+        except Exception as ex:
             return public_page("Upload Error",
-                f'<div class="alert alert-danger mt-5"><h4>Upload Failed</h4><p>{e(str(e))}</p></div><a href="/prescription">Try again</a>')
+                f'<div class="alert alert-danger mt-5"><h4>Upload Failed</h4><p>{e(str(ex))}</p></div><a href="/prescription">Try again</a>')
     return public_page("Upload Prescription", f'''<div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-5"><div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-file-prescription fa-3x text-primary"></i><h3 class="fw-bold mt-2">Upload Prescription</h3></div>
     <form method="post" enctype="multipart/form-data">
     {csrf_field()}
@@ -754,10 +966,6 @@ def branches():
     markers_js = ''
     for b in branches:
         if b.get('latitude') is not None and b.get('longitude') is not None:
-            # Using json.dumps for safe JS string injection
-            name_js = json.dumps(b['name'])
-            addr_js = json.dumps(b.get('address') or '')
-            phone_js = json.dumps(b.get('phone') or '')
             popup = f"<b>{e(b['name'])}</b><br>{e(b.get('address',''))}<br>{e(b.get('phone',''))}"
             markers_js += f"L.marker([{b['latitude']}, {b['longitude']}]).addTo(map).bindPopup({json.dumps(popup)});\n"
 
@@ -1206,10 +1414,10 @@ def admin_customers():
     orders = supabase.table('orders').select('*').execute().data or []
     cust = {}
     for o in orders:
-        e_mail = o.get('customer_email') or o.get('guest_email')
-        if not e_mail: continue
-        if e_mail not in cust: cust[e_mail] = {'name': o.get('customer_name','') or o.get('shipping_name',''), 'phone': o.get('customer_phone','') or o.get('shipping_phone',''), 'spent':0, 'orders':0}
-        cust[e_mail]['spent'] += o['total_amount']; cust[e_mail]['orders'] += 1
+        em = o.get('customer_email') or o.get('guest_email')
+        if not em: continue
+        if em not in cust: cust[em] = {'name': o.get('customer_name','') or o.get('shipping_name',''), 'phone': o.get('customer_phone','') or o.get('shipping_phone',''), 'spent':0, 'orders':0}
+        cust[em]['spent'] += o['total_amount']; cust[em]['orders'] += 1
     rows = ''.join(f'<tr><td>{e(c["name"])}</td><td>{e(email)}</td><td>{e(c["phone"])}</td><td>{c["orders"]}</td><td>KSh {c["spent"]}</td></tr>' for email, c in cust.items())
     return admin_page("Customers", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table></div>', active='customers')
 
@@ -1583,29 +1791,4 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# PWA / Icons
-@app.route('/manifest.json')
-def manifest():
-    return make_response(json.dumps({"name":f"{e(PHARMACY_NAME)} - Online Pharmacy","short_name":e(PHARMACY_NAME),"start_url":"/","display":"standalone","icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png"}]}),{'Content-Type':'application/manifest+json'})
-
-@app.route('/sw.js')
-def sw():
-    return Response("self.addEventListener('fetch',e=>e.respondWith(fetch(e.request)))", mimetype='application/javascript')
-
-def _create_png(w,h,color=(10,61,98)):
-    def chunk(t,d): c=t+d; return struct.pack(">I",len(d))+c+struct.pack(">I",zlib.crc32(c)&0xFFFFFFFF)
-    sig = b'\x89PNG\r\n\x1a\n'; ihdr = chunk(b'IHDR', struct.pack(">IIBBBBB",w,h,8,2,0,0,0))
-    raw = b''.join(b'\x00'+bytes(color)*w for _ in range(h))
-    return sig+ihdr+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
-
-@app.route('/static/icon-192.png')
-def icon192(): return Response(_create_png(192,192), mimetype='image/png')
-
-@app.route('/static/icon-512.png')
-def icon512(): return Response(_create_png(512,512), mimetype='image/png')
-
-@app.route('/download')
-def download(): return public_page("Download App", '<h2>Download our APK</h2><p>Install directly from <a href="#">link</a>.</p>')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',8080)))
+# PWA / I
