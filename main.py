@@ -260,49 +260,24 @@ def public_page(title, body, user=None):
         <div class="public-nav-links ms-auto">{nav_links_html}</div>
     </div></nav>'''
 
-    toast_script = ""
+    # Toast message passed via meta tag – safely handled by external JS
+    toast_meta = ""
     if request.args.get('toast'):
-        toast_msg = request.args.get('toast')
-        toast_script = f"<script>window.addEventListener('DOMContentLoaded', ()=> showToast({json.dumps(toast_msg)}));</script>"
+        toast_meta = f'<meta name="toast-message" content="{e(request.args.get("toast"))}">'
 
     return f"""<!DOCTYPE html><html><head><title>{e(title)} – {e(PHARMACY_NAME)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-{COMMON_CSS}</head><body>
+{COMMON_CSS}
+{toast_meta}
+</head><body>
 {nav}
 {body}
 <a href="https://wa.me/{e(PHARMACY_PHONE)}?text=Hello%20Mediocare" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function showToast(message) {{
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + message;
-    document.getElementById('toastContainer').appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}}
-{toast_script}
-(function(){{
-    const params = new URLSearchParams(window.location.search);
-    if(params.get('added')==='1'){{showToast('Item added to cart!');}}
-    if(params.get('wishlist_added')==='1'){{showToast('Added to wishlist!');}}
-    document.querySelectorAll('.toggle-password').forEach(btn => {{
-        btn.addEventListener('click', function() {{
-            const input = document.getElementById(this.dataset.target);
-            const icon = this.querySelector('i');
-            if (input.type === 'password') {{
-                input.type = 'text';
-                icon.classList.replace('fa-eye','fa-eye-slash');
-            }} else {{
-                input.type = 'password';
-                icon.classList.replace('fa-eye-slash','fa-eye');
-            }}
-        }});
-    }});
-}})();
-</script>
+<script src="/static/app.js"></script>
 </body></html>"""
 
 # ---------- Admin Page Template ----------
@@ -458,8 +433,7 @@ def get_frequently_bought_together(product_id, limit=4):
         return []
     return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
 
-# ---------- ROUTES ----------
-
+# ---------- ROUTES (all kept exactly as in the previous full version, with XSS protection) ----------
 @app.route('/login', methods=['GET','POST'])
 @limiter.limit("5 per minute")
 def login():
