@@ -260,7 +260,6 @@ def public_page(title, body, user=None):
         <div class="public-nav-links ms-auto">{nav_links_html}</div>
     </div></nav>'''
 
-    # Toast message passed via meta tag – safely handled by external JS
     toast_meta = ""
     if request.args.get('toast'):
         toast_meta = f'<meta name="toast-message" content="{e(request.args.get("toast"))}">'
@@ -638,7 +637,10 @@ def shop():
             <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm d-inline-block" style="width:60px;">
             <button class="btn btn-primary btn-sm rounded-pill ms-1"><i class="fas fa-cart-plus"></i></button></form>
             <a href="/product/{p['id']}" class="btn btn-sm btn-outline-primary ms-1"><i class="fas fa-eye"></i></a>
-            <a href="/wishlist/add/{p['id']}" class="btn btn-sm btn-outline-danger ms-1"><i class="far fa-heart"></i></a>
+            <form action="/wishlist/add/{p['id']}" method="POST" class="d-inline">
+                {csrf_field()}
+                <button class="btn btn-sm btn-outline-danger ms-1"><i class="far fa-heart"></i></button>
+            </form>
         </div></div></div></div></div>'''
 
     voice_button = '''<button type="button" class="btn btn-outline-secondary" onclick="startVoiceSearch()" title="Search by voice"><i class="fas fa-microphone"></i></button>'''
@@ -732,14 +734,14 @@ def product_detail(pid):
     '''
     return public_page(prod['name'], body)
 
-# ---------- Wishlist ----------
-@app.route('/wishlist/add/<int:pid>')
+# ---------- Wishlist (POST only) ----------
+@app.route('/wishlist/add/<int:pid>', methods=['POST'])
 def wishlist_add(pid):
     if not session.get('user_id'): return redirect('/login')
     supabase.table('wishlist').upsert({'user_id':session['user_id'],'product_id':pid}).execute()
     return redirect(request.referrer + ('&wishlist_added=1' if '?' in request.referrer else '?wishlist_added=1'))
 
-@app.route('/wishlist/remove/<int:pid>')
+@app.route('/wishlist/remove/<int:pid>', methods=['POST'])
 def wishlist_remove(pid):
     if not session.get('user_id'): return redirect('/login')
     supabase.table('wishlist').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
@@ -752,10 +754,14 @@ def view_wishlist():
     if not w: return public_page("Wishlist","<h2>Your Wishlist</h2><p>Wishlist is empty.</p>")
     pids = [x['product_id'] for x in w]
     prods = supabase.table('products').select('*').in_('id',pids).execute().data
-    rows = ''.join(f'''<div class="col-md-4 mb-4"><div class="card h-100"><div class="card-body"><h5>{e(p['name'])}</h5><p>KSh {e(p['price'])}</p><a href="/wishlist/remove/{p['id']}" class="btn btn-sm btn-outline-danger">Remove</a></div></div></div>''' for p in prods)
+    rows = ''.join(f'''<div class="col-md-4 mb-4"><div class="card h-100"><div class="card-body"><h5>{e(p['name'])}</h5><p>KSh {e(p['price'])}</p>
+    <form action="/wishlist/remove/{p['id']}" method="POST" class="d-inline">
+        {csrf_field()}
+        <button class="btn btn-sm btn-outline-danger">Remove</button>
+    </form></div></div></div>''' for p in prods)
     return public_page("Wishlist",f'<h2>Your Wishlist</h2><div class="row">{rows}</div>')
 
-# ---------- Cart ----------
+# ---------- Cart (POST for remove) ----------
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
@@ -789,13 +795,17 @@ def view_cart():
         items=session.get('cart',[])
         total=sum(it['price']*it['qty'] for it in items)
     if not items: return public_page("Cart",'<div class="text-center mt-5"><i class="fas fa-shopping-cart fa-5x text-muted mb-4"></i><h2>Your Cart is Empty</h2><p class="text-muted">Looks like you haven\'t added anything yet.</p><a href="/shop" class="btn btn-primary rounded-pill mt-3">Start Shopping</a></div>')
-    rows=''.join(f'<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{e(i["name"])}</h5><small>Qty: {i["qty"]} × KSh {e(i["price"])}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4><a href="/cart/remove/{i["productId"]}" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></a></div></div>' for i in items)
+    rows=''.join(f'<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{e(i["name"])}</h5><small>Qty: {i["qty"]} × KSh {e(i["price"])}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4>
+    <form action="/cart/remove/{i["productId"]}" method="POST" class="d-inline">
+        {csrf_field()}
+        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+    </form></div></div>' for i in items)
     body=f'<h2>Your Cart</h2>{rows}<hr><div class="d-flex justify-content-between"><h4>Total</h4><h4>KSh {total:.2f}</h4></div><a href="/checkout" class="btn btn-success w-100 py-3 mt-3">Proceed to Checkout</a>'
     user = None
     if session.get('user_id'): user = {'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("Cart", body, user)
 
-@app.route('/cart/remove/<pid>')
+@app.route('/cart/remove/<pid>', methods=['POST'])
 def remove_cart(pid):
     if session.get('user_id'):
         supabase.table('cart').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
@@ -992,12 +1002,16 @@ def contact():
     sent = 'Message sent!' if request.args.get('sent') else ''
     return public_page("Contact",f'<h2>Contact</h2><form method="post">{csrf_field()}<input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{e(sent)}')
 
-# ---------- My Account ----------
+# ---------- My Account (with POST refill) ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'): return redirect('/login')
     orders = supabase.table('orders').select('*').eq('user_id',session['user_id']).order('created_at',desc=True).execute().data or []
-    html=''.join(f'<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{e(o.get("order_status",""))}</span> <a href="/refill/{o["id"]}" class="btn btn-sm btn-outline-primary">Refill</a></div></div>' for o in orders)
+    html=''.join(f'''<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{e(o.get("order_status",""))}</span>
+    <form action="/refill/{o['id']}" method="POST" class="d-inline">
+        {csrf_field()}
+        <button class="btn btn-sm btn-outline-primary">Refill</button>
+    </form></div></div>''' for o in orders)
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
@@ -1068,8 +1082,8 @@ def customer_invoice(oid):
 </div><script>window.print();</script></body></html>"""
     return html
 
-# ---------- Refill Order ----------
-@app.route('/refill/<int:oid>')
+# ---------- Refill Order (POST only) ----------
+@app.route('/refill/<int:oid>', methods=['POST'])
 def refill_order(oid):
     if not session.get('user_id'):
         return redirect('/login')
@@ -1278,7 +1292,7 @@ def admin_dashboard():
     """
     return admin_page("Dashboard", body)
 
-# ---------- Admin: Orders (CSRF fix applied here) ----------
+# ---------- Admin: Orders ----------
 @app.route('/admin/orders')
 @admin_required
 def admin_orders():
@@ -1326,12 +1340,17 @@ def admin_invoice(oid):
         return resp
     return html
 
-# ---------- Admin: Products ----------
+# ---------- Admin: Products (delete via POST) ----------
 @app.route('/admin/products')
 @admin_required
 def admin_products():
     prods = supabase.table('products').select('*').order('name').execute().data or []
-    rows = ''.join(f'<tr><td>{e(p["name"])}</td><td>{e(p["category"])}</td><td>{e(p["price"])}</td><td>{p["stock"]}</td><td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a><a href="/admin/delete-product/{p["id"]}" class="btn btn-sm btn-danger" onclick="return confirm(\'Delete?\')">Delete</a></td></tr>' for p in prods)
+    rows = ''.join(f'''<tr><td>{e(p["name"])}</td><td>{e(p["category"])}</td><td>{e(p["price"])}</td><td>{p["stock"]}</td>
+    <td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a>
+    <form action="/admin/delete-product/{p['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">
+        {csrf_field()}
+        <button class="btn btn-sm btn-danger">Delete</button>
+    </form></td></tr>''' for p in prods)
     return admin_page("Products", f'<a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>', active='products')
 
 @app.route('/admin/add-product', methods=['GET','POST'])
@@ -1377,7 +1396,7 @@ def edit_product(pid):
     <input class="form-control mb-2" type="file" name="image" accept="image/*">
     <button class="btn btn-primary w-100">Update Product</button></form>''', active='products')
 
-@app.route('/admin/delete-product/<pid>')
+@app.route('/admin/delete-product/<pid>', methods=['POST'])
 @admin_required
 def delete_product(pid):
     supabase.table('products').delete().eq('id',pid).execute()
@@ -1405,21 +1424,36 @@ def admin_customers():
     rows = ''.join(f'<tr><td>{e(c["name"])}</td><td>{e(email)}</td><td>{e(c["phone"])}</td><td>{c["orders"]}</td><td>KSh {c["spent"]}</td></tr>' for email, c in cust.items())
     return admin_page("Customers", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table></div>', active='customers')
 
-# ---------- Admin: Users ----------
+# ---------- Admin: Users (approve/disable via POST) ----------
 @app.route('/admin/users')
 @admin_required
 def admin_users():
     users = supabase.table('users').select('*').execute().data or []
-    rows = ''.join(f'<tr><td>{e(u["full_name"])}</td><td>{e(u["email"])}</td><td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td><td><a href="/admin/approve-user/{u["id"]}" class="btn btn-sm btn-success me-1">Approve</a><a href="/admin/disable-user/{u["id"]}" class="btn btn-sm btn-danger">Disable</a></td></tr>' for u in users)
+    rows = ''.join(f'''<tr><td>{e(u["full_name"])}</td><td>{e(u["email"])}</td>
+    <td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td>
+    <td>
+        <form action="/admin/approve-user/{u['id']}" method="POST" class="d-inline">
+            {csrf_field()}
+            <button class="btn btn-sm btn-success me-1">Approve</button>
+        </form>
+        <form action="/admin/disable-user/{u['id']}" method="POST" class="d-inline">
+            {csrf_field()}
+            <button class="btn btn-sm btn-danger">Disable</button>
+        </form>
+    </td></tr>''' for u in users)
     return admin_page("Customer Care", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div>', active='users')
 
-@app.route('/admin/approve-user/<uid>')
+@app.route('/admin/approve-user/<uid>', methods=['POST'])
 @admin_required
-def approve_user(uid): supabase.table('users').update({'approved':True}).eq('id',uid).execute(); return redirect('/admin/users')
+def approve_user(uid):
+    supabase.table('users').update({'approved':True}).eq('id',uid).execute()
+    return redirect('/admin/users')
 
-@app.route('/admin/disable-user/<uid>')
+@app.route('/admin/disable-user/<uid>', methods=['POST'])
 @admin_required
-def disable_user(uid): supabase.table('users').update({'approved':False}).eq('id',uid).execute(); return redirect('/admin/users')
+def disable_user(uid):
+    supabase.table('users').update({'approved':False}).eq('id',uid).execute()
+    return redirect('/admin/users')
 
 @app.route('/admin/create-user', methods=['GET','POST'])
 @admin_required
@@ -1448,7 +1482,7 @@ def admin_settings():
     msg = '<div class="alert alert-success">Password updated!</div>' if request.args.get('success') else ''
     return admin_page("Settings",f'{msg}<form method="post" style="max-width:400px;">{csrf_field()}<input class="form-control mb-2" type="password" name="new_password" placeholder="New Password"><button class="btn btn-primary">Update</button></form>', active='settings')
 
-# ---------- Admin: Discounts ----------
+# ---------- Admin: Discounts (disable via POST) ----------
 @app.route('/admin/discounts')
 @admin_required
 def admin_discounts():
@@ -1464,7 +1498,12 @@ def admin_discounts():
             <td>{percent}%</td>
             <td>{amount} KSh</td>
             <td>{status}</td>
-            <td><a href="/admin/disable-discount/{c['id']}" class="btn btn-sm btn-danger">Disable</a></td>
+            <td>
+                <form action="/admin/disable-discount/{c['id']}" method="POST" class="d-inline" onsubmit="return confirm('Disable?')">
+                    {csrf_field()}
+                    <button class="btn btn-sm btn-danger">Disable</button>
+                </form>
+            </td>
         </tr>'''
     body = f'''<a href="/admin/add-discount" class="btn btn-success mb-3">+ New Code</a>
     <div class="card border-0 shadow-sm rounded-4 p-3">
@@ -1493,13 +1532,13 @@ def add_discount():
     <div class="col"><input class="form-control mb-2" type="number" step="0.01" name="discount_amount" placeholder="Amount (KSh)"></div></div>
     <button class="btn btn-primary">Create</button></form>''', active='discounts')
 
-@app.route('/admin/disable-discount/<int:did>')
+@app.route('/admin/disable-discount/<int:did>', methods=['POST'])
 @admin_required
 def disable_discount(did):
     supabase.table('discount_codes').update({'active': False}).eq('id', did).execute()
     return redirect('/admin/discounts')
 
-# ---------- Admin: Bundles ----------
+# ---------- Admin: Bundles (delete via POST) ----------
 @app.route('/admin/bundles')
 @admin_required
 def admin_bundles():
@@ -1514,7 +1553,10 @@ def admin_bundles():
             <td>{b['discount_percent']}%</td>
             <td>
                 <a href="/admin/edit-bundle/{b['id']}" class="btn btn-sm btn-warning me-1">Edit</a>
-                <a href="/admin/delete-bundle/{b['id']}" class="btn btn-sm btn-danger" onclick="return confirm('Delete?')">Delete</a>
+                <form action="/admin/delete-bundle/{b['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">
+                    {csrf_field()}
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                </form>
             </td>
         </tr>'''
     body = f'''<a href="/admin/add-bundle" class="btn btn-success mb-3">+ New Bundle</a>
@@ -1605,7 +1647,7 @@ def edit_bundle(bid):
     }}
     </script>''', active='bundles')
 
-@app.route('/admin/delete-bundle/<int:bid>')
+@app.route('/admin/delete-bundle/<int:bid>', methods=['POST'])
 @admin_required
 def delete_bundle(bid):
     supabase.table('bundles').delete().eq('id', bid).execute()
@@ -1664,7 +1706,7 @@ def admin_analytics():
     '''
     return admin_page("Analytics", body, active='analytics')
 
-# ---------- Admin: Branches ----------
+# ---------- Admin: Branches (delete via POST) ----------
 @app.route('/admin/branches')
 @admin_required
 def admin_branches():
@@ -1672,8 +1714,13 @@ def admin_branches():
     rows = ''.join(
         f'''<tr>
             <td>{e(b['name'])}</td><td>{e(b.get('address',''))}</td><td>{e(b.get('phone',''))}</td>
-            <td><a href="/admin/edit-branch/{b['id']}" class="btn btn-sm btn-warning me-1">Edit</a>
-            <a href="/admin/delete-branch/{b['id']}" class="btn btn-sm btn-danger" onclick="return confirm('Delete?')">Delete</a></td></tr>''' for b in branches)
+            <td>
+                <a href="/admin/edit-branch/{b['id']}" class="btn btn-sm btn-warning me-1">Edit</a>
+                <form action="/admin/delete-branch/{b['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">
+                    {csrf_field()}
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </td></tr>''' for b in branches)
     body = f'''<a href="/admin/add-branch" class="btn btn-success mb-3"><i class="fas fa-plus me-2"></i>Add Branch</a>
     <div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Address</th><th>Phone</th><th></th></tr></thead><tbody>{rows or '<tr><td colspan="4">No branches yet.</td></tr>'}</tbody></table></div>'''
     return admin_page("Manage Branches", body, active='branches')
@@ -1715,13 +1762,13 @@ def edit_branch(bid):
     <div class="row"><div class="col"><input class="form-control mb-2" type="number" step="any" name="latitude" value="{b.get('latitude','')}" placeholder="Latitude"></div><div class="col"><input class="form-control mb-2" type="number" step="any" name="longitude" value="{b.get('longitude','')}" placeholder="Longitude"></div></div>
     <button class="btn btn-primary w-100">Update Branch</button></form>''', active='branches')
 
-@app.route('/admin/delete-branch/<int:bid>')
+@app.route('/admin/delete-branch/<int:bid>', methods=['POST'])
 @admin_required
 def delete_branch(bid):
     supabase.table('branches').delete().eq('id', bid).execute()
     return redirect('/admin/branches')
 
-# ---------- Admin: Symptoms Management ----------
+# ---------- Admin: Symptoms Management (delete via POST) ----------
 @app.route('/admin/symptoms', methods=['GET', 'POST'])
 @admin_required
 def admin_symptoms():
@@ -1738,7 +1785,12 @@ def admin_symptoms():
         <tr>
             <td>{e(m['symptom'])}</td>
             <td>{e(m.get('products',{}).get('name',''))}</td>
-            <td><a href="/admin/symptoms/delete/{m['id']}" class="btn btn-sm btn-danger">Delete</a></td>
+            <td>
+                <form action="/admin/symptoms/delete/{m['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">
+                    {csrf_field()}
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </td>
         </tr>''' for m in mappings)
     products = supabase.table('products').select('id,name').eq('active',True).execute().data
     product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
@@ -1756,7 +1808,7 @@ def admin_symptoms():
     '''
     return admin_page("Manage Symptom Mappings", body, active='symptoms')
 
-@app.route('/admin/symptoms/delete/<int:sid>')
+@app.route('/admin/symptoms/delete/<int:sid>', methods=['POST'])
 @admin_required
 def delete_symptom_mapping(sid):
     supabase.table('symptom_mappings').delete().eq('id', sid).execute()
