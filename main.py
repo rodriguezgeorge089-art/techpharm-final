@@ -37,6 +37,13 @@ limiter = Limiter(
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("\n❌ ERROR: Environment variables SUPABASE_URL and SUPABASE_KEY must be set!\n")
+    print("   export SUPABASE_URL=https://your-project.supabase.co")
+    print("   export SUPABASE_KEY=your-anon-key\n")
+    raise RuntimeError("Supabase credentials missing.")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 PHARMACY_NAME = "Mediocare"
@@ -298,6 +305,7 @@ function showToast(message) {{
 </script>
 </body></html>"""
 
+# ---------- Admin Page Template ----------
 def admin_page(title, body, active='dashboard'):
     links = [
         ('dashboard','fa-tachometer-alt','/admin'),
@@ -1816,4 +1824,5 @@ def icon512(): return Response(_create_png(512,512), mimetype='image/png')
 def download(): return public_page("Download App", '<h2>Download our APK</h2><p>Install directly from <a href="#">link</a>.</p>')
 
 if __name__ == '__main__':
+    print("\n✅ Mediocare Pharmacy app starting... Visit http://localhost:8080\n")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT',8080)))
