@@ -1,67 +1,40 @@
-// DawaLink Service Worker – enables offline support and fast loading
-const CACHE_NAME = 'dawalink-v2';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/static/manifest.json',
-  '/static/icon-192.png',
-  '/static/icon-512.png',
-  '/shop',
-  '/about',
-  '/contact',
-  '/cart'
-];
+// static/app.js
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + message;
+    document.getElementById('toastContainer').appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
 
-// Install event – cache key pages
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {
-        // Some assets may not cache – that's okay
-        return Promise.resolve();
-      });
-    })
-  );
-  self.skipWaiting();
-});
+document.addEventListener('DOMContentLoaded', function() {
+    // Toast message from query string
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('added') === '1') {
+        showToast('Item added to cart!');
+    }
+    if(params.get('wishlist_added') === '1') {
+        showToast('Added to wishlist!');
+    }
 
-// Activate – remove old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME)
-          .map(name => caches.delete(name))
-      );
-    })
-  );
-  self.clients.claim();
-});
+    // Toast from server-side injected script (toast_script)
+    const toastMsg = document.querySelector('meta[name="toast-message"]');
+    if (toastMsg) {
+        showToast(toastMsg.content);
+    }
 
-// Fetch – serve from cache, fallback to network
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) return cachedResponse;
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
+    // Password toggle
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const input = document.getElementById(this.dataset.target);
+            const icon = this.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye','fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash','fa-eye');
+            }
         });
-        return response;
-      }).catch(() => {
-        // Offline fallback for HTML pages
-        if (event.request.headers.get('accept').includes('text/html')) {
-          return caches.match('/');
-        }
-        return new Response('You are offline. Please check your connection.', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain' }
-        });
-      });
-    })
-  );
+    });
 });
