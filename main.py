@@ -43,7 +43,7 @@ PHARMACY_NAME = "Mediocare"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@mediocare.co.ke"
 
-# ---------- COMMON CSS (Public Pages) – FULL ORIGINAL ----------
+# ---------- COMMON CSS (Public Pages) – FULL ORIGINAL DESIGN ----------
 COMMON_CSS = """
 <style>
     :root {
@@ -430,7 +430,7 @@ def is_password_strong(password):
     if not any(c.isdigit() for c in password): return False
     return True
 
-# ---------- Frequently Bought Together (helper) ----------
+# ---------- Frequently Bought Together ----------
 def get_frequently_bought_together(product_id, limit=4):
     orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
     if not orders_with_product:
@@ -631,7 +631,7 @@ def home():
         user = {'full_name': session.get('user_name', 'User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Home", body, user)
 
-# ---------- Shop (with voice search) ----------
+# ---------- Shop ----------
 @app.route('/shop')
 def shop():
     search = request.args.get('search',''); category = request.args.get('category',''); page = int(request.args.get('page',1))
@@ -702,7 +702,7 @@ def shop():
     if session.get('user_id'): user = {'full_name': session.get('user_name','User'), 'is_admin': session.get('is_admin', False)}
     return public_page("Shop", body, user)
 
-# ---------- Product Detail & Reviews + Frequently Bought Together ----------
+# ---------- Product Detail & Reviews ----------
 @app.route('/product/<int:pid>', methods=['GET','POST'])
 def product_detail(pid):
     prod = supabase.table('products').select('*').eq('id',pid).single().execute().data
@@ -1791,4 +1791,29 @@ def export_orders():
     output.seek(0)
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition":"attachment;filename=orders.csv"})
 
-# PWA / I
+# PWA / Icons
+@app.route('/manifest.json')
+def manifest():
+    return make_response(json.dumps({"name":f"{e(PHARMACY_NAME)} - Online Pharmacy","short_name":e(PHARMACY_NAME),"start_url":"/","display":"standalone","icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png"}]}),{'Content-Type':'application/manifest+json'})
+
+@app.route('/sw.js')
+def sw():
+    return Response("self.addEventListener('fetch',e=>e.respondWith(fetch(e.request)))", mimetype='application/javascript')
+
+def _create_png(w,h,color=(10,61,98)):
+    def chunk(t,d): c=t+d; return struct.pack(">I",len(d))+c+struct.pack(">I",zlib.crc32(c)&0xFFFFFFFF)
+    sig = b'\x89PNG\r\n\x1a\n'; ihdr = chunk(b'IHDR', struct.pack(">IIBBBBB",w,h,8,2,0,0,0))
+    raw = b''.join(b'\x00'+bytes(color)*w for _ in range(h))
+    return sig+ihdr+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
+
+@app.route('/static/icon-192.png')
+def icon192(): return Response(_create_png(192,192), mimetype='image/png')
+
+@app.route('/static/icon-512.png')
+def icon512(): return Response(_create_png(512,512), mimetype='image/png')
+
+@app.route('/download')
+def download(): return public_page("Download App", '<h2>Download our APK</h2><p>Install directly from <a href="#">link</a>.</p>')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',8080)))
