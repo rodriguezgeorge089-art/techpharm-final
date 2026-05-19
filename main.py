@@ -795,11 +795,11 @@ def view_cart():
         items=session.get('cart',[])
         total=sum(it['price']*it['qty'] for it in items)
     if not items: return public_page("Cart",'<div class="text-center mt-5"><i class="fas fa-shopping-cart fa-5x text-muted mb-4"></i><h2>Your Cart is Empty</h2><p class="text-muted">Looks like you haven\'t added anything yet.</p><a href="/shop" class="btn btn-primary rounded-pill mt-3">Start Shopping</a></div>')
-    rows=''.join(f'<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{e(i["name"])}</h5><small>Qty: {i["qty"]} × KSh {e(i["price"])}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4>
+    rows=''.join(f'''<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{e(i["name"])}</h5><small>Qty: {i["qty"]} × KSh {e(i["price"])}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4>
     <form action="/cart/remove/{i["productId"]}" method="POST" class="d-inline">
         {csrf_field()}
         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-    </form></div></div>' for i in items)
+    </form></div></div>''' for i in items)
     body=f'<h2>Your Cart</h2>{rows}<hr><div class="d-flex justify-content-between"><h4>Total</h4><h4>KSh {total:.2f}</h4></div><a href="/checkout" class="btn btn-success w-100 py-3 mt-3">Proceed to Checkout</a>'
     user = None
     if session.get('user_id'): user = {'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
