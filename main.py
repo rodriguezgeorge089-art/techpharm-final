@@ -433,7 +433,8 @@ def get_frequently_bought_together(product_id, limit=4):
         return []
     return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
 
-# ---------- ROUTES (all kept exactly as in the previous full version, with XSS protection) ----------
+# ---------- ROUTES ----------
+
 @app.route('/login', methods=['GET','POST'])
 @limiter.limit("5 per minute")
 def login():
@@ -1277,7 +1278,7 @@ def admin_dashboard():
     """
     return admin_page("Dashboard", body)
 
-# ---------- Admin: Orders ----------
+# ---------- Admin: Orders (CSRF fix applied here) ----------
 @app.route('/admin/orders')
 @admin_required
 def admin_orders():
@@ -1286,6 +1287,7 @@ def admin_orders():
         f'''<tr><td>#{str(o["id"])[:8]}</td><td>{e(o.get("shipping_name","Guest"))}</td><td>KSh {o["total_amount"]}</td>
         <td><div class="d-flex align-items-center">
             <form method="post" action="/admin/order/{o["id"]}/status" class="d-flex">
+                {csrf_field()}
                 <select name="status" class="form-select form-select-sm me-2" style="width:auto;">
                     <option {'selected' if o.get("order_status")=="pending" else ''}>pending</option>
                     <option {'selected' if o.get("order_status")=="confirmed" else ''}>confirmed</option>
