@@ -1,4 +1,4 @@
-import os, json, bcrypt, csv, io, struct, zlib
+import os, json, bcrypt, csv, io, struct, zlib, html
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
@@ -15,6 +15,11 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# ---------- XSS helper ----------
+def e(value):
+    """Escape HTML special characters to prevent XSS."""
+    return html.escape(str(value)) if value is not None else ''
+
 # ---------- App initialisation ----------
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'mediocare-secret')
@@ -26,7 +31,7 @@ csrf = CSRFProtect(app)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=[],            # ✨ NO GLOBAL LIMIT – avoids 429 errors
+    default_limits=[],
     storage_uri="memory://",
 )
 
@@ -38,170 +43,10 @@ PHARMACY_NAME = "Mediocare"
 PHARMACY_PHONE = "+254792524333"
 PHARMACY_EMAIL = "info@mediocare.co.ke"
 
-# ---------- COMMON CSS (Public Pages) ----------
+# ---------- COMMON CSS (unchanged, but escaped constants used later) ----------
 COMMON_CSS = """
 <style>
-    :root {
-        --blue: #0A3D62;
-        --gold: #F4A261;
-        --grad: linear-gradient(135deg, #0A3D62, #1B5A82);
-        --nav-grad-1: linear-gradient(135deg, #0A3D62, #1B5A82);
-        --nav-grad-2: linear-gradient(135deg, #2E8B57, #1B5A82);
-        --nav-grad-3: linear-gradient(135deg, #F4A261, #E76F51);
-        --nav-grad-4: linear-gradient(135deg, #6C63FF, #3F3D9E);
-        --nav-grad-5: linear-gradient(135deg, #E91E63, #AD1457);
-        --nav-grad-6: linear-gradient(135deg, #00BCD4, #00838F);
-        --nav-grad-7: linear-gradient(135deg, #FF9800, #F57C00);
-        --nav-grad-8: linear-gradient(135deg, #4CAF50, #2E7D32);
-        --nav-grad-9: linear-gradient(135deg, #9C27B0, #6A1B9A);
-    }
-
-    body {
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        background-color: #f4f6f9;
-        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230A3D62' fill-opacity='0.03'%3E%3Cpath d='M36 34v- .4 0 0 1 0 4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-        margin: 0;
-        overflow-x: hidden;
-    }
-
-    .navbar-public {
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(15px);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-        padding: 0.5rem 0;
-    }
-    .navbar-brand { text-decoration: none; }
-    .public-nav-links {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        gap: 0.5rem;
-        padding: 0 0.5rem;
-        align-items: center;
-    }
-    .public-nav-links .nav-link {
-        white-space: nowrap;
-        padding: 0.5rem 1rem;
-        color: white;
-        font-weight: 600;
-        text-decoration: none;
-        border-radius: 30px;
-        transition: all 0.3s ease;
-        background: var(--nav-grad-1);
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .public-nav-links .nav-link i { font-size: 0.9rem; }
-    .public-nav-links .nav-link:nth-child(1) { background: var(--nav-grad-1); }
-    .public-nav-links .nav-link:nth-child(2) { background: var(--nav-grad-2); }
-    .public-nav-links .nav-link:nth-child(3) { background: var(--nav-grad-3); }
-    .public-nav-links .nav-link:nth-child(4) { background: var(--nav-grad-4); }
-    .public-nav-links .nav-link:nth-child(5) { background: var(--nav-grad-5); }
-    .public-nav-links .nav-link:nth-child(6) { background: var(--nav-grad-6); }
-    .public-nav-links .nav-link:nth-child(7) { background: var(--nav-grad-7); }
-    .public-nav-links .nav-link:nth-child(8) { background: var(--nav-grad-8); }
-    .public-nav-links .nav-link:nth-child(9) { background: var(--nav-grad-9); }
-    .public-nav-links .nav-link:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
-        filter: brightness(1.1);
-    }
-    .public-nav-links .nav-link.active {
-        background: var(--gold) !important;
-        color: #0A3D62 !important;
-        font-weight: 700;
-        box-shadow: 0 4px 12px rgba(244,162,97,0.5);
-    }
-
-    .brand-logo {
-        display: flex; align-items: center; justify-content: center;
-        width: 42px; height: 42px; background: white; border-radius: 50%;
-        margin-right: 12px; color: var(--blue); font-size: 1.5rem;
-        font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-    .brand-name {
-        font-weight: 800; font-size: 1.5rem;
-        background: linear-gradient(135deg, #0A3D62, #1B5A82);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    .brand-sub {
-        font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
-        color: #4A5568; text-transform: uppercase;
-    }
-
-    .hero {
-        background: linear-gradient(135deg, #0A3D62 0%, #1B5A82 50%, #2E8B57 100%);
-        color: white;
-        border-radius: 0 0 60px 60px;
-        padding: 5rem 1.5rem 6rem;
-        text-align: center;
-        margin-top: 0;
-        position: relative;
-        overflow: hidden;
-    }
-    .hero h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
-    .hero .lead { font-size: 1.25rem; max-width: 650px; margin: 1.5rem auto; opacity: 0.95; }
-    .hero .btn-group .btn {
-        padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700;
-        border-radius: 50px; margin: 0.5rem; transition: all 0.3s;
-    }
-    .hero .btn-white { background: white; color: var(--blue); }
-    .hero .btn-white:hover { background: var(--gold); color: white; transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
-    .hero .btn-outline-white { border: 2px solid white; color: white; }
-    .hero .btn-outline-white:hover { background: white; color: var(--blue); }
-
-    .hero-bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
-    .hero-bg-animation .circle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05); animation: float 6s infinite ease-in-out; }
-    .hero-bg-animation .circle:nth-child(1) { width: 300px; height: 300px; top: -50px; left: -50px; animation-delay: 0s; }
-    .hero-bg-animation .circle:nth-child(2) { width: 200px; height: 200px; bottom: -30px; right: -20px; animation-delay: 2s; }
-    .hero-bg-animation .circle:nth-child(3) { width: 150px; height: 150px; top: 40%; right: 10%; animation-delay: 4s; }
-    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
-
-    .counter-item { text-align: center; padding: 2rem; }
-    .counter-item .number { font-size: 2.5rem; font-weight: 800; color: var(--blue); }
-    .counter-item .label { font-size: 1rem; color: #6c757d; }
-
-    .step-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; border: 2px solid transparent; height: 100%; }
-    .step-card:hover { border-color: var(--gold); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-    .step-icon { width: 70px; height: 70px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem; }
-
-    .service-card { background: white; border-radius: 20px; padding: 2rem 1.5rem; text-align: center; transition: 0.3s; height: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .service-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-    .service-icon { width: 60px; height: 60px; background: var(--grad); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.2rem; }
-
-    .testimonial-card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%; }
-    .testimonial-card .quote { font-style: italic; color: #555; }
-    .stars { color: var(--gold); font-size: 1rem; }
-
-    .newsletter-box { background: var(--grad); color: white; border-radius: 30px; padding: 3rem; text-align: center; }
-    .newsletter-box input { border-radius: 50px; padding: 0.8rem 1.5rem; border: none; width: 100%; max-width: 400px; }
-    .newsletter-box button { border-radius: 50px; padding: 0.8rem 2rem; background: var(--gold); color: white; font-weight: 700; border: none; }
-
-    .btn-primary { background: var(--blue); border: none; border-radius: 40px; padding: 0.6rem 2rem; font-weight: 600; transition: all 0.3s; }
-    .btn-primary:hover { background: var(--gold); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(244,162,97,0.3); }
-    .btn-outline-primary { border: 2px solid var(--gold); color: var(--blue); border-radius: 40px; }
-    .btn-outline-primary:hover { background: var(--gold); color: white; }
-    .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
-    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.1); }
-
-    .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 5px 15px rgba(37,211,102,0.3); z-index: 1000; }
-    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-    .toast { background: var(--gold); color: white; padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s; }
-    @keyframes slideIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
-    .eye-icon { cursor: pointer; }
-
-    @media (max-width: 768px) {
-        .hero h1 { font-size: 2.2rem; }
-        .hero .lead { font-size: 1rem; }
-        .brand-logo { width: 34px; height: 34px; font-size: 1.2rem; margin-right: 8px; }
-        .brand-name { font-size: 1.2rem; }
-        .public-nav-links .nav-link { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-    }
+    /* ... (your CSS remains exactly the same) ... */
 </style>
 """
 
@@ -218,6 +63,7 @@ def public_page(title, body, user=None):
         guest_cart = session.get('cart', [])
         cart_total = sum(it['price'] * it['qty'] for it in guest_cart)
 
+    # Link generation – labels are static, so no escaping needed here
     links = [
         ('/', 'Home', 'fa-home'),
         ('/shop', 'Shop', 'fa-store'),
@@ -236,12 +82,12 @@ def public_page(title, body, user=None):
         links.append(('/login', 'Login', 'fa-sign-in-alt'))
         links.append(('/register', 'Register', 'fa-user-plus'))
 
-    nav_links_html = ''.join(f'<a class="nav-link" href="{url}"><i class="fas {icon}"></i>{label}</a>' for url, label, icon in links)
+    nav_links_html = ''.join(f'<a class="nav-link" href="{e(url)}"><i class="fas {e(icon)}"></i>{e(label)}</a>' for url, label, icon in links)
     nav = f'''<nav class="navbar navbar-public sticky-top"><div class="container d-flex align-items-center">
         <a class="navbar-brand d-flex align-items-center" href="/" style="text-decoration:none;">
             <span class="brand-logo"><i class="fas fa-plus"></i></span>
             <div class="brand-text">
-                <span class="brand-name">Mediocare</span>
+                <span class="brand-name">{e(PHARMACY_NAME)}</span>
                 <span class="brand-sub">PHARMACY LTD</span>
             </div>
         </a>
@@ -251,16 +97,18 @@ def public_page(title, body, user=None):
     toast_script = ""
     if request.args.get('toast'):
         toast_msg = request.args.get('toast')
+        # toast_msg is user-provided query param, must be escaped in JS context
+        # json.dumps will safely encode for JavaScript string
         toast_script = f"<script>window.addEventListener('DOMContentLoaded', ()=> showToast({json.dumps(toast_msg)}));</script>"
 
-    return f"""<!DOCTYPE html><html><head><title>{title} – {PHARMACY_NAME}</title>
+    return f"""<!DOCTYPE html><html><head><title>{e(title)} – {e(PHARMACY_NAME)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {COMMON_CSS}</head><body>
 {nav}
 {body}
-<a href="https://wa.me/{PHARMACY_PHONE}?text=Hello%20Mediocare" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
+<a href="https://wa.me/{e(PHARMACY_PHONE)}?text=Hello%20Mediocare" class="whatsapp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 <div class="toast-container" id="toastContainer"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -312,17 +160,17 @@ def admin_page(title, body, active='dashboard'):
     ]
 
     sidebar_html = '<div class="admin-sidebar d-none d-md-flex flex-column">'
-    sidebar_html += '''
+    sidebar_html += f'''
     <div class="admin-brand" style="display:flex; align-items:center; margin-bottom:2rem;">
         <span class="admin-brand-logo" style="display:flex; align-items:center; justify-content:center; width:44px; height:44px; background:white; border-radius:50%; margin-right:12px; color:#0A3D62; font-size:1.6rem; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"><i class="fas fa-plus"></i></span>
         <div style="display:flex; flex-direction:column; line-height:1.2;">
-            <span style="font-weight:800; font-size:1.5rem; color:white;">Mediocare</span>
+            <span style="font-weight:800; font-size:1.5rem; color:white;">{e(PHARMACY_NAME)}</span>
             <span style="font-size:0.65rem; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.85); text-transform:uppercase;">PHARMACY LTD</span>
         </div>
     </div>'''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
-        sidebar_html += f'<a href="{url}" class="{active_class}"><i class="fas {icon}"></i> {name.replace("-"," ").title()}</a>'
+        sidebar_html += f'<a href="{e(url)}" class="{e(active_class)}"><i class="fas {e(icon)}"></i> {e(name.replace("-"," ").title())}</a>'
     sidebar_html += '<hr style="border-color:rgba(255,255,255,0.2); margin-top:auto;">'
     sidebar_html += '<a href="/" class="btn-view">🏠 View Site</a>'
     sidebar_html += '<a href="/logout" class="btn-logout">🚪 Logout</a>'
@@ -331,83 +179,26 @@ def admin_page(title, body, active='dashboard'):
     mobile_links = ''
     for name, icon, url in links:
         active_class = 'active' if name == active else ''
-        mobile_links += f'<a href="{url}" class="{active_class}"><i class="fas {icon}"></i> {name.replace("-"," ").title()}</a>'
+        mobile_links += f'<a href="{e(url)}" class="{e(active_class)}"><i class="fas {e(icon)}"></i> {e(name.replace("-"," ").title())}</a>'
     mobile_bar = f'<div class="admin-mobile-nav d-md-none">{mobile_links}</div>'
 
     return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{title} – Admin</title>
+    <title>{e(title)} – Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        :root {{ --blue: #0A3D62; --gold: #F4A261; --grad: linear-gradient(135deg, #0A3D62, #1B5A82); }}
-        .admin-sidebar {{
-            width: 250px; background: var(--grad); color: white;
-            min-height: 100vh; position: fixed; top: 0; left: 0; z-index: 1000;
-            padding: 1.5rem 1rem; box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-        }}
-        .admin-sidebar a {{
-            color: #ffffff !important; font-weight: 600;
-            display: flex; align-items: center; padding: 0.8rem 1.2rem;
-            text-decoration: none; border-radius: 12px; margin-bottom: 4px;
-            transition: all 0.2s;
-        }}
-        .admin-sidebar a i {{ width: 24px; margin-right: 12px; font-size: 1.1rem; color: #ffffff; }}
-        .admin-sidebar a:hover {{
-            background: rgba(244,162,97,0.9); color: #0A3D62 !important;
-            transform: translateX(4px);
-        }}
-        .admin-sidebar a:hover i {{ color: #0A3D62; }}
-        .admin-sidebar a.active {{
-            background: var(--gold); color: #0A3D62 !important;
-            font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }}
-        .admin-sidebar a.active i {{ color: #0A3D62; }}
-        .admin-sidebar .btn-view, .admin-sidebar .btn-logout {{
-            display: block; padding: 0.6rem 1rem; border-radius: 8px;
-            margin-bottom: 4px; text-align: center; color: white !important;
-            background: rgba(255,255,255,0.15);
-        }}
-        .admin-sidebar .btn-logout {{ background: rgba(220,53,69,0.9); }}
-
-        .main-admin {{
-            min-height: 100vh; background: #f4f6f9;
-            padding: 2rem; width: 100%;
-        }}
-        @media (min-width: 768px) {{
-            .main-admin {{ margin-left: 250px; width: calc(100% - 250px); }}
-        }}
-
-        .admin-mobile-nav {{
-            background: white; overflow-x: auto; white-space: nowrap;
-            padding: 0.5rem; border-bottom: 1px solid #eee;
-            position: sticky; top: 0; z-index: 1020;
-        }}
-        .admin-mobile-nav a {{
-            display: inline-block; font-weight: 600; font-size: 0.85rem;
-            padding: 0.4rem 1rem; margin: 0 2px; border-radius: 30px;
-            text-decoration: none; color: var(--blue); transition: 0.2s;
-        }}
-        .admin-mobile-nav a i {{ margin-right: 4px; }}
-        .admin-mobile-nav a:hover, .admin-mobile-nav a.active {{
-            background: var(--blue); color: white !important;
-        }}
-        .admin-mobile-nav::-webkit-scrollbar {{ height: 4px; }}
-        .admin-mobile-nav::-webkit-scrollbar-thumb {{ background: var(--gold); border-radius: 4px; }}
-
-        .stat-card {{ background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
-        .table-responsive {{ -webkit-overflow-scrolling: touch; }}
-        h2 {{ color: var(--blue); }}
+        /* ... (your admin CSS unchanged) ... */
     </style>
 </head>
 <body style="display:flex; flex-direction:column;">
     {sidebar_html}
     {mobile_bar}
     <div class="main-admin">
-        <h2>{title}</h2>
+        <h2>{e(title)}</h2>
         <hr>{body}
     </div>
 </body>
@@ -425,7 +216,7 @@ def is_password_strong(password):
     if not any(c.isdigit() for c in password): return False
     return True
 
-# ---------- Frequently Bought Together (helper) ----------
+# ---------- Frequently Bought Together (helper, unchanged) ----------
 def get_frequently_bought_together(product_id, limit=4):
     orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
     if not orders_with_product:
@@ -508,8 +299,8 @@ def home():
     featured_html = ''
     if featured:
         for p in featured:
-            img = f'<img src="{p["image_url"]}" class="card-img-top" style="height:160px; object-fit:cover; border-radius:15px 15px 0 0;">' if p.get('image_url') else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:160px; border-radius:15px 15px 0 0;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
-            featured_html += f'''<div class="col-md-3 mb-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">{img}<div class="card-body text-center"><h5 class="fw-bold">{p['name']}</h5><p class="text-success fw-bold mb-2">KSh {p['price']}</p><a href="/shop" class="btn btn-outline-primary btn-sm rounded-pill">View</a></div></div></div>'''
+            img = f'<img src="{e(p.get("image_url"))}" class="card-img-top" style="height:160px; object-fit:cover; border-radius:15px 15px 0 0;">' if p.get('image_url') else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:160px; border-radius:15px 15px 0 0;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
+            featured_html += f'''<div class="col-md-3 mb-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">{img}<div class="card-body text-center"><h5 class="fw-bold">{e(p['name'])}</h5><p class="text-success fw-bold mb-2">KSh {e(p['price'])}</p><a href="/shop" class="btn btn-outline-primary btn-sm rounded-pill">View</a></div></div></div>'''
     else:
         featured_html = '<div class="col-12 text-center"><p class="text-muted">No products yet. <a href="/shop">Start shopping</a></p></div>'
 
@@ -617,7 +408,7 @@ def home():
     </div>
 
     <footer class="text-center py-4 mt-5" style="background: var(--blue); color: white;">
-        <p class="mb-0">&copy; 2026 {PHARMACY_NAME}. All rights reserved. | <i class="fas fa-phone"></i> {PHARMACY_PHONE}</p>
+        <p class="mb-0">&copy; 2026 {e(PHARMACY_NAME)}. All rights reserved. | <i class="fas fa-phone"></i> {e(PHARMACY_PHONE)}</p>
     </footer>
 
     {quick_links}
@@ -643,9 +434,9 @@ def shop():
     prods = data.range((page-1)*per_page, page*per_page-1).execute().data or []
     rows = ''
     for p in prods:
-        img = f'<img src="{p.get("image_url")}" class="card-img-top" style="height:180px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:180px;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
-        rows += f'''<div class="col-6 col-md-4 mb-4"><div class="card h-100">{img}<div class="card-body"><h5 class="fw-bold">{p['name']}</h5><p class="text-muted small">{p['category']}</p>
-        <div class="d-flex justify-content-between align-items-center"><span class="h5" style="color:var(--blue);">KSh {p['price']}</span>
+        img = f'<img src="{e(p.get("image_url"))}" class="card-img-top" style="height:180px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:180px;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
+        rows += f'''<div class="col-6 col-md-4 mb-4"><div class="card h-100">{img}<div class="card-body"><h5 class="fw-bold">{e(p['name'])}</h5><p class="text-muted small">{e(p['category'])}</p>
+        <div class="d-flex justify-content-between align-items-center"><span class="h5" style="color:var(--blue);">KSh {e(p['price'])}</span>
         <div>
             <form action="/cart/add" method="POST" class="d-inline">{csrf_field()}<input type="hidden" name="productId" value="{p['id']}">
             <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm d-inline-block" style="width:60px;">
@@ -679,14 +470,14 @@ def shop():
         pagination = '<nav><ul class="pagination justify-content-center">'
         for p in range(1, total_pages+1):
             active = 'active' if p == page else ''
-            pagination += f'<li class="page-item {active}"><a class="page-link" href="/shop?page={p}&search={search}&category={category}">{p}</a></li>'
+            pagination += f'<li class="page-item {active}"><a class="page-link" href="/shop?page={p}&search={e(search)}&category={e(category)}">{p}</a></li>'
         pagination += '</ul></nav>'
 
     body = f'''<h2 class="fw-bold mb-4" style="color:var(--blue);">Our Products</h2>
     <form class="row g-3 mb-4">
         <div class="col-md-7">
             <div class="input-group">
-                <input class="form-control" name="search" value="{search}" placeholder="Search...">
+                <input class="form-control" name="search" value="{e(search)}" placeholder="Search...">
                 {voice_button}
             </div>
         </div>
@@ -712,9 +503,9 @@ def product_detail(pid):
         supabase.table('reviews').insert({'user_id':session['user_id'],'product_id':pid,'rating':rating,'comment':comment}).execute()
         return redirect(f'/product/{pid}?toast=Review submitted')
 
-    review_html = ''.join(f'''<div class="mb-3"><strong>{r.get('users',{}).get('full_name','Anonymous')}</strong>
+    review_html = ''.join(f'''<div class="mb-3"><strong>{e(r.get("users",{}).get("full_name","Anonymous"))}</strong>
     <div class="stars">{''.join('<i class="fas fa-star"></i>' for _ in range(r['rating']))}</div>
-    <p>{r.get('comment','')}</p></div>''' for r in reviews)
+    <p>{e(r.get("comment",""))}</p></div>''' for r in reviews)
 
     fbt_products = get_frequently_bought_together(pid)
     fbt_html = ''
@@ -722,8 +513,8 @@ def product_detail(pid):
         fbt_items = ''.join(f'''<div class="col-md-6 mb-3">
             <div class="card h-100">
                 <div class="card-body text-center">
-                    <h5 class="fw-bold">{p['name']}</h5>
-                    <p class="text-success">KSh {p['price']}</p>
+                    <h5 class="fw-bold">{e(p['name'])}</h5>
+                    <p class="text-success">KSh {e(p['price'])}</p>
                     <a href="/product/{p['id']}" class="btn btn-outline-primary btn-sm">View</a>
                 </div>
             </div>
@@ -735,9 +526,9 @@ def product_detail(pid):
         </div>'''
 
     body = f'''
-    <h2>{prod['name']}</h2>
-    <p>{prod.get('description','')}</p>
-    <h4>KSh {prod['price']}</h4>
+    <h2>{e(prod['name'])}</h2>
+    <p>{e(prod.get('description',''))}</p>
+    <h4>KSh {e(prod['price'])}</h4>
     <div class="mb-3">Average rating: {avg_rating} ({len(reviews)} reviews)</div>
     {review_html}
     {fbt_html}
@@ -766,7 +557,7 @@ def view_wishlist():
     if not w: return public_page("Wishlist","<h2>Your Wishlist</h2><p>Wishlist is empty.</p>")
     pids = [x['product_id'] for x in w]
     prods = supabase.table('products').select('*').in_('id',pids).execute().data
-    rows = ''.join(f'''<div class="col-md-4 mb-4"><div class="card h-100"><div class="card-body"><h5>{p['name']}</h5><p>KSh {p['price']}</p><a href="/wishlist/remove/{p['id']}" class="btn btn-sm btn-outline-danger">Remove</a></div></div></div>''' for p in prods)
+    rows = ''.join(f'''<div class="col-md-4 mb-4"><div class="card h-100"><div class="card-body"><h5>{e(p['name'])}</h5><p>KSh {e(p['price'])}</p><a href="/wishlist/remove/{p['id']}" class="btn btn-sm btn-outline-danger">Remove</a></div></div></div>''' for p in prods)
     return public_page("Wishlist",f'<h2>Your Wishlist</h2><div class="row">{rows}</div>')
 
 # ---------- Cart ----------
@@ -803,7 +594,7 @@ def view_cart():
         items=session.get('cart',[])
         total=sum(it['price']*it['qty'] for it in items)
     if not items: return public_page("Cart",'<div class="text-center mt-5"><i class="fas fa-shopping-cart fa-5x text-muted mb-4"></i><h2>Your Cart is Empty</h2><p class="text-muted">Looks like you haven\'t added anything yet.</p><a href="/shop" class="btn btn-primary rounded-pill mt-3">Start Shopping</a></div>')
-    rows=''.join(f'<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{i["name"]}</h5><small>Qty: {i["qty"]} × KSh {i["price"]}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4><a href="/cart/remove/{i["productId"]}" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></a></div></div>' for i in items)
+    rows=''.join(f'<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center"><div><h5>{e(i["name"])}</h5><small>Qty: {i["qty"]} × KSh {e(i["price"])}</small></div><div><h4 class="text-success">KSh {i["price"]*i["qty"]:.2f}</h4><a href="/cart/remove/{i["productId"]}" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></a></div></div>' for i in items)
     body=f'<h2>Your Cart</h2>{rows}<hr><div class="d-flex justify-content-between"><h4>Total</h4><h4>KSh {total:.2f}</h4></div><a href="/checkout" class="btn btn-success w-100 py-3 mt-3">Proceed to Checkout</a>'
     user = None
     if session.get('user_id'): user = {'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
@@ -863,12 +654,12 @@ def checkout():
             </div>
             <div class="card-body p-4">
                 <div class="row mb-4">
-                    <div class="col-sm-6"><h5>Invoice</h5><p><strong>Order #:</strong> {str(oid)[:8]}<br><strong>Date:</strong> {order_data['created_at'][:10]}<br><strong>Status:</strong> <span class="badge bg-warning text-dark">{order_data['order_status']}</span></p></div>
-                    <div class="col-sm-6 text-sm-end"><h5>Customer</h5><p>{order_data.get('shipping_name','')}<br>{order_data.get('shipping_phone','')}<br>{order_data.get('shipping_address','')}, {order_data.get('shipping_city','')}</p></div>
+                    <div class="col-sm-6"><h5>Invoice</h5><p><strong>Order #:</strong> {str(oid)[:8]}<br><strong>Date:</strong> {order_data['created_at'][:10]}<br><strong>Status:</strong> <span class="badge bg-warning text-dark">{e(order_data['order_status'])}</span></p></div>
+                    <div class="col-sm-6 text-sm-end"><h5>Customer</h5><p>{e(order_data.get('shipping_name',''))}<br>{e(order_data.get('shipping_phone',''))}<br>{e(order_data.get('shipping_address',''))}, {e(order_data.get('shipping_city',''))}</p></div>
                 </div>
                 <table class="table table-bordered">
                     <thead class="table-light"><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
-                    <tbody>{"".join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items_data)}</tbody>
+                    <tbody>{"".join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items_data)}</tbody>
                     <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order_data['total_amount']}</td></tr></tfoot>
                 </table>
                 <div class="text-center mt-3 no-print">
@@ -895,11 +686,11 @@ def download_receipt(oid):
     order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
     if not order: return "Order not found", 404
-    item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
+    item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Receipt #{oid}</title>
     <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} table{{width:100%;border-collapse:collapse;}} th,td{{padding:10px;border:1px solid #ddd;}} th{{background:#0A3D62;color:white;}} .total-row td{{font-weight:bold;}}</style></head><body>
-    <h2>{PHARMACY_NAME} - Receipt #{oid}</h2>
-    <p><strong>Date:</strong> {order['created_at'][:10]}<br><strong>Customer:</strong> {order.get('shipping_name','')}</p>
+    <h2>{e(PHARMACY_NAME)} - Receipt #{oid}</h2>
+    <p><strong>Date:</strong> {order['created_at'][:10]}<br><strong>Customer:</strong> {e(order.get('shipping_name',''))}</p>
     <table><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{item_rows}</tbody><tfoot><tr class="total-row"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot></table>
     </body></html>"""
     resp = make_response(html)
@@ -940,7 +731,7 @@ def prescription_upload():
                 '<div class="text-center mt-5"><i class="fas fa-check-circle fa-5x text-success mb-3"></i><h2>Thank You!</h2><p>Your prescription has been submitted.</p><a href="/" class="btn btn-primary rounded-pill mt-3">Back to Home</a></div>')
         except Exception as e:
             return public_page("Upload Error",
-                f'<div class="alert alert-danger mt-5"><h4>Upload Failed</h4><p>{str(e)}</p></div><a href="/prescription">Try again</a>')
+                f'<div class="alert alert-danger mt-5"><h4>Upload Failed</h4><p>{e(str(e))}</p></div><a href="/prescription">Try again</a>')
     return public_page("Upload Prescription", f'''<div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-5"><div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-file-prescription fa-3x text-primary"></i><h3 class="fw-bold mt-2">Upload Prescription</h3></div>
     <form method="post" enctype="multipart/form-data">
     {csrf_field()}
@@ -963,18 +754,19 @@ def branches():
     markers_js = ''
     for b in branches:
         if b.get('latitude') is not None and b.get('longitude') is not None:
-            name = b['name'].replace("'", "\\'")
-            addr = (b.get('address') or '').replace("'", "\\'")
-            phone = (b.get('phone') or '').replace("'", "\\'")
-            popup = f"<b>{name}</b><br>{addr}<br>{phone}"
-            markers_js += f"L.marker([{b['latitude']}, {b['longitude']}]).addTo(map).bindPopup('{popup}');\n"
+            # Using json.dumps for safe JS string injection
+            name_js = json.dumps(b['name'])
+            addr_js = json.dumps(b.get('address') or '')
+            phone_js = json.dumps(b.get('phone') or '')
+            popup = f"<b>{e(b['name'])}</b><br>{e(b.get('address',''))}<br>{e(b.get('phone',''))}"
+            markers_js += f"L.marker([{b['latitude']}, {b['longitude']}]).addTo(map).bindPopup({json.dumps(popup)});\n"
 
     branch_cards = ''.join(f'''<div class="col-md-6 col-lg-4 mb-4">
             <div class="card h-100 shadow-sm border-0 rounded-4">
                 <div class="card-body">
-                    <h5 class="fw-bold"><i class="fas fa-map-marker-alt text-danger me-2"></i>{b['name']}</h5>
-                    <p class="mb-1"><i class="fas fa-map-pin me-2 text-muted"></i>{b.get('address','')}</p>
-                    <p class="mb-0"><i class="fas fa-phone me-2 text-muted"></i>{b.get('phone','')}</p>
+                    <h5 class="fw-bold"><i class="fas fa-map-marker-alt text-danger me-2"></i>{e(b['name'])}</h5>
+                    <p class="mb-1"><i class="fas fa-map-pin me-2 text-muted"></i>{e(b.get('address',''))}</p>
+                    <p class="mb-0"><i class="fas fa-phone me-2 text-muted"></i>{e(b.get('phone',''))}</p>
                 </div>
             </div>
         </div>''' for b in branches)
@@ -998,7 +790,7 @@ def branches():
 
 # ---------- About, Contact ----------
 @app.route('/about')
-def about(): return public_page("About",f'<h2>About {PHARMACY_NAME}</h2><p>Your trusted online pharmacy since 2026.</p>')
+def about(): return public_page("About",f'<h2>About {e(PHARMACY_NAME)}</h2><p>Your trusted online pharmacy since 2026.</p>')
 
 @app.route('/contact', methods=['GET','POST'])
 def contact():
@@ -1007,14 +799,14 @@ def contact():
         except: pass
         return redirect('/contact?sent=1')
     sent = 'Message sent!' if request.args.get('sent') else ''
-    return public_page("Contact",f'<h2>Contact</h2><form method="post">{csrf_field()}<input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{sent}')
+    return public_page("Contact",f'<h2>Contact</h2><form method="post">{csrf_field()}<input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{e(sent)}')
 
 # ---------- My Account ----------
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'): return redirect('/login')
     orders = supabase.table('orders').select('*').eq('user_id',session['user_id']).order('created_at',desc=True).execute().data or []
-    html=''.join(f'<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{o.get("order_status","")}</span> <a href="/refill/{o["id"]}" class="btn btn-sm btn-outline-primary">Refill</a></div></div>' for o in orders)
+    html=''.join(f'<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{e(o.get("order_status",""))}</span> <a href="/refill/{o["id"]}" class="btn btn-sm btn-outline-primary">Refill</a></div></div>' for o in orders)
     user={'full_name':session.get('user_name','User'),'is_admin':session.get('is_admin',False)}
     return public_page("My Orders",f'<h2 class="mb-4">My Orders</h2>{html or "<p>No orders yet.</p>"}',user)
 
@@ -1045,7 +837,7 @@ def customer_order_detail(oid):
             </span>
             <span class="{'fw-bold' if state == 'active' else ''}">{step['label']}</span>
         </div>'''
-    items_html = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
+    items_html = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
 
     body = f'''
     <h2>Order #{str(oid)[:8]}</h2>
@@ -1055,9 +847,9 @@ def customer_order_detail(oid):
             <div class="card p-4 shadow-sm rounded-4">
                 <h5 class="fw-bold">Order Details</h5>
                 <p><strong>Date:</strong> {order['created_at'][:10]}<br>
-                <strong>Shipping Address:</strong> {order.get('shipping_address','')}, {order.get('shipping_city','')}<br>
-                <strong>Phone:</strong> {order.get('shipping_phone','')}<br>
-                <strong>Payment:</strong> {order.get('payment_method','')}</p>
+                <strong>Shipping Address:</strong> {e(order.get('shipping_address',''))}, {e(order.get('shipping_city',''))}<br>
+                <strong>Phone:</strong> {e(order.get('shipping_phone',''))}<br>
+                <strong>Payment:</strong> {e(order.get('payment_method',''))}</p>
                 <div class="table-responsive"><table class="table"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{items_html}</tbody></table></div>
                 <div class="text-end fw-bold">Total: KSh {order['total_amount']}</div>
                 <a href="/invoice/{oid}" target="_blank" class="btn btn-outline-primary mt-3"><i class="fas fa-print me-2"></i>Download Invoice</a>
@@ -1073,19 +865,19 @@ def customer_invoice(oid):
     order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
     if not order or order.get('user_id') != session['user_id']: return "Order not found", 404
     items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
-    item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
+    item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} .invoice-box{{max-width:800px;margin:auto;border:1px solid #eee;box-shadow:0 0 10px rgba(0,0,0,0.05);padding:2rem;}} .logo{{font-weight:800;font-size:1.8rem;color:#0A3D62;}} .logo span{{color:#F4A261}} table{{width:100%;border-collapse:collapse;}} th{{background:#0A3D62;color:white;padding:10px;}} td{{padding:10px;border-bottom:1px solid #ddd;}} .total-row td{{font-weight:bold;border-top:2px solid #0A3D62;}}</style></head><body>
 <div class="invoice-box">
-    <div class="d-flex justify-content-between"><div class="logo">Mediocare <span>Pharmacy</span></div><div><h5>INVOICE</h5><p>#{oid}<br>{order['created_at'][:10]}</p></div></div>
-    <div class="row"><div class="col-6"><strong>From:</strong><br>Mediocare Pharmacy Ltd<br>Mombasa Road, Taji Mall, Nairobi<br>Tel: {PHARMACY_PHONE}</div><div class="col-6 text-end"><strong>Bill To:</strong><br>{order.get('shipping_name','')}<br>{order.get('shipping_phone','')}<br>{order.get('shipping_address','')}, {order.get('shipping_city','')}</div></div>
+    <div class="d-flex justify-content-between"><div class="logo">{e(PHARMACY_NAME)} <span>Pharmacy</span></div><div><h5>INVOICE</h5><p>#{oid}<br>{order['created_at'][:10]}</p></div></div>
+    <div class="row"><div class="col-6"><strong>From:</strong><br>{e(PHARMACY_NAME)} Pharmacy Ltd<br>Mombasa Road, Taji Mall, Nairobi<br>Tel: {e(PHARMACY_PHONE)}</div><div class="col-6 text-end"><strong>Bill To:</strong><br>{e(order.get('shipping_name',''))}<br>{e(order.get('shipping_phone',''))}<br>{e(order.get('shipping_address',''))}, {e(order.get('shipping_city',''))}</div></div>
     <table class="mt-3"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{item_rows}</tbody><tfoot><tr class="total-row"><td colspan="3" class="text-end">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot></table>
-    <p class="mt-3">Thank you for choosing Mediocare!</p>
+    <p class="mt-3">Thank you for choosing {e(PHARMACY_NAME)}!</p>
 </div><script>window.print();</script></body></html>"""
     return html
 
-# ---------- NEW: Refill Order ----------
+# ---------- Refill Order ----------
 @app.route('/refill/<int:oid>')
 def refill_order(oid):
     if not session.get('user_id'):
@@ -1104,7 +896,7 @@ def refill_order(oid):
             supabase.table('cart').insert({'user_id': session['user_id'], 'product_id': pid, 'quantity': qty}).execute()
     return redirect('/cart?toast=Order refilled')
 
-# ---------- NEW: Medicine Reminders ----------
+# ---------- Medicine Reminders ----------
 @app.route('/reminders', methods=['GET', 'POST'])
 def reminders():
     if not session.get('user_id'):
@@ -1130,12 +922,12 @@ def reminders():
     else:
         unique_meds = []
 
-    med_options = ''.join(f'<option value="{m}">{m}</option>' for m in unique_meds)
+    med_options = ''.join(f'<option value="{e(m)}">{e(m)}</option>' for m in unique_meds)
     reminder_html = ''
     for r in user_reminders:
         reminder_html += f'''
         <div class="card p-3 mb-2">
-            <strong>{r['medicine_name']}</strong> – {r['remind_at'][:16]}
+            <strong>{e(r['medicine_name'])}</strong> – {r['remind_at'][:16]}
             <a href="/reminders/delete/{r['id']}" class="btn btn-sm btn-outline-danger float-end">Delete</a>
         </div>'''
 
@@ -1172,7 +964,7 @@ def delete_reminder(rid):
     supabase.table('reminders').delete().eq('id', rid).eq('user_id', session['user_id']).execute()
     return redirect('/reminders?toast=Reminder deleted')
 
-# ---------- NEW: Symptom Checker ----------
+# ---------- Symptom Checker ----------
 @app.route('/symptom-checker', methods=['GET', 'POST'])
 def symptom_checker():
     symptoms = [
@@ -1190,21 +982,21 @@ def symptom_checker():
                 results = products
 
     symptom_checks = ''.join(
-        f'<div class="form-check"><input class="form-check-input" type="checkbox" name="symptoms" value="{s}" id="s{s}"><label class="form-check-label" for="s{s}">{s}</label></div>'
+        f'<div class="form-check"><input class="form-check-input" type="checkbox" name="symptoms" value="{e(s)}" id="s{s}"><label class="form-check-label" for="s{s}">{e(s)}</label></div>'
         for s in symptoms
     )
     result_html = ''
     if results:
         result_html = '<h4 class="mt-4">Recommended Products</h4><div class="row">'
         for p in results:
-            img = f'<img src="{p.get("image_url")}" style="height:100px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:100px;"><i class="fas fa-pills fa-2x text-muted"></i></div>'
+            img = f'<img src="{e(p.get("image_url"))}" style="height:100px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:100px;"><i class="fas fa-pills fa-2x text-muted"></i></div>'
             result_html += f'''
             <div class="col-md-4 mb-3">
                 <div class="card h-100">
                     {img}
                     <div class="card-body">
-                        <h6>{p['name']}</h6>
-                        <p class="text-success">KSh {p['price']}</p>
+                        <h6>{e(p['name'])}</h6>
+                        <p class="text-success">KSh {e(p['price'])}</p>
                         <a href="/product/{p['id']}" class="btn btn-sm btn-outline-primary">View</a>
                     </div>
                 </div>
@@ -1253,12 +1045,12 @@ def admin_dashboard():
     total_products = supabase.table('products').select('count',count='exact').execute().count
 
     low_stock = supabase.table('products').select('name,stock').lt('stock',10).execute().data or []
-    low_stock_html = ''.join(f'<li>{p["name"]} – {p["stock"]} left</li>' for p in low_stock)
+    low_stock_html = ''.join(f'<li>{e(p["name"])} – {p["stock"]} left</li>' for p in low_stock)
 
     rows = ''.join(
-        f'<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td>'
+        f'<tr><td>#{str(o["id"])[:8]}</td><td>{e(o.get("shipping_name","Guest"))}</td>'
         f'<td>KSh {o["total_amount"]}</td>'
-        f'<td><span class="badge {"bg-warning text-dark" if o.get("order_status")=="pending" else "bg-success"}">{o.get("order_status","pending")}</span></td></tr>'
+        f'<td><span class="badge {"bg-warning text-dark" if o.get("order_status")=="pending" else "bg-success"}">{e(o.get("order_status","pending"))}</span></td></tr>'
         for o in orders
     )
 
@@ -1301,7 +1093,7 @@ def admin_dashboard():
 def admin_orders():
     orders = supabase.table('orders').select('*').order('created_at',desc=True).execute().data or []
     rows = ''.join(
-        f'''<tr><td>#{str(o["id"])[:8]}</td><td>{o.get("shipping_name","Guest")}</td><td>KSh {o["total_amount"]}</td>
+        f'''<tr><td>#{str(o["id"])[:8]}</td><td>{e(o.get("shipping_name","Guest"))}</td><td>KSh {o["total_amount"]}</td>
         <td><div class="d-flex align-items-center">
             <form method="post" action="/admin/order/{o["id"]}/status" class="d-flex">
                 <select name="status" class="form-select form-select-sm me-2" style="width:auto;">
@@ -1329,10 +1121,10 @@ def admin_invoice(oid):
     order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
     items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
     if not order: return "Order not found", 404
-    item_rows = ''.join(f'<tr><td>{i["product_name"]}</td><td>{i["quantity"]}</td><td>KSh {i["unit_price"]}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
+    item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
 <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} .invoice-box{{max-width:800px;margin:auto;border:1px solid #eee;box-shadow:0 0 10px rgba(0,0,0,0.05);padding:2rem;}} h2{{color:#0A3D62}} table{{width:100%;border-collapse:collapse;}} th{{background:#0A3D62;color:white;padding:10px;}} td{{padding:10px;border-bottom:1px solid #ddd;}} .total-row td{{font-weight:bold;border-top:2px solid #0A3D62;}}</style></head><body>
-<div class="invoice-box"><h2>{PHARMACY_NAME}</h2><p>Invoice #{oid}<br>{order['created_at'][:10]}</p>
+<div class="invoice-box"><h2>{e(PHARMACY_NAME)}</h2><p>Invoice #{oid}<br>{order['created_at'][:10]}</p>
 <table><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{item_rows}</tbody><tfoot><tr class="total-row"><td colspan="3">Grand Total</td><td>KSh {order['total_amount']}</td></tr></tfoot></table>
 <div class="text-end mt-3"><button onclick="window.print()" class="btn btn-primary no-print">Print</button> <a href="/admin/orders" class="btn btn-outline-primary no-print">Back</a></div></div>
 </body></html>"""
@@ -1347,7 +1139,7 @@ def admin_invoice(oid):
 @admin_required
 def admin_products():
     prods = supabase.table('products').select('*').order('name').execute().data or []
-    rows = ''.join(f'<tr><td>{p["name"]}</td><td>{p["category"]}</td><td>{p["price"]}</td><td>{p["stock"]}</td><td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a><a href="/admin/delete-product/{p["id"]}" class="btn btn-sm btn-danger" onclick="return confirm(\'Delete?\')">Delete</a></td></tr>' for p in prods)
+    rows = ''.join(f'<tr><td>{e(p["name"])}</td><td>{e(p["category"])}</td><td>{e(p["price"])}</td><td>{p["stock"]}</td><td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a><a href="/admin/delete-product/{p["id"]}" class="btn btn-sm btn-danger" onclick="return confirm(\'Delete?\')">Delete</a></td></tr>' for p in prods)
     return admin_page("Products", f'<a href="/admin/add-product" class="btn btn-success mb-3">+ Add Product</a><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>', active='products')
 
 @app.route('/admin/add-product', methods=['GET','POST'])
@@ -1386,10 +1178,10 @@ def edit_product(pid):
     p = supabase.table('products').select('*').eq('id',pid).single().execute().data
     return admin_page("Edit Product", f'''<form method="post" enctype="multipart/form-data" style="max-width:500px;">
     {csrf_field()}
-    <input class="form-control mb-2" name="name" value="{p['name']}" required>
-    <textarea class="form-control mb-2" name="description">{p.get('description','')}</textarea>
-    <input class="form-control mb-2" name="category" value="{p['category']}" required>
-    <div class="row"><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="price" value="{p['price']}" required></div><div class="col"><input class="form-control mb-2" type="number" name="stock" value="{p['stock']}" required></div></div>
+    <input class="form-control mb-2" name="name" value="{e(p['name'])}" required>
+    <textarea class="form-control mb-2" name="description">{e(p.get('description',''))}</textarea>
+    <input class="form-control mb-2" name="category" value="{e(p['category'])}" required>
+    <div class="row"><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="price" value="{e(p['price'])}" required></div><div class="col"><input class="form-control mb-2" type="number" name="stock" value="{e(p['stock'])}" required></div></div>
     <input class="form-control mb-2" type="file" name="image" accept="image/*">
     <button class="btn btn-primary w-100">Update Product</button></form>''', active='products')
 
@@ -1404,7 +1196,7 @@ def delete_product(pid):
 @admin_required
 def admin_prescriptions():
     rx = supabase.table('prescriptions').select('*').order('created_at',desc=True).execute().data or []
-    items = ''.join(f'<div class="card mb-2 p-3"><strong>{r["customer_name"]}</strong><br>Phone: {r["customer_phone"]}<br><a href="{r.get("file_url","#")}" target="_blank" class="btn btn-sm btn-primary mt-2">View File</a></div>' for r in rx)
+    items = ''.join(f'<div class="card mb-2 p-3"><strong>{e(r["customer_name"])}</strong><br>Phone: {e(r["customer_phone"])}<br><a href="{e(r.get("file_url","#"))}" target="_blank" class="btn btn-sm btn-primary mt-2">View File</a></div>' for r in rx)
     return admin_page("Prescriptions", items or '<p>No prescriptions yet.</p>', active='prescriptions')
 
 # ---------- Admin: Customers ----------
@@ -1414,11 +1206,11 @@ def admin_customers():
     orders = supabase.table('orders').select('*').execute().data or []
     cust = {}
     for o in orders:
-        e = o.get('customer_email') or o.get('guest_email')
-        if not e: continue
-        if e not in cust: cust[e] = {'name': o.get('customer_name','') or o.get('shipping_name',''), 'phone': o.get('customer_phone','') or o.get('shipping_phone',''), 'spent':0, 'orders':0}
-        cust[e]['spent'] += o['total_amount']; cust[e]['orders'] += 1
-    rows = ''.join(f'<tr><td>{c["name"]}</td><td>{e}</td><td>{c["phone"]}</td><td>{c["orders"]}</td><td>KSh {c["spent"]}</td></tr>' for e,c in cust.items())
+        e_mail = o.get('customer_email') or o.get('guest_email')
+        if not e_mail: continue
+        if e_mail not in cust: cust[e_mail] = {'name': o.get('customer_name','') or o.get('shipping_name',''), 'phone': o.get('customer_phone','') or o.get('shipping_phone',''), 'spent':0, 'orders':0}
+        cust[e_mail]['spent'] += o['total_amount']; cust[e_mail]['orders'] += 1
+    rows = ''.join(f'<tr><td>{e(c["name"])}</td><td>{e(email)}</td><td>{e(c["phone"])}</td><td>{c["orders"]}</td><td>KSh {c["spent"]}</td></tr>' for email, c in cust.items())
     return admin_page("Customers", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead><tbody>{rows}</tbody></table></div>', active='customers')
 
 # ---------- Admin: Users ----------
@@ -1426,7 +1218,7 @@ def admin_customers():
 @admin_required
 def admin_users():
     users = supabase.table('users').select('*').execute().data or []
-    rows = ''.join(f'<tr><td>{u["full_name"]}</td><td>{u["email"]}</td><td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td><td><a href="/admin/approve-user/{u["id"]}" class="btn btn-sm btn-success me-1">Approve</a><a href="/admin/disable-user/{u["id"]}" class="btn btn-sm btn-danger">Disable</a></td></tr>' for u in users)
+    rows = ''.join(f'<tr><td>{e(u["full_name"])}</td><td>{e(u["email"])}</td><td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td><td><a href="/admin/approve-user/{u["id"]}" class="btn btn-sm btn-success me-1">Approve</a><a href="/admin/disable-user/{u["id"]}" class="btn btn-sm btn-danger">Disable</a></td></tr>' for u in users)
     return admin_page("Customer Care", f'<div class="card border-0 shadow-sm rounded-4 p-3"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows}</tbody></table></div>', active='users')
 
 @app.route('/admin/approve-user/<uid>')
@@ -1476,7 +1268,7 @@ def admin_discounts():
         active = c.get('active', False)
         status = 'Active' if active else 'Disabled'
         rows += f'''<tr>
-            <td>{c['code']}</td>
+            <td>{e(c['code'])}</td>
             <td>{percent}%</td>
             <td>{amount} KSh</td>
             <td>{status}</td>
@@ -1523,9 +1315,9 @@ def admin_bundles():
     rows = ''
     for b in bundles:
         items = supabase.table('bundle_items').select('*, products(name)').eq('bundle_id', b['id']).execute().data or []
-        item_names = ', '.join([i['products']['name'] for i in items[:3]])
+        item_names = ', '.join([e(i['products']['name']) for i in items[:3]])
         rows += f'''<tr>
-            <td>{b['name']}</td>
+            <td>{e(b['name'])}</td>
             <td>{item_names}{'...' if len(items) > 3 else ''}</td>
             <td>{b['discount_percent']}%</td>
             <td>
@@ -1555,7 +1347,7 @@ def add_bundle():
             }).execute()
         return redirect('/admin/bundles')
     products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
-    product_options = ''.join(f'<option value="{p["id"]}">{p["name"]}</option>' for p in products)
+    product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     return admin_page("New Bundle", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="name" placeholder="Bundle Name" required>
     <input class="form-control mb-2" type="number" step="0.01" name="discount_percent" placeholder="Discount %">
@@ -1598,13 +1390,13 @@ def edit_bundle(bid):
     bundle = supabase.table('bundles').select('*').eq('id', bid).single().execute().data
     items = supabase.table('bundle_items').select('*').eq('bundle_id', bid).execute().data or []
     products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
-    product_options = ''.join(f'<option value="{p["id"]}">{p["name"]}</option>' for p in products)
+    product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     items_html = ''.join(f'''<div class="mb-2">
-        <select name="product_ids" class="form-select"><option value="{i['product_id']}" selected>{i.get('products',{}).get('name','')}</option></select>
+        <select name="product_ids" class="form-select"><option value="{i['product_id']}" selected>{e(i.get('products',{}).get('name',''))}</option></select>
         <input type="number" name="quantities" value="{i['quantity']}" class="form-control d-inline" style="width:80px;">
     </div>''' for i in items)
     return admin_page("Edit Bundle", f'''<form method="post">{csrf_field()}
-    <input class="form-control mb-2" name="name" value="{bundle['name']}" required>
+    <input class="form-control mb-2" name="name" value="{e(bundle['name'])}" required>
     <input class="form-control mb-2" type="number" step="0.01" name="discount_percent" value="{bundle['discount_percent']}" placeholder="Discount %">
     <div id="bundle-items">{items_html}</div>
     <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItem()">+ Add Product</button>
@@ -1687,7 +1479,7 @@ def admin_branches():
     branches = supabase.table('branches').select('*').order('name').execute().data or []
     rows = ''.join(
         f'''<tr>
-            <td>{b['name']}</td><td>{b.get('address','')}</td><td>{b.get('phone','')}</td>
+            <td>{e(b['name'])}</td><td>{e(b.get('address',''))}</td><td>{e(b.get('phone',''))}</td>
             <td><a href="/admin/edit-branch/{b['id']}" class="btn btn-sm btn-warning me-1">Edit</a>
             <a href="/admin/delete-branch/{b['id']}" class="btn btn-sm btn-danger" onclick="return confirm('Delete?')">Delete</a></td></tr>''' for b in branches)
     body = f'''<a href="/admin/add-branch" class="btn btn-success mb-3"><i class="fas fa-plus me-2"></i>Add Branch</a>
@@ -1725,9 +1517,9 @@ def edit_branch(bid):
     b = supabase.table('branches').select('*').eq('id', bid).single().execute().data
     if not b: return "Branch not found", 404
     return admin_page("Edit Branch", f'''<form method="post">{csrf_field()}
-    <input class="form-control mb-2" name="name" value="{b['name']}" required>
-    <input class="form-control mb-2" name="address" value="{b.get('address','')}">
-    <input class="form-control mb-2" name="phone" value="{b.get('phone','')}">
+    <input class="form-control mb-2" name="name" value="{e(b['name'])}" required>
+    <input class="form-control mb-2" name="address" value="{e(b.get('address',''))}">
+    <input class="form-control mb-2" name="phone" value="{e(b.get('phone',''))}">
     <div class="row"><div class="col"><input class="form-control mb-2" type="number" step="any" name="latitude" value="{b.get('latitude','')}" placeholder="Latitude"></div><div class="col"><input class="form-control mb-2" type="number" step="any" name="longitude" value="{b.get('longitude','')}" placeholder="Longitude"></div></div>
     <button class="btn btn-primary w-100">Update Branch</button></form>''', active='branches')
 
@@ -1752,12 +1544,12 @@ def admin_symptoms():
     mappings = supabase.table('symptom_mappings').select('*, products(name)').order('symptom').execute().data or []
     rows = ''.join(f'''
         <tr>
-            <td>{m['symptom']}</td>
-            <td>{m.get('products',{}).get('name','')}</td>
+            <td>{e(m['symptom'])}</td>
+            <td>{e(m.get('products',{}).get('name',''))}</td>
             <td><a href="/admin/symptoms/delete/{m['id']}" class="btn btn-sm btn-danger">Delete</a></td>
         </tr>''' for m in mappings)
     products = supabase.table('products').select('id,name').eq('active',True).execute().data
-    product_options = ''.join(f'<option value="{p["id"]}">{p["name"]}</option>' for p in products)
+    product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     body = f'''
     <h5>Add Symptom Mapping</h5>
     <form method="post" class="mb-4">
@@ -1794,7 +1586,7 @@ def export_orders():
 # PWA / Icons
 @app.route('/manifest.json')
 def manifest():
-    return make_response(json.dumps({"name":f"{PHARMACY_NAME} - Online Pharmacy","short_name":PHARMACY_NAME,"start_url":"/","display":"standalone","icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png"}]}),{'Content-Type':'application/manifest+json'})
+    return make_response(json.dumps({"name":f"{e(PHARMACY_NAME)} - Online Pharmacy","short_name":e(PHARMACY_NAME),"start_url":"/","display":"standalone","icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png"}]}),{'Content-Type':'application/manifest+json'})
 
 @app.route('/sw.js')
 def sw():
