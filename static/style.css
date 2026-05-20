@@ -1,6 +1,5 @@
 /* static/style.css */
 
-/* ---------- Public Page Variables & Base ---------- */
 :root {
     --blue: #0A3D62;
     --gold: #F4A261;
@@ -222,7 +221,7 @@ body {
 .table-responsive { -webkit-overflow-scrolling: touch; }
 h2 { color: var(--blue); }
 
-/* ---------- New UI rule ---------- */
+/* new */
 .border-dashed {
     border-style: dashed !important;
 }
