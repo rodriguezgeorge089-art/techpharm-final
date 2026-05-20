@@ -23,6 +23,27 @@ def e(value):
     """Escape HTML special characters to prevent XSS."""
     return html.escape(str(value)) if value is not None else ''
 
+# ---------- File validation helper ----------
+def is_allowed_file(file):
+    """
+    Check actual file content (magic bytes) to allow only JPEG, PNG, PDF.
+    Returns True if allowed, False otherwise.
+    """
+    if not file:
+        return False
+    try:
+        header = file.read(8)
+        file.seek(0)  # rewind for later reading
+        if header.startswith(b'\xff\xd8\xff'):          # JPEG
+            return True
+        if header.startswith(b'\x89PNG\r\n\x1a\n'):     # PNG
+            return True
+        if header.startswith(b'%PDF'):                  # PDF
+            return True
+    except Exception:
+        logging.exception("Error reading file header")
+    return False
+
 # ---------- App initialisation ----------
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'mediocare-secret')
@@ -61,7 +82,7 @@ def public_page(title, body, user=None):
             resp = supabase.table('cart').select('quantity, products(price)').eq('user_id', uid).execute()
             for it in resp.data:
                 cart_total += float(it['products']['price']) * it['quantity']
-        except:
+        except Exception:
             logging.exception("Cart total calculation failed")
     else:
         guest_cart = session.get('cart', [])
@@ -192,23 +213,27 @@ def is_password_strong(password):
 
 # ---------- Frequently Bought Together ----------
 def get_frequently_bought_together(product_id, limit=4):
-    orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
-    if not orders_with_product:
+    try:
+        orders_with_product = supabase.table('order_items').select('order_id').eq('product_id', product_id).execute().data
+        if not orders_with_product:
+            return []
+        order_ids = list(set([o['order_id'] for o in orders_with_product]))
+        if not order_ids:
+            return []
+        all_items = supabase.table('order_items').select('product_id').in_('order_id', order_ids).execute().data
+        product_counts = {}
+        for item in all_items:
+            pid = item['product_id']
+            if pid == product_id:
+                continue
+            product_counts[pid] = product_counts.get(pid, 0) + 1
+        sorted_pids = sorted(product_counts, key=product_counts.get, reverse=True)[:limit]
+        if not sorted_pids:
+            return []
+        return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
+    except Exception:
+        logging.exception("Frequently bought together failed")
         return []
-    order_ids = list(set([o['order_id'] for o in orders_with_product]))
-    if not order_ids:
-        return []
-    all_items = supabase.table('order_items').select('product_id').in_('order_id', order_ids).execute().data
-    product_counts = {}
-    for item in all_items:
-        pid = item['product_id']
-        if pid == product_id:
-            continue
-        product_counts[pid] = product_counts.get(pid, 0) + 1
-    sorted_pids = sorted(product_counts, key=product_counts.get, reverse=True)[:limit]
-    if not sorted_pids:
-        return []
-    return supabase.table('products').select('id,name,price,image_url').in_('id', sorted_pids).execute().data
 
 # ---------- Pagination Helper ----------
 def pagination_controls(current_page, total_pages, base_url, params=None):
@@ -293,14 +318,21 @@ def logout():
 def home():
     try:
         featured = supabase.table('products').select('id,name,price,image_url').eq('active',True).limit(4).execute().data or []
-    except:
+    except Exception:
+        logging.exception("Featured products failed")
         featured = []
     try: total_orders = supabase.table('orders').select('count', count='exact').execute().count
-    except: total_orders = 0
+    except Exception:
+        logging.exception("Total orders count failed")
+        total_orders = 0
     try: total_products = supabase.table('products').select('count', count='exact').execute().count
-    except: total_products = 0
+    except Exception:
+        logging.exception("Total products count failed")
+        total_products = 0
     try: total_branches = supabase.table('branches').select('count', count='exact').execute().count
-    except: total_branches = 0
+    except Exception:
+        logging.exception("Total branches count failed")
+        total_branches = 0
 
     featured_html = ''
     if featured:
@@ -428,15 +460,20 @@ def home():
 def shop():
     search = request.args.get('search',''); category = request.args.get('category',''); page = int(request.args.get('page',1))
     per_page = 6
-    query = supabase.table('products').select('*', count='exact').eq('active', True)
-    if search: query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    if category: query = query.or_(f"category.ilike.%{category}%")
-    total_res = query.execute()
-    total = total_res.count if total_res.count else 0
-    data = supabase.table('products').select('*').eq('active', True)
-    if search: data = data.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
-    if category: data = data.or_(f"category.ilike.%{category}%")
-    prods = data.range((page-1)*per_page, page*per_page-1).execute().data or []
+    try:
+        query = supabase.table('products').select('*', count='exact').eq('active', True)
+        if search: query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
+        if category: query = query.or_(f"category.ilike.%{category}%")
+        total_res = query.execute()
+        total = total_res.count if total_res.count else 0
+        data = supabase.table('products').select('*').eq('active', True)
+        if search: data = data.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
+        if category: data = data.or_(f"category.ilike.%{category}%")
+        prods = data.range((page-1)*per_page, page*per_page-1).execute().data or []
+    except Exception:
+        logging.exception("Shop query failed")
+        prods = []
+        total = 0
     rows = ''
     for p in prods:
         img = f'<img src="{e(p.get("image_url"))}" class="card-img-top" style="height:180px;object-fit:cover;">' if p.get("image_url") else '<div class="bg-light d-flex align-items-center justify-content-center" style="height:180px;"><i class="fas fa-pills fa-3x text-muted"></i></div>'
@@ -500,14 +537,27 @@ def shop():
 # ---------- Product Detail & Reviews ----------
 @app.route('/product/<int:pid>', methods=['GET','POST'])
 def product_detail(pid):
-    prod = supabase.table('products').select('*').eq('id',pid).single().execute().data
-    if not prod: return "Product not found", 404
-    reviews = supabase.table('reviews').select('*, users(full_name)').eq('product_id',pid).order('created_at',desc=True).execute().data or []
-    avg_rating = round(sum([r['rating'] for r in reviews]) / len(reviews), 1) if reviews else 0
+    try:
+        prod = supabase.table('products').select('*').eq('id',pid).single().execute().data
+        if not prod: return public_page("Error",'<div class="alert alert-danger">Product not found</div>'), 404
+    except Exception:
+        logging.exception(f"Product detail failed for pid {pid}")
+        return public_page("Error",'<div class="alert alert-danger">Product not found</div>'), 404
+    reviews = []
+    avg_rating = 0
+    try:
+        reviews = supabase.table('reviews').select('*, users(full_name)').eq('product_id',pid).order('created_at',desc=True).execute().data or []
+        avg_rating = round(sum([r['rating'] for r in reviews]) / len(reviews), 1) if reviews else 0
+    except Exception:
+        logging.exception(f"Reviews failed for product {pid}")
     if request.method=='POST' and session.get('user_id'):
         rating = int(request.form['rating'])
         comment = request.form.get('comment','')
-        supabase.table('reviews').insert({'user_id':session['user_id'],'product_id':pid,'rating':rating,'comment':comment}).execute()
+        try:
+            supabase.table('reviews').insert({'user_id':session['user_id'],'product_id':pid,'rating':rating,'comment':comment}).execute()
+        except Exception:
+            logging.exception("Review insertion failed")
+            return redirect(f'/product/{pid}?toast=Review submission failed')
         return redirect(f'/product/{pid}?toast=Review submitted')
 
     review_html = ''.join(f'''<div class="mb-3"><strong>{e(r.get("users",{}).get("full_name","Anonymous"))}</strong>
@@ -548,22 +598,36 @@ def product_detail(pid):
 @app.route('/wishlist/add/<int:pid>', methods=['POST'])
 def wishlist_add(pid):
     if not session.get('user_id'): return redirect('/login')
-    supabase.table('wishlist').upsert({'user_id':session['user_id'],'product_id':pid}).execute()
+    try:
+        supabase.table('wishlist').upsert({'user_id':session['user_id'],'product_id':pid}).execute()
+    except Exception:
+        logging.exception("Wishlist add failed")
     return redirect(request.referrer + ('&wishlist_added=1' if '?' in request.referrer else '?wishlist_added=1'))
 
 @app.route('/wishlist/remove/<int:pid>', methods=['POST'])
 def wishlist_remove(pid):
     if not session.get('user_id'): return redirect('/login')
-    supabase.table('wishlist').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
+    try:
+        supabase.table('wishlist').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
+    except Exception:
+        logging.exception("Wishlist remove failed")
     return redirect(request.referrer or '/wishlist')
 
 @app.route('/wishlist')
 def view_wishlist():
     if not session.get('user_id'): return redirect('/login')
-    w = supabase.table('wishlist').select('product_id').eq('user_id',session['user_id']).execute().data or []
+    w = []
+    try:
+        w = supabase.table('wishlist').select('product_id').eq('user_id',session['user_id']).execute().data or []
+    except Exception:
+        logging.exception("Wishlist fetch failed")
     if not w: return public_page("Wishlist","<h2>Your Wishlist</h2><p>Wishlist is empty.</p>")
     pids = [x['product_id'] for x in w]
-    prods = supabase.table('products').select('*').in_('id',pids).execute().data
+    prods = []
+    try:
+        prods = supabase.table('products').select('*').in_('id',pids).execute().data
+    except Exception:
+        logging.exception("Wishlist products fetch failed")
     rows = ''.join(f'''<div class="col-md-4 mb-4"><div class="card h-100"><div class="card-body"><h5>{e(p['name'])}</h5><p>KSh {e(p['price'])}</p>
     <form action="/wishlist/remove/{p['id']}" method="POST" class="d-inline">
         {csrf_field()}
@@ -575,13 +639,20 @@ def view_wishlist():
 @app.route('/cart/add', methods=['POST'])
 def add_to_cart():
     pid = request.form['productId']; qty = int(request.form.get('quantity',1))
-    prod = supabase.table('products').select('id,name,price').eq('id',pid).single().execute().data
-    if not prod: return "Product not found", 404
+    try:
+        prod = supabase.table('products').select('id,name,price').eq('id',pid).single().execute().data
+        if not prod: return "Product not found", 404
+    except Exception:
+        logging.exception("Cart add product fetch failed")
+        return "Product not found", 404
     if session.get('user_id'):
         uid = session['user_id']
-        ex = supabase.table('cart').select('id,quantity').eq('user_id',uid).eq('product_id',pid).execute()
-        if ex.data: supabase.table('cart').update({'quantity':ex.data[0]['quantity']+qty}).eq('id',ex.data[0]['id']).execute()
-        else: supabase.table('cart').insert({'user_id':uid,'product_id':pid,'quantity':qty}).execute()
+        try:
+            ex = supabase.table('cart').select('id,quantity').eq('user_id',uid).eq('product_id',pid).execute()
+            if ex.data: supabase.table('cart').update({'quantity':ex.data[0]['quantity']+qty}).eq('id',ex.data[0]['id']).execute()
+            else: supabase.table('cart').insert({'user_id':uid,'product_id':pid,'quantity':qty}).execute()
+        except Exception:
+            logging.exception("Cart add (logged in) failed")
     else:
         cart = session.get('cart',[])
         found = False
@@ -596,11 +667,14 @@ def view_cart():
     items=[]; total=0.0
     if session.get('user_id'):
         uid=session['user_id']
-        db=supabase.table('cart').select('quantity,product_id,products(name,price)').eq('user_id',uid).execute()
-        for row in db.data:
-            p=row['products']
-            items.append({'productId':row['product_id'],'name':p['name'],'price':float(p['price']),'qty':row['quantity']})
-            total+=float(p['price'])*row['quantity']
+        try:
+            db=supabase.table('cart').select('quantity,product_id,products(name,price)').eq('user_id',uid).execute()
+            for row in db.data:
+                p=row['products']
+                items.append({'productId':row['product_id'],'name':p['name'],'price':float(p['price']),'qty':row['quantity']})
+                total+=float(p['price'])*row['quantity']
+        except Exception:
+            logging.exception("Cart view (logged in) failed")
     else:
         items=session.get('cart',[])
         total=sum(it['price']*it['qty'] for it in items)
@@ -618,7 +692,10 @@ def view_cart():
 @app.route('/cart/remove/<pid>', methods=['POST'])
 def remove_cart(pid):
     if session.get('user_id'):
-        supabase.table('cart').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
+        try:
+            supabase.table('cart').delete().eq('user_id',session['user_id']).eq('product_id',pid).execute()
+        except Exception:
+            logging.exception("Cart remove (logged in) failed")
     else:
         cart = [i for i in session.get('cart',[]) if i['productId']!=pid]
         session['cart']=cart
@@ -633,11 +710,15 @@ def checkout():
         cart_items = []
         if session.get('user_id'):
             uid=session['user_id']
-            db=supabase.table('cart').select('quantity,product_id,products(name,price)').eq('user_id',uid).execute()
-            if not db.data: return 'Cart empty.'
-            for row in db.data:
-                p=row['products']
-                cart_items.append({'product_id':row['product_id'],'product_name':p['name'],'quantity':row['quantity'],'unit_price':p['price'],'total_price':float(p['price'])*row['quantity']})
+            try:
+                db=supabase.table('cart').select('quantity,product_id,products(name,price)').eq('user_id',uid).execute()
+                if not db.data: return 'Cart empty.'
+                for row in db.data:
+                    p=row['products']
+                    cart_items.append({'product_id':row['product_id'],'product_name':p['name'],'quantity':row['quantity'],'unit_price':p['price'],'total_price':float(p['price'])*row['quantity']})
+            except Exception:
+                logging.exception("Checkout cart fetch failed")
+                return 'Cart error.'
         else:
             guest_cart=session.get('cart',[])
             if not guest_cart: return 'Cart empty.'
@@ -645,23 +726,29 @@ def checkout():
         total = sum(item['total_price'] for item in cart_items)
         discount_code = request.form.get('discount_code','').strip().upper()
         if discount_code:
-            code = supabase.table('discount_codes').select('*').eq('code',discount_code).single().execute()
-            if code.data and code.data.get('active'):
-                c = code.data
-                if c.get('discount_percent'): total *= (1 - c['discount_percent']/100)
-                elif c.get('discount_amount'): total -= c['discount_amount']
-                supabase.table('discount_codes').update({'used_count':c.get('used_count',0)+1}).eq('id',c['id']).execute()
+            try:
+                code = supabase.table('discount_codes').select('*').eq('code',discount_code).single().execute()
+                if code.data and code.data.get('active'):
+                    c = code.data
+                    if c.get('discount_percent'): total *= (1 - c['discount_percent']/100)
+                    elif c.get('discount_amount'): total -= c['discount_amount']
+                    supabase.table('discount_codes').update({'used_count':c.get('used_count',0)+1}).eq('id',c['id']).execute()
+            except Exception:
+                logging.exception("Discount code error")
         order = {**shipping, 'total_amount': total}
         if session.get('user_id'): order['user_id'] = session['user_id']
         else: order['guest_email'] = request.form.get('guest_email','guest@example.com')
-        order_res = supabase.table('orders').insert(order).execute()
-        oid = order_res.data[0]['id']
-        for item in cart_items: supabase.table('order_items').insert({**item,'order_id':oid}).execute()
-        if session.get('user_id'): supabase.table('cart').delete().eq('user_id',session['user_id']).execute()
-        else: session.pop('cart',None)
-
-        order_data = supabase.table('orders').select('*').eq('id',oid).single().execute().data
-        items_data = supabase.table('order_items').select('*').eq('order_id',oid).execute().data
+        try:
+            order_res = supabase.table('orders').insert(order).execute()
+            oid = order_res.data[0]['id']
+            for item in cart_items: supabase.table('order_items').insert({**item,'order_id':oid}).execute()
+            if session.get('user_id'): supabase.table('cart').delete().eq('user_id',session['user_id']).execute()
+            else: session.pop('cart',None)
+            order_data = supabase.table('orders').select('*').eq('id',oid).single().execute().data
+            items_data = supabase.table('order_items').select('*').eq('order_id',oid).execute().data
+        except Exception:
+            logging.exception("Order creation failed")
+            return public_page("Checkout Error",'<div class="alert alert-danger">Order failed. Please try again.</div>')
         receipt = f"""<div class="card shadow-lg rounded-4 overflow-hidden mt-4">
             <div class="card-header bg-success text-white text-center py-4" style="background: var(--grad) !important;">
                 <h2 class="fw-bold mb-0"><i class="fas fa-check-circle me-2"></i>Order Confirmed</h2>
@@ -698,8 +785,12 @@ def checkout():
 
 @app.route('/download-receipt/<int:oid>')
 def download_receipt(oid):
-    order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
-    items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
+    try:
+        order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
+        items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
+    except Exception:
+        logging.exception("Download receipt failed")
+        return "Order not found", 404
     if not order: return "Order not found", 404
     item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Receipt #{oid}</title>
@@ -713,17 +804,16 @@ def download_receipt(oid):
     resp.headers['Content-Type'] = 'text/html'
     return resp
 
-# ---------- Prescription upload ----------
+# ---------- Prescription upload (with magic‑byte validation) ----------
 @app.route('/prescription', methods=['GET','POST'])
 def prescription_upload():
     if request.method == 'POST':
         file = request.files.get('prescription_file')
         if file and file.filename:
+            if not is_allowed_file(file):
+                return public_page("Upload Error",'<div class="alert alert-danger mt-5"><h4>Invalid file type</h4><p>Only JPEG, PNG, and PDF files are allowed.</p></div><a href="/prescription">Try again</a>')
             if file.content_length and file.content_length > 5*1024*1024:
                 return "File too large. Max 5MB.", 413
-            allowed_mime = ['image/jpeg','image/png','application/pdf']
-            if file.content_type not in allowed_mime:
-                return "Only JPEG, PNG, PDF allowed.", 400
         try:
             name = request.form['customer_name']
             phone = request.form['customer_phone']
@@ -745,6 +835,7 @@ def prescription_upload():
             return public_page("Prescription Received",
                 '<div class="text-center mt-5"><i class="fas fa-check-circle fa-5x text-success mb-3"></i><h2>Thank You!</h2><p>Your prescription has been submitted.</p><a href="/" class="btn btn-primary rounded-pill mt-3">Back to Home</a></div>')
         except Exception as ex:
+            logging.exception("Prescription upload failed")
             return public_page("Upload Error",
                 f'<div class="alert alert-danger mt-5"><h4>Upload Failed</h4><p>{e(str(ex))}</p></div><a href="/prescription">Try again</a>')
     return public_page("Upload Prescription", f'''<div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-5"><div class="card shadow-lg rounded-4 p-4"><div class="text-center mb-4"><i class="fas fa-file-prescription fa-3x text-primary"></i><h3 class="fw-bold mt-2">Upload Prescription</h3></div>
@@ -759,7 +850,11 @@ def prescription_upload():
 # ---------- Public Branches page with Map ----------
 @app.route('/branches')
 def branches():
-    branches = supabase.table('branches').select('*').order('name').execute().data or []
+    branches = []
+    try:
+        branches = supabase.table('branches').select('*').order('name').execute().data or []
+    except Exception:
+        logging.exception("Branches fetch failed")
     map_lat = -1.2921
     map_lng = 36.8219
     if branches and branches[0].get('latitude') and branches[0].get('longitude'):
@@ -807,7 +902,7 @@ def about(): return public_page("About",f'<h2>About {e(PHARMACY_NAME)}</h2><p>Yo
 def contact():
     if request.method=='POST':
         try: supabase.table('inquiries').insert({k:request.form[k] for k in ['name','email','message']}).execute()
-        except: pass
+        except Exception: logging.exception("Contact form failed")
         return redirect('/contact?sent=1')
     sent = 'Message sent!' if request.args.get('sent') else ''
     return public_page("Contact",f'<h2>Contact</h2><form method="post">{csrf_field()}<input class="form-control mb-2" name="name" placeholder="Name"><input class="form-control mb-2" name="email" type="email" placeholder="Email"><textarea class="form-control mb-2" name="message" rows="4" placeholder="Message"></textarea><button class="btn btn-primary">Send</button></form>{e(sent)}')
@@ -816,7 +911,11 @@ def contact():
 @app.route('/my-account')
 def my_account():
     if not session.get('user_id'): return redirect('/login')
-    orders = supabase.table('orders').select('*').eq('user_id',session['user_id']).order('created_at',desc=True).execute().data or []
+    orders = []
+    try:
+        orders = supabase.table('orders').select('*').eq('user_id',session['user_id']).order('created_at',desc=True).execute().data or []
+    except Exception:
+        logging.exception("My orders fetch failed")
     html=''.join(f'''<div class="card mb-3 shadow-sm"><div class="card-body"><strong><a href="/order/{o["id"]}">Order #{str(o["id"])[:8]}</a></strong><br><small>{o["created_at"][:10]}</small><br>Total: KSh {o["total_amount"]}<br><span class="badge bg-info">{e(o.get("order_status",""))}</span>
     <form action="/refill/{o['id']}" method="POST" class="d-inline">
         {csrf_field()}
@@ -829,9 +928,17 @@ def my_account():
 @app.route('/order/<int:oid>')
 def customer_order_detail(oid):
     if not session.get('user_id'): return redirect('/login')
-    order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    order = None
+    try:
+        order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    except Exception:
+        logging.exception(f"Order detail fetch failed for {oid}")
     if not order or order.get('user_id') != session['user_id']: return "Order not found", 404
-    items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+    items = []
+    try:
+        items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+    except Exception:
+        logging.exception(f"Order items fetch failed for {oid}")
 
     status_steps = [
         {'key': 'pending', 'label': 'Order Received', 'icon': 'fas fa-receipt'},
@@ -877,9 +984,17 @@ def customer_order_detail(oid):
 @app.route('/invoice/<int:oid>')
 def customer_invoice(oid):
     if not session.get('user_id'): return redirect('/login')
-    order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    order = None
+    try:
+        order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+    except Exception:
+        logging.exception(f"Invoice fetch failed for {oid}")
     if not order or order.get('user_id') != session['user_id']: return "Order not found", 404
-    items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+    items = []
+    try:
+        items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+    except Exception:
+        logging.exception(f"Invoice items fetch failed for {oid}")
     item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -897,18 +1012,22 @@ def customer_invoice(oid):
 def refill_order(oid):
     if not session.get('user_id'):
         return redirect('/login')
-    order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
-    if not order or order.get('user_id') != session['user_id']:
-        return "Order not found", 404
-    items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
-    for item in items:
-        pid = item['product_id']
-        qty = item['quantity']
-        ex = supabase.table('cart').select('id,quantity').eq('user_id', session['user_id']).eq('product_id', pid).execute()
-        if ex.data:
-            supabase.table('cart').update({'quantity': ex.data[0]['quantity'] + qty}).eq('id', ex.data[0]['id']).execute()
-        else:
-            supabase.table('cart').insert({'user_id': session['user_id'], 'product_id': pid, 'quantity': qty}).execute()
+    try:
+        order = supabase.table('orders').select('*').eq('id', oid).single().execute().data
+        if not order or order.get('user_id') != session['user_id']:
+            return "Order not found", 404
+        items = supabase.table('order_items').select('*').eq('order_id', oid).execute().data or []
+        for item in items:
+            pid = item['product_id']
+            qty = item['quantity']
+            ex = supabase.table('cart').select('id,quantity').eq('user_id', session['user_id']).eq('product_id', pid).execute()
+            if ex.data:
+                supabase.table('cart').update({'quantity': ex.data[0]['quantity'] + qty}).eq('id', ex.data[0]['id']).execute()
+            else:
+                supabase.table('cart').insert({'user_id': session['user_id'], 'product_id': pid, 'quantity': qty}).execute()
+    except Exception:
+        logging.exception("Refill failed")
+        return redirect('/cart?toast=Refill error')
     return redirect('/cart?toast=Order refilled')
 
 # ---------- Medicine Reminders ----------
@@ -920,22 +1039,35 @@ def reminders():
         medicine = request.form['medicine_name']
         remind_at = request.form['remind_at']
         if remind_at:
-            remind_dt = datetime.fromisoformat(remind_at).isoformat()
-            supabase.table('reminders').insert({
-                'user_id': session['user_id'],
-                'medicine_name': medicine,
-                'remind_at': remind_dt
-            }).execute()
+            try:
+                remind_dt = datetime.fromisoformat(remind_at).isoformat()
+                supabase.table('reminders').insert({
+                    'user_id': session['user_id'],
+                    'medicine_name': medicine,
+                    'remind_at': remind_dt
+                }).execute()
+            except Exception:
+                logging.exception("Reminder creation failed")
         return redirect('/reminders?toast=Reminder set')
 
-    user_reminders = supabase.table('reminders').select('*').eq('user_id', session['user_id']).order('remind_at', desc=True).execute().data or []
-    orders = supabase.table('orders').select('id').eq('user_id', session['user_id']).execute().data
-    oids = [o['id'] for o in orders]
+    user_reminders = []
+    try:
+        user_reminders = supabase.table('reminders').select('*').eq('user_id', session['user_id']).order('remind_at', desc=True).execute().data or []
+    except Exception:
+        logging.exception("Reminders fetch failed")
+    orders = []
+    try:
+        orders = supabase.table('orders').select('id').eq('user_id', session['user_id']).execute().data
+    except Exception:
+        logging.exception("Orders fetch for reminders failed")
+    oids = [o['id'] for o in orders] if orders else []
+    unique_meds = []
     if oids:
-        items = supabase.table('order_items').select('product_name').in_('order_id', oids).execute().data
-        unique_meds = list(set(i['product_name'] for i in items))
-    else:
-        unique_meds = []
+        try:
+            items = supabase.table('order_items').select('product_name').in_('order_id', oids).execute().data
+            unique_meds = list(set(i['product_name'] for i in items))
+        except Exception:
+            logging.exception("Unique meds fetch failed")
 
     med_options = ''.join(f'<option value="{e(m)}">{e(m)}</option>' for m in unique_meds)
     reminder_html = ''
@@ -976,7 +1108,10 @@ def reminders():
 def delete_reminder(rid):
     if not session.get('user_id'):
         return redirect('/login')
-    supabase.table('reminders').delete().eq('id', rid).eq('user_id', session['user_id']).execute()
+    try:
+        supabase.table('reminders').delete().eq('id', rid).eq('user_id', session['user_id']).execute()
+    except Exception:
+        logging.exception("Reminder delete failed")
     return redirect('/reminders?toast=Reminder deleted')
 
 # ---------- Symptom Checker ----------
@@ -990,11 +1125,14 @@ def symptom_checker():
     if request.method == 'POST':
         selected = request.form.getlist('symptoms')
         if selected:
-            mappings = supabase.table('symptom_mappings').select('product_id').in_('symptom', selected).execute().data
-            if mappings:
-                pids = list(set([m['product_id'] for m in mappings]))
-                products = supabase.table('products').select('id,name,price,image_url').in_('id', pids).execute().data
-                results = products
+            try:
+                mappings = supabase.table('symptom_mappings').select('product_id').in_('symptom', selected).execute().data
+                if mappings:
+                    pids = list(set([m['product_id'] for m in mappings]))
+                    products = supabase.table('products').select('id,name,price,image_url').in_('id', pids).execute().data
+                    results = products
+            except Exception:
+                logging.exception("Symptom checker error")
 
     symptom_checks = ''.join(
         f'<div class="form-check"><input class="form-check-input" type="checkbox" name="symptoms" value="{e(s)}" id="s{s}"><label class="form-check-label" for="s{s}">{e(s)}</label></div>'
@@ -1050,23 +1188,39 @@ def admin_dashboard():
     today = datetime.now().date()
     dates = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
     sales_data = []
-    for d in dates:
-        total = supabase.table('orders').select('total_amount').gte('created_at', d).lt('created_at', (datetime.fromisoformat(d)+timedelta(days=1)).isoformat()).execute().data
-        sales_data.append(sum([o['total_amount'] for o in total]) if total else 0)
-
-    orders = supabase.table('orders').select('*').order('created_at',desc=True).limit(10).execute().data or []
+    try:
+        for d in dates:
+            total = supabase.table('orders').select('total_amount').gte('created_at', d).lt('created_at', (datetime.fromisoformat(d)+timedelta(days=1)).isoformat()).execute().data
+            sales_data.append(sum([o['total_amount'] for o in total]) if total else 0)
+    except Exception:
+        logging.exception("Sales data fetch failed")
+    orders = []
+    try:
+        orders = supabase.table('orders').select('*').order('created_at',desc=True).limit(10).execute().data or []
+    except Exception:
+        logging.exception("Recent orders fetch failed")
     total_sales = sum(o['total_amount'] for o in orders) if orders else 0
-    total_orders = supabase.table('orders').select('count',count='exact').execute().count
-    total_products = supabase.table('products').select('count',count='exact').execute().count
-
-    # Real customer count
+    total_orders = 0
+    try:
+        total_orders = supabase.table('orders').select('count',count='exact').execute().count
+    except Exception:
+        logging.exception("Total orders count failed")
+    total_products = 0
+    try:
+        total_products = supabase.table('products').select('count',count='exact').execute().count
+    except Exception:
+        logging.exception("Total products count failed")
+    total_customers = 0
     try:
         cust_data = supabase.table('orders').select('user_id').neq('user_id', None).execute().data
         total_customers = len(set([o['user_id'] for o in cust_data if o['user_id']]))
-    except:
-        total_customers = 0
-
-    low_stock = supabase.table('products').select('name,stock').lt('stock',10).execute().data or []
+    except Exception:
+        logging.exception("Customer count failed")
+    low_stock = []
+    try:
+        low_stock = supabase.table('products').select('name,stock').lt('stock',10).execute().data or []
+    except Exception:
+        logging.exception("Low stock fetch failed")
     low_stock_html = ''.join(f'<li>{e(p["name"])} – {p["stock"]} left</li>' for p in low_stock)
 
     rows = ''.join(
@@ -1115,9 +1269,14 @@ def admin_dashboard():
 def admin_orders():
     page = int(request.args.get('page',1))
     per_page = 15
-    count_res = supabase.table('orders').select('*', count='exact').execute()
-    total = count_res.count if count_res.count else 0
-    orders = supabase.table('orders').select('*').order('created_at',desc=True).range((page-1)*per_page, page*per_page-1).execute().data or []
+    total = 0
+    try:
+        count_res = supabase.table('orders').select('*', count='exact').execute()
+        total = count_res.count if count_res.count else 0
+        orders = supabase.table('orders').select('*').order('created_at',desc=True).range((page-1)*per_page, page*per_page-1).execute().data or []
+    except Exception:
+        logging.exception("Admin orders fetch failed")
+        orders = []
     rows = ''.join(
         f'''<tr><td>#{str(o["id"])[:8]}</td><td>{e(o.get("shipping_name","Guest"))}</td><td>KSh {o["total_amount"]}</td>
         <td><div class="d-flex align-items-center">
@@ -1140,16 +1299,28 @@ def admin_orders():
 
 @app.route('/admin/order/<oid>/status', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def update_order_status(oid):
-    supabase.table('orders').update({'order_status': request.form['status']}).eq('id',oid).execute()
+    try:
+        supabase.table('orders').update({'order_status': request.form['status']}).eq('id',oid).execute()
+    except Exception:
+        logging.exception("Order status update failed")
     return redirect('/admin/orders')
 
 @app.route('/admin/order/<int:oid>/invoice')
 @admin_required
 def admin_invoice(oid):
-    order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
-    items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
+    order = None
+    try:
+        order = supabase.table('orders').select('*').eq('id',oid).single().execute().data
+    except Exception:
+        logging.exception(f"Admin invoice fetch failed for {oid}")
     if not order: return "Order not found", 404
+    items = []
+    try:
+        items = supabase.table('order_items').select('*').eq('order_id',oid).execute().data or []
+    except Exception:
+        logging.exception(f"Admin invoice items fetch failed for {oid}")
     item_rows = ''.join(f'<tr><td>{e(i["product_name"])}</td><td>{i["quantity"]}</td><td>KSh {e(i["unit_price"])}</td><td>KSh {i["total_price"]}</td></tr>' for i in items)
     html = f"""<!DOCTYPE html><html><head><title>Invoice #{oid}</title>
 <style>body{{font-family:'Segoe UI',sans-serif;padding:2rem;}} .invoice-box{{max-width:800px;margin:auto;border:1px solid #eee;box-shadow:0 0 10px rgba(0,0,0,0.05);padding:2rem;}} h2{{color:#0A3D62}} table{{width:100%;border-collapse:collapse;}} th{{background:#0A3D62;color:white;padding:10px;}} td{{padding:10px;border-bottom:1px solid #ddd;}} .total-row td{{font-weight:bold;border-top:2px solid #0A3D62;}}</style></head><body>
@@ -1169,9 +1340,14 @@ def admin_invoice(oid):
 def admin_products():
     page = int(request.args.get('page',1))
     per_page = 15
-    count_res = supabase.table('products').select('*', count='exact').execute()
-    total = count_res.count if count_res.count else 0
-    prods = supabase.table('products').select('*').order('name').range((page-1)*per_page, page*per_page-1).execute().data or []
+    total = 0
+    try:
+        count_res = supabase.table('products').select('*', count='exact').execute()
+        total = count_res.count if count_res.count else 0
+        prods = supabase.table('products').select('*').order('name').range((page-1)*per_page, page*per_page-1).execute().data or []
+    except Exception:
+        logging.exception("Admin products fetch failed")
+        prods = []
     rows = ''.join(f'''<tr><td>{e(p["name"])}</td><td>{e(p["category"])}</td><td>{e(p["price"])}</td><td>{p["stock"]}</td>
     <td><a href="/admin/edit-product/{p["id"]}" class="btn btn-sm btn-warning me-1">Edit</a>
     <form action="/admin/delete-product/{p['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">
@@ -1184,15 +1360,22 @@ def admin_products():
 
 @app.route('/admin/add-product', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def add_product():
     if request.method == 'POST':
         name = request.form['name']; desc = request.form.get('description',''); cat = request.form['category']; price = float(request.form['price']); stock = int(request.form['stock'])
         img = request.files.get('image'); url = None
         if img and img.filename:
-            fname = secure_filename(img.filename); uname = f"{os.urandom(4).hex()}_{fname}"
-            supabase.storage.from_("product-images").upload(uname, img.read(), {"content-type": img.content_type})
-            url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{uname}"
-        supabase.table('products').insert({'name':name,'description':desc,'category':cat,'price':price,'stock':stock,'image_url':url,'active':True}).execute()
+            try:
+                fname = secure_filename(img.filename); uname = f"{os.urandom(4).hex()}_{fname}"
+                supabase.storage.from_("product-images").upload(uname, img.read(), {"content-type": img.content_type})
+                url = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{uname}"
+            except Exception:
+                logging.exception("Product image upload failed")
+        try:
+            supabase.table('products').insert({'name':name,'description':desc,'category':cat,'price':price,'stock':stock,'image_url':url,'active':True}).execute()
+        except Exception:
+            logging.exception("Product insertion failed")
         return redirect('/admin/products')
     return admin_page("Add Product", f'''<form method="post" enctype="multipart/form-data" style="max-width:500px;">
     {csrf_field()}
@@ -1205,17 +1388,28 @@ def add_product():
 
 @app.route('/admin/edit-product/<pid>', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def edit_product(pid):
     if request.method == 'POST':
         upd = {'name':request.form['name'],'description':request.form.get('description',''),'category':request.form['category'],'price':float(request.form['price']),'stock':int(request.form['stock'])}
         img = request.files.get('image')
         if img and img.filename:
-            fname = secure_filename(img.filename); uname = f"{os.urandom(4).hex()}_{fname}"
-            supabase.storage.from_("product-images").upload(uname, img.read(), {"content-type": img.content_type})
-            upd['image_url'] = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{uname}"
-        supabase.table('products').update(upd).eq('id',pid).execute()
+            try:
+                fname = secure_filename(img.filename); uname = f"{os.urandom(4).hex()}_{fname}"
+                supabase.storage.from_("product-images").upload(uname, img.read(), {"content-type": img.content_type})
+                upd['image_url'] = f"{SUPABASE_URL}/storage/v1/object/public/product-images/{uname}"
+            except Exception:
+                logging.exception("Product image upload (edit) failed")
+        try:
+            supabase.table('products').update(upd).eq('id',pid).execute()
+        except Exception:
+            logging.exception("Product update failed")
         return redirect('/admin/products')
-    p = supabase.table('products').select('*').eq('id',pid).single().execute().data
+    try:
+        p = supabase.table('products').select('*').eq('id',pid).single().execute().data
+    except Exception:
+        logging.exception("Product edit fetch failed")
+        return redirect('/admin/products')
     return admin_page("Edit Product", f'''<form method="post" enctype="multipart/form-data" style="max-width:500px;">
     {csrf_field()}
     <input class="form-control mb-2" name="name" value="{e(p['name'])}" required>
@@ -1227,23 +1421,35 @@ def edit_product(pid):
 
 @app.route('/admin/delete-product/<pid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def delete_product(pid):
-    supabase.table('products').delete().eq('id',pid).execute()
+    try:
+        supabase.table('products').delete().eq('id',pid).execute()
+    except Exception:
+        logging.exception("Product deletion failed")
     return redirect('/admin/products')
 
 # ---------- Admin: Prescriptions ----------
 @app.route('/admin/prescriptions')
 @admin_required
 def admin_prescriptions():
-    rx = supabase.table('prescriptions').select('*').order('created_at',desc=True).execute().data or []
+    rx = []
+    try:
+        rx = supabase.table('prescriptions').select('*').order('created_at',desc=True).execute().data or []
+    except Exception:
+        logging.exception("Prescriptions fetch failed")
     items = ''.join(f'<div class="card mb-2 p-3"><strong>{e(r["customer_name"])}</strong><br>Phone: {e(r["customer_phone"])}<br><a href="{e(r.get("file_url","#"))}" target="_blank" class="btn btn-sm btn-primary mt-2">View File</a></div>' for r in rx)
     return admin_page("Prescriptions", items or '<p>No prescriptions yet.</p>', active='prescriptions')
 
-# ---------- Admin: Customers (unchanged) ----------
+# ---------- Admin: Customers ----------
 @app.route('/admin/customers')
 @admin_required
 def admin_customers():
-    orders = supabase.table('orders').select('*').execute().data or []
+    orders = []
+    try:
+        orders = supabase.table('orders').select('*').execute().data or []
+    except Exception:
+        logging.exception("Admin customers fetch failed")
     cust = {}
     for o in orders:
         em = o.get('customer_email') or o.get('guest_email')
@@ -1259,9 +1465,14 @@ def admin_customers():
 def admin_users():
     page = int(request.args.get('page',1))
     per_page = 15
-    count_res = supabase.table('users').select('*', count='exact').execute()
-    total = count_res.count if count_res.count else 0
-    users = supabase.table('users').select('*').order('id').range((page-1)*per_page, page*per_page-1).execute().data or []
+    total = 0
+    try:
+        count_res = supabase.table('users').select('*', count='exact').execute()
+        total = count_res.count if count_res.count else 0
+        users = supabase.table('users').select('*').order('id').range((page-1)*per_page, page*per_page-1).execute().data or []
+    except Exception:
+        logging.exception("Admin users fetch failed")
+        users = []
     rows = ''.join(f'''<tr><td>{e(u["full_name"])}</td><td>{e(u["email"])}</td>
     <td><span class="badge {"bg-success" if u.get("approved") else "bg-warning text-dark"}">{"Approved" if u.get("approved") else "Pending"}</span></td>
     <td>
@@ -1280,24 +1491,35 @@ def admin_users():
 
 @app.route('/admin/approve-user/<uid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def approve_user(uid):
-    supabase.table('users').update({'approved':True}).eq('id',uid).execute()
+    try:
+        supabase.table('users').update({'approved':True}).eq('id',uid).execute()
+    except Exception:
+        logging.exception("Approve user failed")
     return redirect('/admin/users')
 
 @app.route('/admin/disable-user/<uid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def disable_user(uid):
-    supabase.table('users').update({'approved':False}).eq('id',uid).execute()
+    try:
+        supabase.table('users').update({'approved':False}).eq('id',uid).execute()
+    except Exception:
+        logging.exception("Disable user failed")
     return redirect('/admin/users')
 
 @app.route('/admin/create-user', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def create_user():
     if request.method=='POST':
         name=request.form['full_name']; email=request.form['email']; pwd=request.form['password']; is_admin=request.form.get('is_admin')=='on'
         hashed=bcrypt.hashpw(pwd.encode(),bcrypt.gensalt()).decode()
         try: supabase.table('users').insert({'full_name':name,'email':email,'password_hash':hashed,'is_admin':is_admin,'approved':True}).execute()
-        except: return admin_page("Add Agent",'<div class="alert alert-danger">Email exists.</div><a href="/admin/create-user">Try again</a>', active='create-user')
+        except Exception:
+            logging.exception("Admin create user failed")
+            return admin_page("Add Agent",'<div class="alert alert-danger">Email exists.</div><a href="/admin/create-user">Try again</a>', active='create-user')
         return redirect('/admin/users')
     return admin_page("Add Agent",f'''<form method="post" style="max-width:500px;">
     {csrf_field()}
@@ -1309,10 +1531,14 @@ def create_user():
 
 @app.route('/admin/settings', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_settings():
     if request.method=='POST':
         new_pwd=request.form['new_password']; hashed=bcrypt.hashpw(new_pwd.encode(),bcrypt.gensalt()).decode()
-        supabase.table('users').update({'password_hash':hashed}).eq('id',session['user_id']).execute()
+        try:
+            supabase.table('users').update({'password_hash':hashed}).eq('id',session['user_id']).execute()
+        except Exception:
+            logging.exception("Password change failed")
         return redirect('/admin/settings?success=1')
     msg = '<div class="alert alert-success">Password updated!</div>' if request.args.get('success') else ''
     return admin_page("Settings",f'{msg}<form method="post" style="max-width:400px;">{csrf_field()}<input class="form-control mb-2" type="password" name="new_password" placeholder="New Password"><button class="btn btn-primary">Update</button></form>', active='settings')
@@ -1321,7 +1547,11 @@ def admin_settings():
 @app.route('/admin/discounts')
 @admin_required
 def admin_discounts():
-    codes = supabase.table('discount_codes').select('*').order('id', desc=True).execute().data or []
+    codes = []
+    try:
+        codes = supabase.table('discount_codes').select('*').order('id', desc=True).execute().data or []
+    except Exception:
+        logging.exception("Discount codes fetch failed")
     rows = ''
     for c in codes:
         percent = c.get('discount_percent', '')
@@ -1351,6 +1581,7 @@ def admin_discounts():
 
 @app.route('/admin/add-discount', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def add_discount():
     if request.method == 'POST':
         code = request.form['code'].upper()
@@ -1359,7 +1590,10 @@ def add_discount():
         data = {'code': code, 'active': True}
         if percent and percent.strip(): data['discount_percent'] = float(percent)
         if amount and amount.strip(): data['discount_amount'] = float(amount)
-        supabase.table('discount_codes').insert(data).execute()
+        try:
+            supabase.table('discount_codes').insert(data).execute()
+        except Exception:
+            logging.exception("Add discount code failed")
         return redirect('/admin/discounts')
     return admin_page("Add Discount Code", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="code" placeholder="CODE" required>
@@ -1369,15 +1603,23 @@ def add_discount():
 
 @app.route('/admin/disable-discount/<int:did>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def disable_discount(did):
-    supabase.table('discount_codes').update({'active': False}).eq('id', did).execute()
+    try:
+        supabase.table('discount_codes').update({'active': False}).eq('id', did).execute()
+    except Exception:
+        logging.exception("Disable discount code failed")
     return redirect('/admin/discounts')
 
 # ---------- Admin: Bundles (delete via POST) ----------
 @app.route('/admin/bundles')
 @admin_required
 def admin_bundles():
-    bundles = supabase.table('bundles').select('*').order('id', desc=True).execute().data or []
+    bundles = []
+    try:
+        bundles = supabase.table('bundles').select('*').order('id', desc=True).execute().data or []
+    except Exception:
+        logging.exception("Bundles fetch failed")
     rows = ''
     for b in bundles:
         items = supabase.table('bundle_items').select('*, products(name)').eq('bundle_id', b['id']).execute().data or []
@@ -1400,22 +1642,30 @@ def admin_bundles():
 
 @app.route('/admin/add-bundle', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def add_bundle():
     if request.method == 'POST':
         name = request.form['name']
         discount = float(request.form.get('discount_percent', 0))
         product_ids = request.form.getlist('product_ids')
         quantities = request.form.getlist('quantities')
-        bundle_res = supabase.table('bundles').insert({'name': name, 'discount_percent': discount}).execute()
-        bundle_id = bundle_res.data[0]['id']
-        for pid, qty in zip(product_ids, quantities):
-            supabase.table('bundle_items').insert({
-                'bundle_id': bundle_id,
-                'product_id': int(pid),
-                'quantity': int(qty) if qty else 1
-            }).execute()
+        try:
+            bundle_res = supabase.table('bundles').insert({'name': name, 'discount_percent': discount}).execute()
+            bundle_id = bundle_res.data[0]['id']
+            for pid, qty in zip(product_ids, quantities):
+                supabase.table('bundle_items').insert({
+                    'bundle_id': bundle_id,
+                    'product_id': int(pid),
+                    'quantity': int(qty) if qty else 1
+                }).execute()
+        except Exception:
+            logging.exception("Bundle creation failed")
         return redirect('/admin/bundles')
-    products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
+    products = []
+    try:
+        products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
+    except Exception:
+        logging.exception("Product list for bundle failed")
     product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     return admin_page("New Bundle", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="name" placeholder="Bundle Name" required>
@@ -1440,25 +1690,36 @@ def add_bundle():
 
 @app.route('/admin/edit-bundle/<int:bid>', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def edit_bundle(bid):
     if request.method == 'POST':
-        supabase.table('bundles').update({
-            'name': request.form['name'],
-            'discount_percent': float(request.form.get('discount_percent', 0))
-        }).eq('id', bid).execute()
-        supabase.table('bundle_items').delete().eq('bundle_id', bid).execute()
-        product_ids = request.form.getlist('product_ids')
-        quantities = request.form.getlist('quantities')
-        for pid, qty in zip(product_ids, quantities):
-            supabase.table('bundle_items').insert({
-                'bundle_id': bid,
-                'product_id': int(pid),
-                'quantity': int(qty) if qty else 1
-            }).execute()
+        try:
+            supabase.table('bundles').update({
+                'name': request.form['name'],
+                'discount_percent': float(request.form.get('discount_percent', 0))
+            }).eq('id', bid).execute()
+            supabase.table('bundle_items').delete().eq('bundle_id', bid).execute()
+            product_ids = request.form.getlist('product_ids')
+            quantities = request.form.getlist('quantities')
+            for pid, qty in zip(product_ids, quantities):
+                supabase.table('bundle_items').insert({
+                    'bundle_id': bid,
+                    'product_id': int(pid),
+                    'quantity': int(qty) if qty else 1
+                }).execute()
+        except Exception:
+            logging.exception("Bundle edit failed")
         return redirect('/admin/bundles')
-    bundle = supabase.table('bundles').select('*').eq('id', bid).single().execute().data
-    items = supabase.table('bundle_items').select('*').eq('bundle_id', bid).execute().data or []
-    products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
+    bundle = None
+    items = []
+    products = []
+    try:
+        bundle = supabase.table('bundles').select('*').eq('id', bid).single().execute().data
+        items = supabase.table('bundle_items').select('*').eq('bundle_id', bid).execute().data or []
+        products = supabase.table('products').select('id,name').eq('active', True).execute().data or []
+    except Exception:
+        logging.exception("Bundle edit fetch failed")
+        return redirect('/admin/bundles')
     product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     items_html = ''.join(f'''<div class="mb-2">
         <select name="product_ids" class="form-select"><option value="{i['product_id']}" selected>{e(i.get('products',{}).get('name',''))}</option></select>
@@ -1484,15 +1745,25 @@ def edit_bundle(bid):
 
 @app.route('/admin/delete-bundle/<int:bid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def delete_bundle(bid):
-    supabase.table('bundles').delete().eq('id', bid).execute()
+    try:
+        supabase.table('bundles').delete().eq('id', bid).execute()
+    except Exception:
+        logging.exception("Bundle deletion failed")
     return redirect('/admin/bundles')
 
 # ---------- Admin: Analytics ----------
 @app.route('/admin/analytics')
 @admin_required
 def admin_analytics():
-    top_products = supabase.table('order_items').select('product_id, products(name)').execute().data
+    top_products = []
+    rev_by_cat = []
+    try:
+        top_products = supabase.table('order_items').select('product_id, products(name)').execute().data
+        rev_by_cat = supabase.table('order_items').select('products(category), total_price').execute().data
+    except Exception:
+        logging.exception("Analytics data fetch failed")
     product_sales = {}
     for item in top_products:
         pid = item['product_id']
@@ -1502,7 +1773,6 @@ def admin_analytics():
     top_labels = [x[0] for x in sorted_products]
     top_data = [x[1] for x in sorted_products]
 
-    rev_by_cat = supabase.table('order_items').select('products(category), total_price').execute().data
     cat_revenue = {}
     for item in rev_by_cat:
         cat = item.get('products', {}).get('category', 'Uncategorized')
@@ -1510,7 +1780,11 @@ def admin_analytics():
     cat_labels = list(cat_revenue.keys())
     cat_data = list(cat_revenue.values())
 
-    orders = supabase.table('orders').select('user_id').execute().data
+    orders = []
+    try:
+        orders = supabase.table('orders').select('user_id').execute().data
+    except Exception:
+        logging.exception("Analytics orders fetch failed")
     user_counts = {}
     for o in orders:
         uid = o['user_id']
@@ -1545,7 +1819,11 @@ def admin_analytics():
 @app.route('/admin/branches')
 @admin_required
 def admin_branches():
-    branches = supabase.table('branches').select('*').order('name').execute().data or []
+    branches = []
+    try:
+        branches = supabase.table('branches').select('*').order('name').execute().data or []
+    except Exception:
+        logging.exception("Admin branches fetch failed")
     rows = ''.join(
         f'''<tr>
             <td>{e(b['name'])}</td><td>{e(b.get('address',''))}</td><td>{e(b.get('phone',''))}</td>
@@ -1562,6 +1840,7 @@ def admin_branches():
 
 @app.route('/admin/add-branch', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def add_branch():
     if request.method == 'POST':
         name = request.form['name']; address = request.form.get('address',''); phone = request.form.get('phone','')
@@ -1569,7 +1848,10 @@ def add_branch():
         data = {'name': name, 'address': address, 'phone': phone}
         if lat: data['latitude'] = float(lat)
         if lng: data['longitude'] = float(lng)
-        supabase.table('branches').insert(data).execute()
+        try:
+            supabase.table('branches').insert(data).execute()
+        except Exception:
+            logging.exception("Branch creation failed")
         return redirect('/admin/branches')
     return admin_page("Add Branch", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="name" placeholder="Branch Name" required>
@@ -1580,15 +1862,23 @@ def add_branch():
 
 @app.route('/admin/edit-branch/<int:bid>', methods=['GET','POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def edit_branch(bid):
     if request.method == 'POST':
         upd = {'name': request.form['name'], 'address': request.form.get('address',''), 'phone': request.form.get('phone','')}
         lat = request.form.get('latitude'); lng = request.form.get('longitude')
         if lat: upd['latitude'] = float(lat)
         if lng: upd['longitude'] = float(lng)
-        supabase.table('branches').update(upd).eq('id', bid).execute()
+        try:
+            supabase.table('branches').update(upd).eq('id', bid).execute()
+        except Exception:
+            logging.exception("Branch update failed")
         return redirect('/admin/branches')
-    b = supabase.table('branches').select('*').eq('id', bid).single().execute().data
+    b = None
+    try:
+        b = supabase.table('branches').select('*').eq('id', bid).single().execute().data
+    except Exception:
+        logging.exception("Branch edit fetch failed")
     if not b: return "Branch not found", 404
     return admin_page("Edit Branch", f'''<form method="post">{csrf_field()}
     <input class="form-control mb-2" name="name" value="{e(b['name'])}" required>
@@ -1599,23 +1889,33 @@ def edit_branch(bid):
 
 @app.route('/admin/delete-branch/<int:bid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def delete_branch(bid):
-    supabase.table('branches').delete().eq('id', bid).execute()
+    try:
+        supabase.table('branches').delete().eq('id', bid).execute()
+    except Exception:
+        logging.exception("Branch deletion failed")
     return redirect('/admin/branches')
 
 # ---------- Admin: Symptoms Management (delete via POST) ----------
 @app.route('/admin/symptoms', methods=['GET', 'POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_symptoms():
     if request.method == 'POST':
         symptom = request.form['symptom']
         product_id = int(request.form['product_id'])
         try:
             supabase.table('symptom_mappings').upsert({'symptom': symptom, 'product_id': product_id}).execute()
-        except:
+        except Exception:
+            logging.exception("Symptom mapping failed")
             return admin_page("Symptoms", '<div class="alert alert-danger">Error saving mapping</div><a href="/admin/symptoms">Back</a>', active='symptoms')
         return redirect('/admin/symptoms')
-    mappings = supabase.table('symptom_mappings').select('*, products(name)').order('symptom').execute().data or []
+    mappings = []
+    try:
+        mappings = supabase.table('symptom_mappings').select('*, products(name)').order('symptom').execute().data or []
+    except Exception:
+        logging.exception("Symptom mappings fetch failed")
     rows = ''.join(f'''
         <tr>
             <td>{e(m['symptom'])}</td>
@@ -1627,7 +1927,11 @@ def admin_symptoms():
                 </form>
             </td>
         </tr>''' for m in mappings)
-    products = supabase.table('products').select('id,name').eq('active',True).execute().data
+    products = []
+    try:
+        products = supabase.table('products').select('id,name').eq('active',True).execute().data
+    except Exception:
+        logging.exception("Products list for symptoms failed")
     product_options = ''.join(f'<option value="{p["id"]}">{e(p["name"])}</option>' for p in products)
     body = f'''
     <h5>Add Symptom Mapping</h5>
@@ -1645,15 +1949,23 @@ def admin_symptoms():
 
 @app.route('/admin/symptoms/delete/<int:sid>', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def delete_symptom_mapping(sid):
-    supabase.table('symptom_mappings').delete().eq('id', sid).execute()
+    try:
+        supabase.table('symptom_mappings').delete().eq('id', sid).execute()
+    except Exception:
+        logging.exception("Symptom mapping deletion failed")
     return redirect('/admin/symptoms')
 
 # ---------- Admin: Export ----------
 @app.route('/admin/export-orders')
 @admin_required
 def export_orders():
-    orders = supabase.table('orders').select('*').order('created_at',desc=True).execute().data or []
+    orders = []
+    try:
+        orders = supabase.table('orders').select('*').order('created_at',desc=True).execute().data or []
+    except Exception:
+        logging.exception("Export orders fetch failed")
     output = io.StringIO()
     w = csv.writer(output)
     w.writerow(["ID","Date","Customer","Email","Phone","Total","Status","Payment"])
