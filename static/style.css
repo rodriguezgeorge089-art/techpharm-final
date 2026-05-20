@@ -1,5 +1,8 @@
-/* static/style.css */
+/* =============================================
+   Mediocare Pharmacy – Complete Stylesheet
+   ============================================= */
 
+/* ---------- Public Page Variables & Base ---------- */
 :root {
     --blue: #0A3D62;
     --gold: #F4A261;
@@ -221,7 +224,13 @@ body {
 .table-responsive { -webkit-overflow-scrolling: touch; }
 h2 { color: var(--blue); }
 
-/* new */
+/* ---------- NEW: Utility classes ---------- */
 .border-dashed {
     border-style: dashed !important;
+}
+
+/* ---------- Branch card hover ---------- */
+.branch-card:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15) !important;
 }
