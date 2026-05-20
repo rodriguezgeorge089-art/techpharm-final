@@ -9,3 +9,4 @@ requests
 werkzeug
 twilio
 weasyprint
+sendgrid
