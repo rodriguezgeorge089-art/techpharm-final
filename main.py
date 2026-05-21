@@ -1776,14 +1776,23 @@ def disable_discount(did):
     except Exception: logging.exception("Disable discount code failed")
     return redirect('/admin/discounts')
 
-# ---------- Admin: Bundles ----------
+# ---------- Admin: Bundles (precompute items to avoid inline queries) ----------
 @app.route('/admin/bundles')
 @admin_required
 def admin_bundles():
     bundles = []
     try: bundles = supabase.table('bundles').select('*').order('id', desc=True).execute().data or []
     except Exception: logging.exception("Bundles fetch failed")
-    rows = ''.join(f'''<tr><td>{e(b['name'])}</td><td>{', '.join([e(i['products']['name']) for i in supabase.table('bundle_items').select('*, products(name)').eq('bundle_id', b['id']).execute().data[:3]])}{'...' if len(supabase.table('bundle_items').select('*, products(name)').eq('bundle_id', b['id']).execute().data) > 3 else ''}</td><td>{b['discount_percent']}%</td><td><a href="/admin/edit-bundle/{b['id']}" class="btn btn-sm btn-warning me-1">{t("edit")}</a><form action="/admin/delete-bundle/{b['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">{csrf_field()}<button class="btn btn-sm btn-danger">{t("delete")}</button></form></td></tr>''' for b in bundles)
+    rows = ''
+    for b in bundles:
+        # precompute items for this bundle
+        bundle_items = []
+        try:
+            bundle_items = supabase.table('bundle_items').select('*, products(name)').eq('bundle_id', b['id']).execute().data or []
+        except Exception: logging.exception("Bundle items fetch failed")
+        item_names = ', '.join([e(i['products']['name']) for i in bundle_items[:3]])
+        more = '...' if len(bundle_items) > 3 else ''
+        rows += f'''<tr><td>{e(b['name'])}</td><td>{item_names}{more}</td><td>{b['discount_percent']}%</td><td><a href="/admin/edit-bundle/{b['id']}" class="btn btn-sm btn-warning me-1">{t("edit")}</a><form action="/admin/delete-bundle/{b['id']}" method="POST" class="d-inline" onsubmit="return confirm('Delete?')">{csrf_field()}<button class="btn btn-sm btn-danger">{t("delete")}</button></form></td></tr>'''
     body = f'<a href="/admin/add-bundle" class="btn btn-success mb-3">{t("add_bundle")}</a><div class="card border-0 shadow-sm rounded-4 p-3"><table class="table"><thead><tr><th>Name</th><th>Products</th><th>Discount</th><th></th></tr></thead><tbody>{rows or '<tr><td colspan="4">No bundles</td></tr>'}</tbody></table></div>'
     return admin_page("Manage Bundles", body, active='bundles')
 
